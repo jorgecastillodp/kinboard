@@ -8,6 +8,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Camera feeds can be placed in a room.** Editing a camera under Settings -> Cameras now offers a room. The feed then also appears in that room on the Automation page, above the room's devices, so a wall panel can show the gate camera next to the gate controls instead of on a separate page. Cameras keep appearing on the Cameras page whether or not they have a room, and a camera with no room behaves exactly as before. No database migration: the room is stored with the rest of the camera settings.
+
 ### Changed
 
 - **A policy for the Kinboard name and logos (`TRADEMARK.md`).** Talking about Kinboard, running it and passing on unmodified copies need no permission. A modified version that is published needs a name of its own and no Kinboard logos, and must say it is based on Kinboard. This applies to every version, including the MIT-licensed ones, because neither licence covers the name.
