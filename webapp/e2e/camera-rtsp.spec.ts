@@ -8,6 +8,7 @@ import {
   snapshotUrl,
   webrtcUrl,
 } from "../src/lib/go2rtc";
+import { inboundVideoBytes, showsLivePill } from "../src/lib/camera-live";
 
 /**
  * The camera form has offered "RTSP" as a stream type since the first
@@ -151,4 +152,66 @@ test("neither camera route returns the streaming bridge's error text to the brow
       expect(body).not.toMatch(/responseText|\bdetail\b|err instanceof Error/);
     }
   }
+});
+
+/**
+ * The tile said LIVE twice when it was not. The pill only checked that
+ * nothing was loading, so it sat on the refreshing still an RTSP camera
+ * starts on. And the tile switched to video the moment ICE connected, which
+ * for a browser that cannot take the camera's video codec is a connection
+ * carrying audio alone: a black box, marked LIVE, that never drew a frame.
+ * Found on a wall tablet whose Chrome had no H.265, watching an H.265 camera.
+ */
+test("the refreshing still of an RTSP camera is not labelled LIVE", () => {
+  const base = { streamType: "rtsp" as const, isLoading: false, error: null };
+  expect(showsLivePill({ ...base, rtspLive: false })).toBe(false);
+  expect(showsLivePill({ ...base, rtspLive: true })).toBe(true);
+});
+
+test("MJPEG and WebRTC cameras keep their LIVE pill once loaded", () => {
+  for (const streamType of ["mjpeg", "webrtc"] as const) {
+    expect(showsLivePill({ streamType, rtspLive: false, isLoading: false, error: null })).toBe(true);
+    expect(showsLivePill({ streamType, rtspLive: false, isLoading: true, error: null })).toBe(false);
+    expect(showsLivePill({ streamType, rtspLive: false, isLoading: false, error: "gone" })).toBe(false);
+  }
+});
+
+test("a connection carrying only audio has received no video", () => {
+  // The shape getStats() reported for that tablet: go2rtc matched the audio
+  // track and nothing else. Transport counts every byte and must not leak in.
+  const audioOnly = new Map<string, object>([
+    ["IT01A", { type: "inbound-rtp", kind: "audio", bytesReceived: 1_800_000 }],
+    ["T01", { type: "transport", bytesReceived: 1_900_000 }],
+  ]);
+  expect(inboundVideoBytes(audioOnly)).toBe(0);
+
+  const withVideo = new Map<string, object>([
+    ...audioOnly,
+    ["IT01V", { type: "inbound-rtp", kind: "video", bytesReceived: 4_200_000 }],
+  ]);
+  expect(inboundVideoBytes(withVideo)).toBe(4_200_000);
+
+  // Older Chromium named the field mediaType.
+  expect(inboundVideoBytes([{ type: "inbound-rtp", mediaType: "video", bytesReceived: 10 }])).toBe(10);
+});
+
+test("an RTSP camera goes live in one place, and not on ICE state alone", () => {
+  const source = readFileSync(join(process.cwd(), "src/components/camera-viewer.tsx"), "utf8");
+
+  // Exactly one call site, and it is goLive — which runs on the first video
+  // packet, or when getStats() shows video bytes. The ICE handler only ever
+  // reaches it through goLive, for a connection that already had video.
+  const calls = [...source.matchAll(/setRtspLive\(true\)/g)];
+  expect(calls).toHaveLength(1);
+
+  const goLiveAt = source.indexOf("const goLive = () => {");
+  expect(goLiveAt).toBeGreaterThan(-1);
+  let depth = 0;
+  let end = -1;
+  for (let i = source.indexOf("{", goLiveAt); i < source.length; i++) {
+    if (source[i] === "{") depth++;
+    else if (source[i] === "}" && --depth === 0) { end = i; break; }
+  }
+  expect(calls[0].index).toBeGreaterThan(goLiveAt);
+  expect(calls[0].index).toBeLessThan(end);
 });
