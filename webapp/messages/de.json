@@ -1134,6 +1134,7 @@
       "title": "Navigation",
       "showItem": "{label} in der Navigation anzeigen",
       "fixedItemsHint": "Start, Kalender, Einkaufen und Einstellungen bleiben als wichtige Einstiege sichtbar.",
+      "fixedItemsHintKiosk": "Dieses Gerät ist im Kiosk-Modus, daher lassen sich auch Kalender und Einkaufen ausblenden. Start und Einstellungen bleiben immer sichtbar.",
       "settingsIconOnly": "Einstellungen nur als Zahnrad",
       "settingsIconOnlyHint": "Spart Platz in der unteren Leiste auf diesem Gerät.",
       "intro": "Untere Navigation sortieren und nicht benötigte Einträge ausblenden. Die Einstellungen gelten nur auf diesem Gerät.",

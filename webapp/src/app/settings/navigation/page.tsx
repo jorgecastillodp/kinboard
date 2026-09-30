@@ -12,6 +12,26 @@ import { setNavOrder, clearNavOrder } from "@/lib/nav-order";
 import { getHiddenNavItems, setHiddenNavItems, setSettingsIconOnly } from "@/lib/nav-visibility";
 import { useHiddenNavItems, useSettingsIconOnly } from "@/hooks/use-hidden-nav-items";
 import { Switch } from "@/components/ui/switch";
+import { useFamilyStore } from "@/stores/family-store";
+
+/**
+ * Nav items the switch never unlocks.
+ *
+ * A device with no way Home and no way into Settings cannot be recovered
+ * from the UI at all — the only way back is clearing site data, which on a
+ * wall panel means finding a keyboard. These two stay fixed everywhere.
+ */
+const ALWAYS_FIXED: readonly string[] = ["/", "/settings"];
+
+/**
+ * Locked on ordinary devices, unlockable in kiosk mode.
+ *
+ * The default lock exists so a family member cannot accidentally hide the
+ * surfaces everyone else relies on. A kiosk is the opposite case: it is
+ * curated once by whoever mounted it, and a wall display that only ever
+ * shows the gate has no use for a shopping list it cannot be shopped from.
+ */
+const FIXED_UNLESS_KIOSK: readonly string[] = ["/calendar", "/shopping"];
 
 export default function NavigationSettingsPage() {
   const t = useTranslations("settings.navigation");
@@ -19,6 +39,8 @@ export default function NavigationSettingsPage() {
   const visibleItems = useVisibleNavItems(true);
   const hiddenItems = useHiddenNavItems();
   const settingsIconOnly = useSettingsIconOnly();
+  const { device } = useFamilyStore();
+  const isKiosk = device?.is_kiosk ?? false;
 
   // Local working copy. Initialized from useVisibleNavItems (which already
   // reflects the saved order); subsequent drags update local state, and
@@ -84,6 +106,7 @@ export default function NavigationSettingsPage() {
                 <NavItemRow
                   key={href}
                   href={href}
+                  isKiosk={isKiosk}
                   Icon={item.icon}
                   label={tNav(item.labelKey as never)}
                   enabled={!hiddenItems.includes(href)}
@@ -98,7 +121,9 @@ export default function NavigationSettingsPage() {
             })}
           </Reorder.Group>
         </Card>
-        <p className="text-xs text-muted-foreground">{t("fixedItemsHint")}</p>
+        <p className="text-xs text-muted-foreground">
+          {t(isKiosk ? "fixedItemsHintKiosk" : "fixedItemsHint")}
+        </p>
 
         <Card className="flex items-center justify-between gap-4 p-4">
           <div>
@@ -128,12 +153,14 @@ function NavItemRow({
   Icon,
   label,
   enabled,
+  isKiosk,
   onEnabledChange,
 }: {
   href: string;
   Icon: React.ComponentType<{ className?: string }>;
   label: string;
   enabled: boolean;
+  isKiosk: boolean;
   onEnabledChange: (enabled: boolean) => void;
 }) {
   // Per-item dragControls + dragListener=false constrains the drag
@@ -159,7 +186,7 @@ function NavItemRow({
       </button>
       <Icon className="size-5" />
       <span className="text-sm font-medium">{label}</span>
-      <Switch className="ml-auto" checked={enabled} onCheckedChange={onEnabledChange} disabled={["/", "/settings", "/calendar", "/shopping"].includes(href)} aria-label={t("showItem", { label })} />
+      <Switch className="ml-auto" checked={enabled} onCheckedChange={onEnabledChange} disabled={ALWAYS_FIXED.includes(href) || (!isKiosk && FIXED_UNLESS_KIOSK.includes(href))} aria-label={t("showItem", { label })} />
     </Reorder.Item>
   );
 }

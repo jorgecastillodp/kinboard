@@ -8,6 +8,7 @@ import { Home, CalendarDays, ShoppingCart, MoreHorizontal } from "lucide-react";
 import { isNoNavPath } from "@/lib/constants";
 import { useNavBadges } from "@/hooks/use-nav-badges";
 import { useVisibleNavItems } from "@/hooks/use-visible-nav-items";
+import { useHiddenNavItems } from "@/hooks/use-hidden-nav-items";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -20,6 +21,7 @@ export function MobileNav() {
   const router = useRouter();
   const badges = useNavBadges();
   const navItems = useVisibleNavItems();
+  const hiddenItems = useHiddenNavItems();
   const [moreOpen, setMoreOpen] = useState(false);
 
   // Remaining routes for the "Mehr" sheet: everything visible that isn't a
@@ -43,11 +45,15 @@ export function MobileNav() {
       active ? "text-primary" : "text-muted-foreground"
     }`;
 
+  // Hidden means hidden on every form factor. These three are laid out by
+  // hand rather than read from navItems, so without this filter a surface
+  // switched off in Settings -> Navigation would vanish from the wall panel
+  // and stay put on a phone. Home is never dropped: it is the way back.
   const fixedTabs = [
     { href: "/", icon: Home, labelKey: "home", active: startActive },
     { href: "/calendar", icon: CalendarDays, labelKey: "calendar", active: calendarActive },
     { href: "/shopping", icon: ShoppingCart, labelKey: "shopping", active: shoppingActive },
-  ];
+  ].filter((tab) => tab.href === "/" || !hiddenItems.includes(tab.href));
 
   return (
     <>

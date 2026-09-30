@@ -1134,6 +1134,7 @@
       "title": "Navigation",
       "showItem": "Afficher {label} dans la navigation",
       "fixedItemsHint": "Accueil, Calendrier, Courses et Réglages restent visibles comme accès essentiels.",
+      "fixedItemsHintKiosk": "Cet appareil est en mode kiosque : Calendrier et Courses peuvent donc aussi être masqués. Accueil et Réglages restent toujours visibles.",
       "settingsIconOnly": "Réglages : icône seule",
       "settingsIconOnlyHint": "Libère de la place dans la barre inférieure sur cet appareil.",
       "intro": "Réorganisez la navigation inférieure et masquez les éléments inutiles. Ces réglages s’appliquent uniquement à cet appareil.",

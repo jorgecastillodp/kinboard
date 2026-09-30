@@ -8,6 +8,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Wall displays can hide Calendar and Shopping from the bottom bar.** Settings -> Navigation always let you reorder and switch off nav items per device, but Home, Calendar, Shopping and Settings were locked on. On a device marked as a kiosk under Settings -> Devices, Calendar and Shopping can now be switched off too, so a wall panel can show only the surfaces it is actually there for. Home and Settings stay locked everywhere, because a device with neither cannot be recovered from the UI. Ordinary phones and laptops are unchanged. Switching an item off now also removes it from the phone bottom bar, which previously kept Calendar and Shopping pinned regardless.
+
 ### Changed
 
 - **A policy for the Kinboard name and logos (`TRADEMARK.md`).** Talking about Kinboard, running it and passing on unmodified copies need no permission. A modified version that is published needs a name of its own and no Kinboard logos, and must say it is based on Kinboard. This applies to every version, including the MIT-licensed ones, because neither licence covers the name.
