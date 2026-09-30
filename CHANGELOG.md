@@ -10,6 +10,14 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+### Fixed
+
+### Security
+
+## [1.12.1] - 2026-09-30
+
+### Changed
+
 - **Kinboard is now licensed under the PolyForm Noncommercial License 1.0.0 instead of MIT.** Using, changing and sharing it at home or for any other noncommercial purpose stays free; selling it, selling devices with it installed, running it as a paid hosted service or building it into a paid product now needs a commercial license from the maintainer. Releases up to and including v1.12.1-rc.3 remain under MIT. Contributions are covered by a new section in `CONTRIBUTING.md`, and the MIT-licensed French translation keeps its notice in the new `NOTICE` file.
 
 ### Fixed
@@ -21,6 +29,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Mobile dialogs respect safe areas.** The new-task form and other centered dialogs or confirmations now keep clear of notches and home indicators, with long content scrolling inside the panel instead of filling or escaping the screen. The screensaver's news detail and full-screen photo controls also stay clear of device cutouts.
 
 ### Security
+
+- **Updated Next.js to 16.3.8, undici to 7.30.0 and DOMPurify to 3.4.16** (#293). This closes a critical advisory for Next.js (remote code execution in `next/og` `ImageResponse`), which Kinboard does not use, plus several undici advisories (TLS certificate validation bypass, cookie disclosure through response caching, and denial-of-service issues) and a low-severity DOMPurify issue.
 
 ## [1.12.0] - 2026-09-24
 
@@ -840,7 +850,8 @@ Initial public release.
 
 ---
 
-[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.12.0...HEAD
+[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.12.1...HEAD
+[1.12.1]: https://github.com/svenger87/kinboard/compare/v1.12.0...v1.12.1
 [1.12.0]: https://github.com/svenger87/kinboard/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/svenger87/kinboard/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/svenger87/kinboard/compare/v1.9.0...v1.10.0
