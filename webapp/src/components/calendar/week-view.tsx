@@ -193,10 +193,12 @@ export function WeekView({
               {/* A fixed-height row whenever markers are on, so headers with
                   and without markers stay aligned. */}
               {showsMarkers && (
-                <div className="flex items-center justify-center gap-0.5 h-2.5 mt-1">
+                // Wraps rather than spilling into the next day on a phone,
+                // where a column is ~40px; the day numbers above stay aligned.
+                <div className="flex flex-wrap items-center justify-center gap-0.5 min-h-2.5 mt-1">
                   {holiday && (
                     <span
-                      className="size-2 rounded-full bg-amber-400"
+                      className="size-1.5 sm:size-2 rounded-full bg-amber-400"
                       role="img"
                       aria-label={tHolidays(holiday.nameKey)}
                       title={tHolidays(holiday.nameKey)}
@@ -204,14 +206,19 @@ export function WeekView({
                   )}
                   {taskColors.length > 0 && (
                     <span
-                      className="flex items-center gap-0.5"
+                      className="flex flex-wrap items-center justify-center gap-0.5"
                       role="img"
                       aria-label={t("markers.tasksDue")}
                       title={t("markers.tasksDue")}
                     >
                       {taskColors.slice(0, MAX_TASK_DOTS).map((color, i) => (
-                        <span key={`${color}-${i}`} className="size-2 rounded-full" style={{ backgroundColor: color }} />
+                        <span key={`${color}-${i}`} className="size-1.5 sm:size-2 rounded-full" style={{ backgroundColor: color }} />
                       ))}
+                      {taskColors.length > MAX_TASK_DOTS && (
+                        <span className="text-3xs text-muted-foreground leading-none">
+                          +{taskColors.length - MAX_TASK_DOTS}
+                        </span>
+                      )}
                     </span>
                   )}
                 </div>

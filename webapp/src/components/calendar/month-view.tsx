@@ -259,10 +259,13 @@ export function MonthView({
                           )}
                         </>
                       )}
-                      {/* Tasks: one dot per person with something due. */}
+                      {/* Tasks: one dot per person with something due, in
+                          the corner from sm up. A phone cell is ~45px: the
+                          number, a holiday dot and four task dots do not fit
+                          on one line, so there they get a row of their own. */}
                       {taskColors.length > 0 && (
                         <span
-                          className="ml-auto flex items-center gap-0.5 shrink-0 pr-0.5"
+                          className="hidden sm:flex ml-auto items-center gap-0.5 shrink-0 pr-0.5"
                           role="img"
                           aria-label={t("markers.tasksDue")}
                           title={t("markers.tasksDue")}
@@ -270,7 +273,7 @@ export function MonthView({
                           {taskColors.slice(0, MAX_TASK_DOTS).map((color, i) => (
                             <span
                               key={`${color}-${i}`}
-                              className="size-1.5 sm:size-2 rounded-full"
+                              className="size-2 rounded-full"
                               style={{ backgroundColor: color }}
                             />
                           ))}
@@ -282,6 +285,29 @@ export function MonthView({
                         </span>
                       )}
                     </div>
+
+                    {/* Phone: the task dots on their own row, wrapping like
+                        the event dots below rather than running off the cell. */}
+                    {taskColors.length > 0 && (
+                      <div
+                        className="sm:hidden relative z-10 flex flex-wrap justify-center gap-0.5 mb-0.5"
+                        role="img"
+                        aria-label={t("markers.tasksDue")}
+                      >
+                        {taskColors.slice(0, MAX_TASK_DOTS).map((color, i) => (
+                          <span
+                            key={`${color}-${i}`}
+                            className="size-1.5 rounded-full"
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                        {taskColors.length > MAX_TASK_DOTS && (
+                          <span className="text-3xs text-muted-foreground leading-none">
+                            +{taskColors.length - MAX_TASK_DOTS}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {/* Events - inline in cell. z-10 keeps chips above the
                         day-selection button that now sits behind the content. */}
