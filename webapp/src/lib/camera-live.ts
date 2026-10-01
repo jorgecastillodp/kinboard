@@ -55,10 +55,14 @@ export function inboundVideoBytes(report: { forEach(cb: (entry: unknown) => void
  */
 export const NO_VIDEO_GRACE_MS = 15_000;
 
-/** What trackRtspLive reads of an `RTCPeerConnection`. */
+/** What trackRtspLive uses of an `RTCPeerConnection`. */
 export interface LiveConnection {
   readonly iceConnectionState: string;
   getStats(): Promise<{ forEach(cb: (entry: unknown) => void): void }>;
+  addEventListener(type: "track", listener: (event: { readonly track: LiveTrack }) => void): void;
+  addEventListener(type: "iceconnectionstatechange", listener: () => void): void;
+  removeEventListener(type: "track", listener: (event: { readonly track: LiveTrack }) => void): void;
+  removeEventListener(type: "iceconnectionstatechange", listener: () => void): void;
 }
 
 /** What it reads of a remote `MediaStreamTrack`. */
@@ -81,9 +85,9 @@ export interface RtspLiveHooks {
 }
 
 /**
- * When an RTSP tile goes live, for one connection attempt. The viewer forwards
- * the connection's tracks and ICE changes, and this is the only place that
- * says LIVE.
+ * When an RTSP tile goes live, for one connection attempt. It listens to the
+ * connection itself -- its tracks and ICE changes -- so the viewer has nothing
+ * to forward, or to forget to; and this is the only place that says LIVE.
  *
  * An RTSP camera is live when video is arriving, not when ICE is up. go2rtc
  * answers a browser that cannot take the camera's video codec (an H.265
@@ -100,6 +104,9 @@ export function trackRtspLive(pc: LiveConnection, hooks: RtspLiveHooks, graceMs:
   const clearTimer = hooks.clearTimer ?? ((handle: unknown) => clearTimeout(handle as ReturnType<typeof setTimeout>));
   let videoArrived = false;
   let timer: unknown = null;
+  // Set by dispose(): the connection is closing, and anything it still
+  // delivers -- a late unmute, a stats reply -- is ignored.
+  let disposed = false;
 
   const stopWaiting = () => {
     if (timer === null) return;
@@ -108,58 +115,65 @@ export function trackRtspLive(pc: LiveConnection, hooks: RtspLiveHooks, graceMs:
   };
   const goLive = () => {
     // Once the viewer has moved on, a newer attempt owns the tile.
-    if (!hooks.isCurrent()) return;
+    if (disposed || !hooks.isCurrent()) return;
     videoArrived = true;
     stopWaiting();
     hooks.setLive(true);
   };
 
+  // A remote track arrived. A video track stays muted until its first packet does.
+  const onTrack = ({ track }: { readonly track: LiveTrack }) => {
+    if (disposed || track.kind !== "video") return;
+    if (track.muted) track.addEventListener("unmute", goLive, { once: true });
+    else goLive();
+  };
+
+  const onIceStateChange = () => {
+    if (disposed) return;
+    const state = pc.iceConnectionState;
+    // Not an error the household needs to see: there is no live video
+    // here, and the still takes over.
+    if (state === "failed" || state === "disconnected") {
+      hooks.setLive(false);
+      return;
+    }
+    if (state !== "connected") return;
+    // Back from a blip: the video it had is flowing again.
+    if (videoArrived) {
+      goLive();
+      return;
+    }
+    if (timer !== null) return;
+    // Connected, no video yet. Wait with the still up, then stop holding a
+    // connection that only carries audio nobody hears. getStats() is the
+    // second opinion, for a browser that never fires `unmute`.
+    timer = setTimer(async () => {
+      timer = null;
+      if (disposed || videoArrived || !hooks.isCurrent()) return;
+      try {
+        if (inboundVideoBytes(await pc.getStats()) > 0) {
+          goLive();
+          return;
+        }
+      } catch {
+        // A closed or failed connection has no stats worth reading.
+      }
+      if (!disposed && hooks.isCurrent()) hooks.giveUp();
+    }, graceMs);
+  };
+
+  pc.addEventListener("track", onTrack);
+  pc.addEventListener("iceconnectionstatechange", onIceStateChange);
   hooks.setLive(false);
 
   return {
-    /** A remote track arrived. A video track stays muted until its first packet does. */
-    onTrack(track: LiveTrack) {
-      if (track.kind !== "video") return;
-      if (track.muted) track.addEventListener("unmute", goLive, { once: true });
-      else goLive();
+    /** The connection is closing: stop listening, and stop waiting for its video. */
+    dispose() {
+      disposed = true;
+      stopWaiting();
+      pc.removeEventListener("track", onTrack);
+      pc.removeEventListener("iceconnectionstatechange", onIceStateChange);
     },
-
-    /** The connection's ICE state changed. */
-    onIceStateChange() {
-      const state = pc.iceConnectionState;
-      // Not an error the household needs to see: there is no live video
-      // here, and the still takes over.
-      if (state === "failed" || state === "disconnected") {
-        hooks.setLive(false);
-        return;
-      }
-      if (state !== "connected") return;
-      // Back from a blip: the video it had is flowing again.
-      if (videoArrived) {
-        goLive();
-        return;
-      }
-      if (timer !== null) return;
-      // Connected, no video yet. Wait with the still up, then stop holding a
-      // connection that only carries audio nobody hears. getStats() is the
-      // second opinion, for a browser that never fires `unmute`.
-      timer = setTimer(async () => {
-        timer = null;
-        if (videoArrived || !hooks.isCurrent()) return;
-        try {
-          if (inboundVideoBytes(await pc.getStats()) > 0) {
-            goLive();
-            return;
-          }
-        } catch {
-          // A closed or failed connection has no stats worth reading.
-        }
-        if (hooks.isCurrent()) hooks.giveUp();
-      }, graceMs);
-    },
-
-    /** The connection is closing: stop waiting for its video. */
-    dispose: stopWaiting,
   };
 }
 
