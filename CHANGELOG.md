@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - **Holidays and tasks can be shown on the calendar.** Settings -> Calendar gains three switches, all off until you turn them on. Public holidays get an amber dot on the day, with the holiday's name where there is room; until now they appeared only in a day's details. Tasks get a dot in the colour of the person they belong to on each day one is due, and a repeating task is marked on every day it comes round, from today on. Both appear in the month and week views. The third, Treat tasks as events, also lists tasks among events, with the name of the person each is for -- in the Events widget, the week overview and the calendar's day list, where tapping one opens the task list. In lists of what is coming up, a repeating task shows only its next time, so a daily chore does not crowd out the events.
+- **Graphite, a neutral tone with no tint.** Settings -> Design -> Neutral tone gains Graphite: true neutral greys, near-black in dark mode, for anyone who finds Sand, Salbei and Warm grey too warm -- in dark mode they read as brown rather than black. The accent colour and monthly themes are unchanged.
+- **Tasks can repeat on the days you pick.** A task's Repeat setting gains Custom days: pick any weekdays -- Monday to Friday, say, or Monday to Thursday -- and the task comes due on each of them. It is due once a picked day has come round since it was last done, so a missed day shows the task as overdue rather than piling up. The task list, the badges, the dashboard and reminders all follow the picked days; reminders use the family's timezone when one is set. No database change: the days are kept in the task's existing repeat field.
+- **Camera feeds can be placed in a room.** Editing a camera under Settings -> Cameras now offers a room. The feed then also appears in that room on the Automation page, above the room's devices, so a wall panel can show the gate camera next to the gate controls instead of on a separate page. Cameras keep appearing on the Cameras page whether or not they have a room, and a camera with no room behaves exactly as before. No database migration: the room is stored with the rest of the camera settings.
 
 ### Changed
 
@@ -17,8 +20,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - **The week overview counts a task on the day it is due.** West of UTC -- across the Americas -- a task due on the 14th was counted on the 13th, because its due date was read as midnight UTC.
+- **RTSP cameras say LIVE only when they are.** A camera tile said LIVE over the still image an RTSP camera shows while it connects, which refreshes every few seconds. And in a browser that cannot play the camera's video format (an H.265 camera, viewed in a browser without H.265 in WebRTC) it switched to a black box marked LIVE and never drew a frame. The tile now switches to live video, and says LIVE, only once video is actually arriving. Until then, or if it never does, it stays on the refreshing still.
 
 ### Security
+
+- **Google Calendar sync could be pointed at another family's calendar or event.** `/api/google/events` checked that the caller belonged to the family named in the request, but looked up the event or calendar id in the request body without checking it belonged to that family. A joined device could overwrite another family's local event record this way, and could make the server attempt a Google Calendar call against another family's calendar using its own Google credentials. Lookups are now scoped to the caller's family, and an id for someone else's calendar or event behaves exactly like one that does not exist.
 
 ## [1.12.1] - 2026-09-30
 

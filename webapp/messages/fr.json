@@ -539,6 +539,8 @@
     "fieldAssignTo": "Assigner à",
     "fieldPriority": "Priorité",
     "fieldRecurrence": "Récurrence",
+    "recurrenceDaysLabel": "Répéter le",
+    "recurrenceDaysHint": "Choisissez au moins un jour.",
     "fieldDueDate": "Date d'échéance",
     "fieldOptional": "Optionnel",
     "titlePlaceholder": "Que faut-il faire ?",
@@ -603,7 +605,9 @@
       "daily": "Quotidienne",
       "weekly": "Hebdomadaire",
       "biweekly": "Toutes les 2 semaines",
-      "monthly": "Mensuelle"
+      "monthly": "Mensuelle",
+      "custom": "Jours choisis",
+      "weekdays": "En semaine"
     }
   },
   "meals": {
@@ -1148,10 +1152,11 @@
       "monthlyThemeIntro": "La palette de couleurs change automatiquement chaque mois. Vous pouvez la modifier manuellement.",
       "resetToAuto": "Retour à l'automatique",
       "paletteHeading": "Teinte neutre",
-      "paletteIntro": "Choisissez la chaleur de l'arrière-plan et des surfaces. La couleur d'accent et les thèmes mensuels restent identiques.",
+      "paletteIntro": "Choisissez la chaleur de l'arrière-plan et des surfaces, ou aucune avec Graphite. La couleur d'accent et les thèmes mensuels restent identiques.",
       "palette_salbei": "Sauge",
       "palette_sand": "Sable",
       "palette_warmgrey": "Gris chaud",
+      "palette_graphite": "Graphite",
       "appearanceHeading": "Apparence",
       "darkModeLabel": "Mode sombre",
       "darkModeDescription": "Optimisé pour les écrans muraux",
@@ -1421,6 +1426,9 @@
       "dialogAddTitle": "Ajouter une caméra",
       "nameLabel": "Nom",
       "namePlaceholder": "ex. porte d'entrée, jardin…",
+      "roomLabel": "Pièce",
+      "roomNone": "Aucune pièce",
+      "roomHint": "Le flux apparaît aussi dans cette pièce sous Domotique, au-dessus de ses appareils. Il reste dans Caméras dans tous les cas.",
       "streamTypeLabel": "Type de flux",
       "streamUrlLabel": "URL du flux",
       "streamUrlPlaceholderRtsp": "rtsp://utilisateur:motdepasse@192.168.1.100:554/stream1",

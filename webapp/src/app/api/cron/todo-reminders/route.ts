@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { sendPushToMultiple, isVapidConfigured, DatabaseSubscription } from "@/lib/push-sender";
 import type { PushSubscription, NotificationPreferences } from "@/types/database";
+import { isWeekdayTaskDue, recurrenceWeekdays } from "@/lib/todo-recurrence";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +23,10 @@ interface TodoRow {
   due_date: string | null;
   recurrence: string | null;
   last_completed: string | null;
+  created_at: string | null;
 }
 
-function isTodoDue(todo: TodoRow): boolean {
+function isTodoDue(todo: TodoRow, timeZone?: string | null): boolean {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
@@ -34,6 +36,11 @@ function isTodoDue(todo: TodoRow): boolean {
     const dueDate = new Date(todo.due_date);
     return dueDate <= today;
   }
+
+  // Picked weekdays: the shared rule, on the family's own calendar day. Not in
+  // RECURRENCE_DAYS, so without this branch such a task never reminded at all.
+  const weekdays = recurrenceWeekdays(todo.recurrence);
+  if (weekdays) return isWeekdayTaskDue(todo, weekdays, now, timeZone);
 
   // Recurring: check if interval has elapsed since last_completed
   if (!todo.last_completed) return true;
@@ -109,7 +116,18 @@ export async function POST(request: NextRequest) {
       allTodos.set(t.id, t);
     }
 
-    const dueTodos = Array.from(allTodos.values()).filter(isTodoDue);
+    // "Today" for a picked-weekday task is the family's day: its timezone
+    // setting when it has one (as the attention engine reads it), else the
+    // server's own clock.
+    const { data: timeZoneSetting } = await (supabase as any)
+      .from("settings")
+      .select("value")
+      .eq("family_id", familyId)
+      .eq("key", "timezone")
+      .maybeSingle();
+    const timeZone = typeof timeZoneSetting?.value === "string" ? timeZoneSetting.value : null;
+
+    const dueTodos = Array.from(allTodos.values()).filter((todo) => isTodoDue(todo, timeZone));
 
     if (dueTodos.length === 0) continue;
 

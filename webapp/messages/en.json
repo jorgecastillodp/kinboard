@@ -539,6 +539,8 @@
     "fieldAssignTo": "Assign to",
     "fieldPriority": "Priority",
     "fieldRecurrence": "Recurrence",
+    "recurrenceDaysLabel": "Repeat on",
+    "recurrenceDaysHint": "Pick at least one day.",
     "fieldDueDate": "Due date",
     "fieldOptional": "Optional",
     "titlePlaceholder": "What needs to be done?",
@@ -603,7 +605,9 @@
       "daily": "Daily",
       "weekly": "Weekly",
       "biweekly": "Every 2 weeks",
-      "monthly": "Monthly"
+      "monthly": "Monthly",
+      "custom": "Custom days",
+      "weekdays": "Weekdays"
     }
   },
   "meals": {
@@ -1148,10 +1152,11 @@
       "monthlyThemeIntro": "The color scheme rotates automatically each month. You can override it manually.",
       "resetToAuto": "Back to automatic",
       "paletteHeading": "Neutral tone",
-      "paletteIntro": "Choose the warmth of the background and surfaces. The accent color and monthly themes stay the same.",
+      "paletteIntro": "Choose the warmth of the background and surfaces, or none at all with Graphite. The accent color and monthly themes stay the same.",
       "palette_salbei": "Sage",
       "palette_sand": "Sand",
       "palette_warmgrey": "Warm grey",
+      "palette_graphite": "Graphite",
       "appearanceHeading": "Appearance",
       "darkModeLabel": "Dark mode",
       "darkModeDescription": "Optimized for wall displays",
@@ -1421,6 +1426,9 @@
       "dialogAddTitle": "Add camera",
       "nameLabel": "Name",
       "namePlaceholder": "e.g. front door, garden…",
+      "roomLabel": "Room",
+      "roomNone": "No room",
+      "roomHint": "The feed also appears in this room on Automation, above its devices. It stays on Cameras either way.",
       "streamTypeLabel": "Stream type",
       "streamUrlLabel": "Stream URL",
       "streamUrlPlaceholderRtsp": "rtsp://user:pass@192.168.1.100:554/stream1",
