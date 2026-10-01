@@ -174,6 +174,29 @@ export function taskOccurrences(
 }
 
 /**
+ * taskOccurrences over several ranges at once -- the month on screen and the
+ * week the side panel lists -- with each occurrence once where they overlap,
+ * sorted the same way.
+ *
+ * Separate ranges rather than one span covering both: browsing years ahead, a
+ * span from today to the grid built every occurrence in between -- about 39,000
+ * items for 30 tasks ten years out, rebuilt on every refetch.
+ */
+export function taskOccurrencesIn(
+  todos: readonly (MarkerTodo & { id: string; title: string })[],
+  people: readonly { id: string; color: string; name?: string }[],
+  ranges: readonly (readonly [Date, Date])[],
+  unassignedColor: string,
+  now: Date = new Date(),
+): TaskOccurrence[] {
+  const byId = new Map<string, TaskOccurrence>();
+  for (const [from, to] of ranges) {
+    for (const o of taskOccurrences(todos, people, from, to, unassignedColor, now)) byId.set(o.id, o);
+  }
+  return [...byId.values()].sort((a, b) => a.dayKey.localeCompare(b.dayKey) || a.title.localeCompare(b.title));
+}
+
+/**
  * Each task's first occurrence only. An upcoming list shows what comes next;
  * listing every repeat would let one daily chore fill it and push the real
  * events out. Expects the sorted output of taskOccurrences.

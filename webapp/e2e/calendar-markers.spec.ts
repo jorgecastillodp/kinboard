@@ -8,6 +8,7 @@ import {
   taskDayKeys,
   taskMarkersByDay,
   taskOccurrences,
+  taskOccurrencesIn,
 } from "../src/lib/calendar-markers";
 import { isRecurringTaskDue, recurringDueDayKeys, type RecurringFields } from "../src/lib/todo-recurrence";
 import { toLocalDateKey } from "../src/lib/local-date";
@@ -267,6 +268,26 @@ test("an upcoming list gets each task once, at its next occurrence", () => {
     "t1@2026-10-01",
     "t2@2026-10-03",
   ]);
+});
+
+test("the month and the side panel's week are built as two ranges, each occurrence once", () => {
+  const todos = [{ id: "t1", title: "Water the plants", recurrence: "daily", last_completed: null }];
+  // The panel's week runs past the end of the month: the overlap is counted once.
+  const both = taskOccurrencesIn(todos, [], [[new Date(2026, 9, 1), new Date(2026, 9, 31)], [new Date(2026, 9, 28), new Date(2026, 10, 5)]], "neutral", now);
+  expect(both).toHaveLength(36); // 1 October to 5 November
+  expect(new Set(both.map((o) => o.id)).size).toBe(36);
+  expect(both[0].dayKey).toBe("2026-10-01");
+  expect(both.at(-1)?.dayKey).toBe("2026-11-05");
+});
+
+test("browsing years ahead builds that month and the panel's week, nothing in between", () => {
+  // A single span from today to the grid built every day of the ten years.
+  const todos = Array.from({ length: 30 }, (_, i) => ({ id: `t${i}`, title: `Task ${i}`, recurrence: "daily", last_completed: null }));
+  const grid: [Date, Date] = [new Date(2036, 8, 29), new Date(2036, 10, 9)];
+  const panelWeek: [Date, Date] = [new Date(2026, 9, 1), new Date(2026, 9, 9)];
+  const built = taskOccurrencesIn(todos, [], [grid, panelWeek], "neutral", now);
+  expect(built).toHaveLength(30 * (42 + 9));
+  expect(built.some((o) => o.dayKey > "2026-10-09" && o.dayKey < "2036-09-29")).toBe(false);
 });
 
 test("the week overview compares due dates as dates, not as UTC midnights", () => {
