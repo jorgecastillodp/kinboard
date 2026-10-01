@@ -74,7 +74,39 @@ function fakeDb(seed: Record<string, Row[]>) {
     return chain;
   }
 
-  return { from, tables, writes };
+  /**
+   * `book_pocket_money()`, the one way a balance moves (lib/pocket-money/
+   * booking.ts): the account must belong to the family, the balance may not
+   * go below zero, and the transaction row and the new balance are written
+   * together. lifetime_saved_cents grows only with genuine earnings.
+   */
+  async function rpc(fn: string, args: Record<string, unknown>) {
+    if (fn !== "book_pocket_money") throw new Error(`fake db: unexpected rpc ${fn}`);
+    const account = (tables.pocket_money_accounts ?? []).find(
+      (row) => row.id === args.p_account_id && row.family_id === args.p_family_id,
+    );
+    if (!account) return { data: { ok: false, error: "not_found" }, error: null };
+    const delta = args.p_amount_cents as number;
+    const balance = (account.balance_cents as number) + delta;
+    if (balance < 0) return { data: { ok: false, error: "insufficient_funds" }, error: null };
+    const transaction: Row = {
+      id: `new-${writes.length}`,
+      account_id: account.id,
+      amount_cents: delta,
+      type: args.p_type,
+      note: args.p_note,
+    };
+    (tables.pocket_money_transactions ??= []).push(transaction);
+    writes.push({ table: "pocket_money_transactions", op: "insert", row: transaction });
+    account.balance_cents = balance;
+    if (delta > 0 && args.p_type !== "adjustment") {
+      account.lifetime_saved_cents = ((account.lifetime_saved_cents as number) ?? 0) + delta;
+    }
+    writes.push({ table: "pocket_money_accounts", op: "update", row: { ...account } });
+    return { data: { ok: true, transaction, balance_cents: balance }, error: null };
+  }
+
+  return { from, rpc, tables, writes };
 }
 
 const OURS = "11111111-1111-4111-8111-111111111111";
@@ -111,7 +143,7 @@ test.describe("add_pocket_money", () => {
     // services.yaml: person_id, amount, reason — passed through unchanged.
     const body = { person_id: MIA, amount: 2.5, reason: "Rasen gemäht" };
 
-    const result = await addPocketMoney({ familyId: OURS, body, db });
+    const result = await addPocketMoney({ familyId: OURS, assistant: false, body, db });
 
     expect(result.status).toBe(201);
     expect(result.response).toEqual({ person_id: MIA, person: "Mia", amount: 2.5, balance: 7.5 });
@@ -126,7 +158,7 @@ test.describe("add_pocket_money", () => {
   test("a person_id from another family is not found, and nothing is written", async () => {
     const db = pocketMoneyDb();
     const result = await addPocketMoney({
-      familyId: OURS,
+      familyId: OURS, assistant: false,
       body: { person_id: LEA_FOREIGN, amount: 5, reason: "x" },
       db,
     });
@@ -139,7 +171,7 @@ test.describe("add_pocket_money", () => {
   test("a person in the recycle bin is not found either", async () => {
     const db = pocketMoneyDb();
     const result = await addPocketMoney({
-      familyId: OURS,
+      familyId: OURS, assistant: false,
       body: { person_id: BEN_BINNED, amount: 5, reason: "x" },
       db,
     });
@@ -150,7 +182,7 @@ test.describe("add_pocket_money", () => {
   test("an id that is not a uuid is not found rather than an error", async () => {
     const db = pocketMoneyDb();
     const result = await addPocketMoney({
-      familyId: OURS,
+      familyId: OURS, assistant: false,
       body: { person_id: "sensor.mia", amount: 1, reason: "x" },
       db,
     });
@@ -160,7 +192,7 @@ test.describe("add_pocket_money", () => {
   test("the older `person` and `note` still work", async () => {
     const db = pocketMoneyDb();
     const result = await addPocketMoney({
-      familyId: OURS,
+      familyId: OURS, assistant: false,
       body: { person: "mia", amount: -1, note: "Eis" },
       db,
     });
@@ -179,7 +211,7 @@ test.describe("add_pocket_money", () => {
     db.tables.people.push({ id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", name: "Tom", family_id: OURS, deleted_at: null });
 
     const result = await addPocketMoney({
-      familyId: OURS,
+      familyId: OURS, assistant: false,
       body: { person_id: MIA, person: "Tom", amount: 1, reason: "RFC", note: "old" },
       db,
     });
@@ -191,12 +223,31 @@ test.describe("add_pocket_money", () => {
 
   test("with no reason or note the booking still says where it came from", async () => {
     const db = pocketMoneyDb();
-    await addPocketMoney({ familyId: OURS, body: { person_id: MIA, amount: 1 }, db });
+    await addPocketMoney({ familyId: OURS, assistant: false, body: { person_id: MIA, amount: 1 }, db });
     expect(db.tables.pocket_money_transactions[0]).toMatchObject({ note: "Home Assistant" });
   });
 
+  test("an assistant's (OAuth-issued) token is refused, even with the RFC payload", async () => {
+    const db = pocketMoneyDb();
+    const result = await addPocketMoney({
+      familyId: OURS,
+      assistant: true,
+      body: { person_id: MIA, amount: 2.5, reason: "Rasen gemäht" },
+      db,
+    });
+    expect(result.status).toBe(403);
+    expect(db.writes).toEqual([]);
+  });
+
+  test("an amount that rounds to no cents is a 400 that books nothing", async () => {
+    const db = pocketMoneyDb();
+    const result = await addPocketMoney({ familyId: OURS, assistant: false, body: { person_id: MIA, amount: 0.004 }, db });
+    expect(result.status).toBe(400);
+    expect(db.writes).toEqual([]);
+  });
+
   test("a missing person names the RFC field first", async () => {
-    const result = await addPocketMoney({ familyId: OURS, body: { amount: 1 }, db: pocketMoneyDb() });
+    const result = await addPocketMoney({ familyId: OURS, assistant: false, body: { amount: 1 }, db: pocketMoneyDb() });
     expect(result.status).toBe(400);
     expect(String(result.response.error)).toMatch(/^`person_id`/);
   });
@@ -221,7 +272,7 @@ test.describe("dismiss_attention", () => {
   test("accepts exactly what the Home Assistant component sends", async () => {
     const db = attentionDb();
     // services.yaml: attention_id — the item key, as the summary reports it.
-    const result = await dismissAttention({ familyId: OURS, body: { attention_id: KEY }, db });
+    const result = await dismissAttention({ familyId: OURS, assistant: false, body: { attention_id: KEY }, db });
 
     expect(result.status).toBe(200);
     expect(result.response).toEqual({ dismissed: 1, keys: [KEY] });
@@ -233,7 +284,7 @@ test.describe("dismiss_attention", () => {
 
   test("an attention_id that is a row id dismisses that row", async () => {
     const db = attentionDb();
-    const result = await dismissAttention({ familyId: OURS, body: { attention_id: ROW_ID }, db });
+    const result = await dismissAttention({ familyId: OURS, assistant: false, body: { attention_id: ROW_ID }, db });
 
     expect(result.response).toEqual({ dismissed: 1, keys: [KEY] });
     expect(db.tables.attention_items[0].state).toBe("acknowledged");
@@ -241,7 +292,7 @@ test.describe("dismiss_attention", () => {
 
   test("another family's row id dismisses nothing", async () => {
     const db = attentionDb();
-    const result = await dismissAttention({ familyId: OURS, body: { attention_id: FOREIGN_ROW_ID }, db });
+    const result = await dismissAttention({ familyId: OURS, assistant: false, body: { attention_id: FOREIGN_ROW_ID }, db });
 
     expect(result.response).toEqual({ dismissed: 0, keys: [] });
     expect(db.writes).toEqual([]);
@@ -252,7 +303,7 @@ test.describe("dismiss_attention", () => {
     // smuggle extra conditions into PostgREST's or() syntax.
     const db = attentionDb();
     const result = await dismissAttention({
-      familyId: OURS,
+      familyId: OURS, assistant: false,
       body: { attention_id: `x,id.eq.${ROW_ID}` },
       db,
     });
@@ -261,18 +312,18 @@ test.describe("dismiss_attention", () => {
 
   test("the older `key` and `rule_id` still work", async () => {
     const byKey = attentionDb();
-    expect((await dismissAttention({ familyId: OURS, body: { key: KEY }, db: byKey })).response)
+    expect((await dismissAttention({ familyId: OURS, assistant: false, body: { key: KEY }, db: byKey })).response)
       .toEqual({ dismissed: 1, keys: [KEY] });
 
     const byRule = attentionDb();
-    expect((await dismissAttention({ familyId: OURS, body: { rule_id: "bins-out" }, db: byRule })).response)
+    expect((await dismissAttention({ familyId: OURS, assistant: false, body: { rule_id: "bins-out" }, db: byRule })).response)
       .toEqual({ dismissed: 1, keys: ["bins-out:2026-10-02"] });
   });
 
   test("attention_id wins over key and rule_id", async () => {
     const db = attentionDb();
     const result = await dismissAttention({
-      familyId: OURS,
+      familyId: OURS, assistant: false,
       body: { attention_id: KEY, key: "bins-out:2026-10-02", rule_id: "bins-out" },
       db,
     });
@@ -281,7 +332,7 @@ test.describe("dismiss_attention", () => {
   });
 
   test("nothing to go on names the RFC field first", async () => {
-    const result = await dismissAttention({ familyId: OURS, body: {}, db: attentionDb() });
+    const result = await dismissAttention({ familyId: OURS, assistant: false, body: {}, db: attentionDb() });
     expect(result.status).toBe(400);
     expect(String(result.response.error)).toMatch(/^`attention_id`/);
   });

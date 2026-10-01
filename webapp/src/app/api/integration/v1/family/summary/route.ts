@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
 import { createAdminClient } from "@/lib/supabase/server";
-import { todayKey, toLocalDateKey } from "@/lib/local-date";
+import { toLocalDateKey } from "@/lib/local-date";
 import { resolveDayContext } from "@/lib/attention/engine";
 import { detectWasteType } from "@/lib/waste-types";
 import { logApiError } from "@/lib/api-error";
+import { familyDateKey, familyDays, familyTimeZone as familyZone } from "@/lib/family-time";
+import { schoolOn, schoolTomorrowSensor, type SchoolTomorrowSensor } from "@/lib/school-days";
 
 export const dynamic = "force-dynamic";
 
@@ -18,11 +20,12 @@ export const dynamic = "force-dynamic";
  * times the load, forever, for data that is all read at the same moment
  * anyway.
  *
- * Every date here comes from `todayKey()` / `toLocalDateKey()`, never from
- * `toISOString().slice(0,10)`. That helper exists because the UTC day is wrong
- * every night between local midnight and the offset — in Berlin a task due
- * today read as not-due until 02:00. A summary that disagrees with the wall
- * display about what day it is would be worse than no summary.
+ * Every date here is the family's: `familyDays()` in the family's time zone,
+ * never `toISOString().slice(0,10)` — the UTC day is wrong every night
+ * between local midnight and the offset, and in Berlin a task due today read
+ * as not-due until 02:00. A summary that disagrees with the wall display
+ * about what day it is would be worse than no summary. (The event windows
+ * for events_today and the bin are still server-local instants.)
  */
 
 /** Shape returned for each sensor. `null` means "not applicable right now". */
@@ -58,7 +61,7 @@ export interface FamilySummary {
    * "0" is not an answer to "whose birthday is next" — which is exactly how
    * this read on a real wall display.
    */
-  school_tomorrow: { state: string | null; children: string[]; count: number; first_lesson: string | null };
+  school_tomorrow: SchoolTomorrowSensor;
   birthdays_upcoming: {
     state: string | null;
     name: string | null;
@@ -157,32 +160,6 @@ export function daysUntilNextBirthday(birthDate: string, today: Date): number | 
   return Math.round((next.getTime() - atMidnight.getTime()) / 86_400_000);
 }
 
-/** The earliest lesson in a schedule's slots, by start time. */
-export function firstLessonOf(timeSlots: unknown): string | null {
-  if (!Array.isArray(timeSlots) || timeSlots.length === 0) return null;
-  const sorted = [...timeSlots]
-    .filter((s): s is { start?: string; subject?: string } => !!s && typeof s === "object")
-    .filter((s) => typeof s.start === "string")
-    .sort((a, b) => String(a.start).localeCompare(String(b.start)));
-  return sorted.length > 0 ? (sorted[0].subject ?? null) : null;
-}
-
-/**
- * Weekday in the range `schedules.day_of_week` actually allows.
- *
- * The column is constrained to 0..6 and the app writes 1=Monday..5=Friday, so
- * Sunday is 0 — NOT 7. Returning 7 asked the database for a value its own
- * CHECK constraint forbids: harmless today, because the timetable UI cannot
- * create weekend lessons at all, but a query that can never match is a bug
- * waiting for the day someone stores one.
- *
- * Found by seeding a Sunday lesson to test the sensor and having Postgres
- * refuse the row: `schedules_day_of_week_check`.
- */
-export function isoDayOfWeek(date: Date): number {
-  return date.getDay();
-}
-
 /** The columns read from attention_items: the key rides along in the same query. */
 export const ATTENTION_COLUMNS = "item_key, title, priority";
 
@@ -229,13 +206,19 @@ export async function GET(request: NextRequest) {
     const familyId = context.familyId;
 
     const now = new Date();
-    const today = todayKey();
-    const tomorrowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    const tomorrow = toLocalDateKey(tomorrowDate);
-    const tomorrowDow = isoDayOfWeek(tomorrowDate);
 
     try {
-      const [calendars, shopping, todos, meals, schedules, birthdays, people, mealsTomorrow, purses, timezoneSetting, wasteCalendars, goals, attention] =
+      // One zone and one "today" for every date in the summary: the meals,
+      // overdue tasks, birthdays, the bin and school_tomorrow. They used to
+      // mix the server's day with the family's, so around midnight
+      // school_tomorrow and meal_tomorrow could describe different days.
+      const zone = await familyZone(familyId);
+      const { today, tomorrow } = familyDays(now, zone);
+      // The family's today as a server-local Date, for the arithmetic that
+      // wants calendar fields (birthdays). Midday keeps it clear of DST.
+      const todayAnchor = new Date(`${today}T12:00:00`);
+
+      const [calendars, shopping, todos, meals, school, birthdays, people, mealsTomorrow, purses, wasteCalendars, goals, attention] =
         await Promise.all([
 
         (supabase as any).from("calendars").select("id").eq("family_id", familyId),
@@ -265,11 +248,15 @@ export async function GET(request: NextRequest) {
           .eq("date", today)
           .is("deleted_at", null),
 
-        (supabase as any)
-          .from("schedules")
-          .select("person_id, time_slots")
-          .eq("family_id", familyId)
-          .eq("day_of_week", tomorrowDow),
+        // Tomorrow in the family's zone, through the same reader as GET
+        // /schedule: a holiday or a weekend means nobody has school, and a
+        // binned child is not announced. A failure here costs this sensor
+        // only, not the whole summary.
+        schoolOn(familyId, tomorrow, zone)
+          .catch(async (err) => {
+            await logApiError("integration/family/summary/school", err);
+            return null;
+          }),
 
         (supabase as any)
           .from("birthdays")
@@ -294,17 +281,6 @@ export async function GET(request: NextRequest) {
           .from("pocket_money_accounts")
           .select("person_id, balance_cents, currency")
           .eq("family_id", familyId),
-
-        // Unresolved and not already dealt with. A snoozed item is not
-        // "attention required" until its snooze runs out, and the evaluator is
-        // what returns it to active — so `state` is the right filter here and
-        // a timestamp comparison would double-guess it.
-        (supabase as any)
-          .from("settings")
-          .select("value")
-          .eq("family_id", familyId)
-          .eq("key", "timezone")
-          .maybeSingle(),
 
         // Bin collections live in an ordinary calendar flagged
         // is_waste_collection, so they are events like any other and need the
@@ -424,12 +400,10 @@ export async function GET(request: NextRequest) {
       const openTodos = (todos.data ?? []) as { id: string; due_date: string | null }[];
       const overdue = openTodos.filter((t) => t.due_date !== null && t.due_date < today).length;
 
-      const scheduleRows = (schedules.data ?? []) as { person_id: string; time_slots: unknown }[];
-      const withLessons = scheduleRows.filter((s) => firstLessonOf(s.time_slots) !== null);
 
       const nextBirthday = ((birthdays.data ?? []) as { name: string; date: string }[])
         .map((b) => {
-          const days = daysUntilNextBirthday(b.date, now);
+          const days = daysUntilNextBirthday(b.date, todayAnchor);
           // The stored date carries the year of BIRTH. Reporting it as the
           // birthday's date meant a sensor saying "in 10 days" alongside
           // "2020-08-19" — two answers to the same question, one of them six
@@ -437,7 +411,7 @@ export async function GET(request: NextRequest) {
           const next =
             days === null
               ? null
-              : new Date(now.getFullYear(), now.getMonth(), now.getDate() + days);
+              : new Date(todayAnchor.getFullYear(), todayAnchor.getMonth(), todayAnchor.getDate() + days);
           return {
             name: b.name,
             days,
@@ -477,14 +451,6 @@ export async function GET(request: NextRequest) {
         currency: a.currency ?? "EUR",
       }));
 
-      const childNames = withLessons.map((s) => nameById.get(s.person_id) ?? "?");
-
-      // Same default as the Heute-Motor's own adapter, so the two cannot
-      // resolve different parts of the day for the same instant.
-      const familyTimeZone =
-        typeof timezoneSetting.data?.value === "string"
-          ? timezoneSetting.data.value
-          : "Europe/Berlin";
 
       // Already ordered by priority in the query, so [0] is the one that
       // matters most rather than merely the oldest.
@@ -544,7 +510,7 @@ export async function GET(request: NextRequest) {
           // The same matcher the widget uses, so the board and the sensor
           // cannot disagree about whether Thursday is paper day.
           type: detectWasteType(row.title)?.id ?? null,
-          date: toLocalDateKey(new Date(row.start_at)),
+          date: familyDateKey(new Date(row.start_at), zone),
         }));
 
         const next = upcoming[0];
@@ -576,13 +542,7 @@ export async function GET(request: NextRequest) {
           recipe_id: mealRow?.recipe_id ?? null,
         },
         tasks_due: { state: openTodos.length, open: openTodos.length, overdue },
-        school_tomorrow: {
-          // Who has school, not how many — the names are the answer.
-          state: childNames.length > 0 ? childNames.join(", ") : null,
-          children: childNames,
-          count: childNames.length,
-          first_lesson: withLessons.length > 0 ? firstLessonOf(withLessons[0].time_slots) : null,
-        },
+        school_tomorrow: schoolTomorrowSensor(school),
         birthdays_upcoming: {
           // The person, not the day count. "0" told nobody it was Nora's.
           state: nextBirthday?.name ?? null,
@@ -598,7 +558,7 @@ export async function GET(request: NextRequest) {
           recipe_id: mealTomorrowRow?.recipe_id ?? null,
         },
         pocket_money: pocketMoney,
-        display_mode: resolveDayContext(now, familyTimeZone),
+        display_mode: resolveDayContext(now, zone),
         attention_required: attentionItems.length > 0,
         attention: summariseAttention(attentionItems),
         saving_goals: savingGoals,

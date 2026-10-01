@@ -25,11 +25,21 @@ import { apiError } from "@/lib/api-error";
  */
 export const INTEGRATION_SCOPES = [
   "family:read",
+  "energy:read",
+  "calendar:write",
   "events:read",
   "shopping:write",
   "tasks:write",
+  "notes:read",
   "notes:write",
   "announcements:write",
+  "meals:write",
+  "home:read",
+  "home:control",
+  "vehicles:read",
+  "timers:write",
+  "birthdays:write",
+  "pocket_money:write",
 ] as const;
 
 export type IntegrationScope = (typeof INTEGRATION_SCOPES)[number];
@@ -53,6 +63,19 @@ export interface IntegrationContext {
   familyId: string;
   scopes: IntegrationScope[];
   name: string;
+  /**
+   * True for an OAuth-issued token (an assistant connection: Claude, or any
+   * other MCP client that went through the authorize flow in RFC-010).
+   * False for a token created by hand in Settings — Home Assistant, Bridge,
+   * or anything else a person pasted a `kbi_` value into.
+   *
+   * Drives the edit/delete budget in lib/integration-limits.ts (RFC-011 §7
+   * ruling 10): that limit exists for an assistant that might run away, not
+   * for a scripted client like the Home Assistant component's "Clear
+   * completed", which can legitimately send more than 30 DELETEs in ten
+   * minutes.
+   */
+  assistant: boolean;
 }
 
 export type IntegrationAuthResult =
@@ -116,6 +139,7 @@ interface TokenRow {
   expires_at: string | null;
   revoked_at: string | null;
   last_used_at: string | null;
+  oauth_client_id: string | null;
 }
 
 /**
@@ -161,7 +185,9 @@ export function shouldRefreshLastUsed(lastUsedAt: string | null, now: Date): boo
 }
 
 /**
- * The single entry point. A route calls this with the scope it needs.
+ * The single entry point. A route calls this with the scope it needs — or,
+ * for the rare route several features share (`GET /actions/{id}`), a list of
+ * scopes of which any one is enough.
  *
  * Every rejection answers **401 `not_authenticated`**, including the case where
  * the token is valid but lacks the scope. 403 would be the more precise code
@@ -176,7 +202,7 @@ export function shouldRefreshLastUsed(lastUsedAt: string | null, now: Date): boo
  */
 export async function requireIntegrationAuth(
   request: NextRequest,
-  required: IntegrationScope,
+  required: IntegrationScope | readonly IntegrationScope[],
   lookup: (hash: string) => Promise<TokenRow | null>,
   now: Date = new Date(),
 ): Promise<IntegrationAuthResult> {
@@ -192,7 +218,8 @@ export async function requireIntegrationAuth(
   }
 
   const scopes = (evaluated.row.scopes ?? []).filter(isIntegrationScope);
-  if (!hasScope(scopes, required)) {
+  const anyOf: readonly IntegrationScope[] = typeof required === "string" ? [required] : required;
+  if (!anyOf.some((scope) => hasScope(scopes, scope))) {
     return { ok: false, response: await apiError("not authenticated", "not_authenticated") };
   }
 
@@ -203,6 +230,7 @@ export async function requireIntegrationAuth(
       familyId: evaluated.row.family_id,
       scopes,
       name: evaluated.row.name,
+      assistant: evaluated.row.oauth_client_id != null,
     },
   };
 }

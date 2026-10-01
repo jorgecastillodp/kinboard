@@ -99,7 +99,11 @@ reusable as machine credentials.
 
 - Generated in Settings, shown **once**, stored only as a hash.
 - Carries explicit scopes: `family:read`, `shopping:write`, `tasks:write`,
-  `notes:write`, `announcements:write`, `events:read`.
+  `notes:write`, `announcements:write`, `events:read`. Added after v1 for
+  assistant clients (the MCP server): `notes:read`, `calendar:write`,
+  `energy:read` — each its own scope rather than an extension of
+  `family:read`, which every Home Assistant token already holds. Added for
+  RFC-011 (assistants that act): `meals:write`, `home:read`, `home:control`.
 - Individually revocable and rotatable, with `last_used_at` so a stale token is
   visible before it is revoked.
 - Scope enforcement is **one shared server function**, not a check per route.
@@ -237,7 +241,11 @@ Retention: `domain_events` is pruned on a schedule. The nightly
 - No visual rule builder — v1 ships curated rules only (§4.5).
 - No Cloud. The Bridge is an architecture and security RFC until the demand
   gates in §5.5 are met.
-- No write access to anything not named in §5.2. Default deny.
+- No write access to anything not named in §5.2. Default deny. RFC-011 later
+  extends write access, for assistants, to routes beyond §5.2 (editing and
+  deleting tasks/notes/events/shopping items, meal planning, messaging the
+  screens, and Home Assistant actuation inside a catalogue) — superseding
+  this bullet for those routes.
 
 ---
 

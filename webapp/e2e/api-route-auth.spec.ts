@@ -40,6 +40,10 @@ const PRIVILEGED = [
   "upsertSecrets",
   "deleteSecrets",
   "getCaldavCredentials",
+  // OAuth storage for assistants (RFC-010) reaches the service-role client on
+  // the route's behalf, like the secrets helpers above.
+  "createOAuthStore",
+  "registerDcrClient",
 ];
 
 /**
@@ -88,6 +92,15 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   // A single boolean — "does any family exist here?" — asked by /join to tell
   // a fresh install from one with families, before any session can exist.
   "setup/status/route.ts": "one boolean, needed before a session can exist",
+
+  // OAuth for assistants (RFC-010). The assistant's browser tab has no
+  // session yet; this only validates and parks a 10-minute pending request.
+  // Approval happens in /api/oauth/consent, behind requireSession.
+  "oauth/authorize/route.ts": "validates and parks a pending request; grants nothing",
+  // RFC 7591 registration is anonymous by definition.
+  "oauth/register/route.ts": "rate-limited, writes one bounded row describing a client",
+  // The credential is in the body: code + PKCE verifier, or a refresh token.
+  "oauth/token/route.ts": "OAuth token endpoint; authenticates by code+verifier or refresh token",
 };
 
 /**
@@ -196,6 +209,20 @@ test("a route that still takes family_id checks it against the session", () => {
     // — the route never reads a family id out of the request, which is the
     // property this test is protecting.
     "integration-tokens/route.ts",
+    // Assistant consent (RFC-010 §3.5). The regex matches the local
+    // `familyId` variable the handler builds from `auth.session.familyId` and
+    // then threads through approve/deny, but the request itself carries only
+    // an opaque authorization-request id — never a family id to compare.
+    "oauth/consent/route.ts",
+    // The "Allow AI assistants" switch (RFC-010). The regex matches the
+    // `family_id` column it writes and the local `familyId`, both taken from
+    // auth.session.familyId; the request body carries only `enabled`.
+    "assistants/route.ts",
+    // Sensitive assistant actions awaiting a person (RFC-011 §4.3). The
+    // regex matches the local `familyId` destructured from auth.session; the
+    // request carries only a request id (path) and `{ decision, pin }`.
+    "assistant-actions/route.ts",
+    "assistant-actions/[id]/route.ts",
     // WebRTC signalling. Same shape: the request names a camera_id, and the
     // family it is looked up against comes from the session. Deliberately
     // given no family_id parameter — this route resolves a camera to an RTSP

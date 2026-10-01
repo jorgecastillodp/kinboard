@@ -24,13 +24,13 @@ export interface RecurringFields {
   created_at?: string | null;
 }
 
-/** Whole calendar days between two dates, in the viewer's timezone. */
-function calendarDaysBetween(from: Date, to: Date): number {
+/** Whole calendar days between two dates, in `timeZone` (the viewer's own without one). */
+function calendarDaysBetween(from: Date, to: Date, timeZone?: string | null): number {
   // Compare date keys rather than subtracting timestamps: a chore ticked at
   // 22:00 is due again the next morning, not at 22:00 the following night,
   // and the ms-based version also drifted by an hour across a DST change.
-  const [fy, fm, fd] = toLocalDateKey(from).split("-").map(Number);
-  const [ty, tm, td] = toLocalDateKey(to).split("-").map(Number);
+  const [fy, fm, fd] = dayKeyIn(from, timeZone).split("-").map(Number);
+  const [ty, tm, td] = dayKeyIn(to, timeZone).split("-").map(Number);
   const fromUtc = Date.UTC(fy, fm - 1, fd);
   const toUtc = Date.UTC(ty, tm - 1, td);
   return Math.round((toUtc - fromUtc) / 86_400_000);
@@ -78,6 +78,30 @@ export function formatRecurrenceDays(days: Iterable<number>): string | null {
   if (picked.size === 0) return null;
   if (picked.size === 7) return "daily";
   return DAYS_PREFIX + MONDAY_FIRST.filter((day) => picked.has(day)).map((day) => WEEKDAY_CODES[day]).join(",");
+}
+
+/** The interval recurrences, plus "once" for a task that does not repeat. */
+export const RECURRENCE_VALUES = ["once", "daily", "weekly", "biweekly", "monthly"] as const;
+
+/**
+ * A recurrence a caller sent, as it would be stored -- or null when it is not
+ * one Kinboard knows. Accepts the values the task form stores: "once",
+ * "daily", "weekly", "biweekly", "monthly", and "days:" with one or more
+ * weekday codes ("days:MO,WE,FR"). Codes are case-insensitive and stored the
+ * way the form stores them (formatRecurrenceDays: Monday first, all seven as
+ * "daily"). An empty "days:" or an unknown code is refused rather than
+ * dropped: a task that silently repeats on fewer days than asked for is worse
+ * than an error.
+ */
+export function parseRecurrence(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const v = value.trim();
+  if ((RECURRENCE_VALUES as readonly string[]).includes(v)) return v;
+  if (!v.startsWith(DAYS_PREFIX)) return null;
+  const codes = v.slice(DAYS_PREFIX.length).split(",").map((code) => code.trim().toUpperCase());
+  const days = codes.map((code) => (WEEKDAY_CODES as readonly string[]).indexOf(code));
+  if (days.length === 0 || days.some((day) => day < 0)) return null;
+  return formatRecurrenceDays(days);
 }
 
 /** A local date key ("YYYY-MM-DD") in `timeZone`, or in this runtime's own zone without one. */
@@ -162,11 +186,18 @@ export function isRecurring(todo: RecurringFields): boolean {
   return Boolean(todo.recurrence) && todo.recurrence !== "once";
 }
 
-/** True when a recurring task has come round again. */
-export function isRecurringTaskDue(todo: RecurringFields, now: Date = new Date()): boolean {
+/**
+ * True when a recurring task has come round again. `timeZone` decides what
+ * "today" is (a server passes the family's); without one, the runtime's own.
+ */
+export function isRecurringTaskDue(
+  todo: RecurringFields,
+  now: Date = new Date(),
+  timeZone?: string | null,
+): boolean {
   if (!isRecurring(todo)) return false;
   const weekdays = recurrenceWeekdays(todo.recurrence);
-  if (weekdays) return isWeekdayTaskDue(todo, weekdays, now);
+  if (weekdays) return isWeekdayTaskDue(todo, weekdays, now, timeZone);
   // Never done — due since it was created.
   if (!todo.last_completed) return true;
 
@@ -176,7 +207,7 @@ export function isRecurringTaskDue(todo: RecurringFields, now: Date = new Date()
   const interval = INTERVAL_DAYS[todo.recurrence as string];
   if (!interval) return false;
 
-  return calendarDaysBetween(lastCompleted, now) >= interval;
+  return calendarDaysBetween(lastCompleted, now, timeZone) >= interval;
 }
 
 const keyOf = (dayN: number): string => new Date(dayN * 86_400_000).toISOString().slice(0, 10);
@@ -244,8 +275,8 @@ export function recurringDueDayKeys(
  * A one-off is open until it is completed. A recurring one is open only when
  * it has come round again.
  */
-export function isTodoOpen(todo: RecurringFields, now: Date = new Date()): boolean {
+export function isTodoOpen(todo: RecurringFields, now: Date = new Date(), timeZone?: string | null): boolean {
   if (todo.completed) return false;
-  if (isRecurring(todo)) return isRecurringTaskDue(todo, now);
+  if (isRecurring(todo)) return isRecurringTaskDue(todo, now, timeZone);
   return true;
 }

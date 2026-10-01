@@ -9,6 +9,9 @@ import {
   storeResult,
   validateIdempotencyKey,
 } from "@/lib/integration-idempotency";
+import { addShoppingItemFromText } from "@/lib/shopping-enrich";
+import { createServiceTask } from "@/lib/integration-tasks";
+import { addPocketMoneyService } from "@/lib/pocket-money/service";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +31,8 @@ export const dynamic = "force-dynamic";
 type Handler = (args: {
   familyId: string;
   body: Record<string, unknown>;
+  /** An OAuth-issued (assistant) token, not one made by hand in Settings. */
+  assistant: boolean;
   // The service-role client, passed in rather than created in each handler so
   // a spec can hand the real handler a recording stand-in and send it exactly
   // what Home Assistant sends. Untyped, like the admin client everywhere else.
@@ -49,64 +54,29 @@ function text(value: unknown, max = 500): string | null {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function optionalText(value: unknown, max = 500): string | null | undefined {
-  if (value === undefined || value === null) return undefined;
-  return text(value, max);
-}
-
-const SERVICES: Record<string, ServiceDef> = {
+/** Exported for the spec, which calls a service's handler directly. */
+export const SERVICES: Record<string, ServiceDef> = {
   add_shopping_item: {
     scope: "shopping:write",
-    handle: async ({ familyId, body, db }) => {
+    handle: async ({ familyId, body }) => {
       const name = text(body.name, 200);
       if (!name) {
         return { status: 400, response: { error: "`name` is required", code: "invalid_request" } };
       }
 
-      const { data, error } = await db
-        .from("shopping_items")
-        .insert({ family_id: familyId, name })
-        .select("id")
-        .single();
-
-      if (error) throw error;
-      return { status: 201, response: { id: data.id, name } };
+      // Parsed, categorised, pictured and pushed to Bring! the way the
+      // shopping page does it (lib/shopping-enrich.ts); `name` in the answer
+      // is the name as stored.
+      const { id, item } = await addShoppingItemFromText(familyId, name);
+      return { status: 201, response: { id, name: item.name } };
     },
   },
 
   create_task: {
     scope: "tasks:write",
-    handle: async ({ familyId, body, db }) => {
-      const title = text(body.title, 300);
-      if (!title) {
-        return { status: 400, response: { error: "`title` is required", code: "invalid_request" } };
-      }
-
-      // due_at in the contract is a date for a to-do; the column is a date.
-      const due = optionalText(body.due_at, 40);
-      const dueDate = due ? due.slice(0, 10) : null;
-      if (due !== undefined && due !== null && !/^\d{4}-\d{2}-\d{2}/.test(due)) {
-        return {
-          status: 400,
-          response: { error: "`due_at` must start with YYYY-MM-DD", code: "invalid_request" },
-        };
-      }
-
-      const { data, error } = await db
-        .from("todos")
-        .insert({
-          family_id: familyId,
-          title,
-          completed: false,
-          ...(dueDate ? { due_date: dueDate } : {}),
-          ...(typeof body.person_id === "string" ? { person_id: body.person_id } : {}),
-        })
-        .select("id")
-        .single();
-
-      if (error) throw error;
-      return { status: 201, response: { id: data.id, title } };
-    },
+    // A string person_id must name a person of this family; see
+    // createServiceTask for why the contract's other fields are unchanged.
+    handle: ({ familyId, body, db }) => createServiceTask(db, familyId, body),
   },
 
   create_note: {
@@ -129,112 +99,13 @@ const SERVICES: Record<string, ServiceDef> = {
   },
 
   /**
-   * Money, so it follows the app's own deposit path rather than inventing a
-   * second one: insert a transaction AND move the balance, and bump
-   * lifetime_saved_cents only for genuine earnings, because that field drives
-   * the child's avatar tier. A service that only wrote the transaction would
-   * leave the balance stale and the avatar wrong, and nothing would complain.
+   * RFC-001's pocket-money service, for Home Assistant: books at once.
+   * Assistants (OAuth-issued tokens) are refused — lib/pocket-money/service.ts.
    */
   add_pocket_money: {
     scope: "tasks:write",
-    handle: async ({ familyId, body, db }) => {
-      // RFC-001 §5.2 names the arguments `person_id, amount, reason`, and that
-      // is what the Home Assistant component sends. This handler first shipped
-      // reading `person` (a name) and `note`, so every call from Home Assistant
-      // was a 400. The RFC names come first; the old ones stay accepted for
-      // anything already written against them.
-      const personId = text(body.person_id, 100);
-      const personName = personId ? null : text(body.person, 200);
-      const amount = typeof body.amount === "number" ? body.amount : null;
-      if (
-        (!personId && !personName) ||
-        amount === null ||
-        !Number.isFinite(amount) ||
-        amount === 0
-      ) {
-        return {
-          status: 400,
-          response: {
-            error: "`person_id` (or `person`, a name) and a non-zero `amount` are required",
-            code: "invalid_request",
-          },
-        };
-      }
-      // Currency units in, cents stored. An automation saying `amount: 2.50`
-      // means €2.50; making callers send 250 would guarantee somebody one day
-      // credits a child two hundred and fifty euros.
-      const cents = Math.round(amount * 100);
-
-      const { data: people } = await db
-        .from("people")
-        .select("id, name")
-        .eq("family_id", familyId)
-        .is("deleted_at", null);
-
-      // Matching against this family's living people is the family check for
-      // `person_id` as well as the lookup for `person`: an id from another
-      // family, or of someone in the recycle bin, is simply not in the list.
-      const candidates = (people ?? []) as { id: string; name: string }[];
-      const match = personId
-        ? candidates.find((candidate) => candidate.id === personId)
-        : candidates.find(
-            (candidate) => candidate.name.toLowerCase() === personName!.toLowerCase()
-          );
-      if (!match) {
-        return {
-          status: 404,
-          response: {
-            error: personId ? `No person with id ${personId}` : `No person called ${personName}`,
-            code: "not_found",
-          },
-        };
-      }
-
-      const { data: account } = await db
-        .from("pocket_money_accounts")
-        .select("id, balance_cents, lifetime_saved_cents")
-        .eq("family_id", familyId)
-        .eq("person_id", match.id)
-        .maybeSingle();
-      if (!account) {
-        return {
-          status: 404,
-          response: { error: `${match.name} has no pocket money account`, code: "not_found" },
-        };
-      }
-
-      const newBalance = account.balance_cents + cents;
-      if (newBalance < 0) {
-        return { status: 400, response: { error: "insufficient_funds", code: "invalid_request" } };
-      }
-
-      const type = cents > 0 ? "manual_deposit" : "withdrawal";
-      const { error: txnError } = await db
-        .from("pocket_money_transactions")
-        .insert({
-          account_id: account.id,
-          amount_cents: cents,
-          type,
-          note: text(body.reason, 200) ?? text(body.note, 200) ?? "Home Assistant",
-        });
-      if (txnError) {
-        return { status: 500, response: { error: "Could not record the transaction" } };
-      }
-
-      const update: Record<string, number> = { balance_cents: newBalance };
-      if (cents > 0) {
-        update.lifetime_saved_cents = (account.lifetime_saved_cents ?? 0) + cents;
-      }
-      await db
-        .from("pocket_money_accounts")
-        .update(update)
-        .eq("id", account.id);
-
-      return {
-        status: 201,
-        response: { person_id: match.id, person: match.name, amount, balance: newBalance / 100 },
-      };
-    },
+    handle: ({ familyId, body, assistant, db }) =>
+      addPocketMoneyService({ familyId, body, assistant }, db),
   },
 
   /**
@@ -414,6 +285,7 @@ export async function POST(
       const result = await def.handle({
         familyId: context.familyId,
         body,
+        assistant: context.assistant,
         db: createAdminClient(),
       });
 

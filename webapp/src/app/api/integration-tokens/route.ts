@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/require-session";
+import { requireSettingsUnlock } from "@/lib/settings-pin";
 import { createAdminClient } from "@/lib/supabase/server";
 import { logApiError } from "@/lib/api-error";
 import {
@@ -34,6 +35,7 @@ interface TokenRow {
   last_used_at: string | null;
   expires_at: string | null;
   revoked_at: string | null;
+  oauth_client_id: string | null;
 }
 
 export async function GET(request: NextRequest) {
@@ -44,7 +46,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await (supabase as any)
     .from("integration_tokens")
-    .select("id, name, scopes, created_at, last_used_at, expires_at, revoked_at")
+    .select("id, name, scopes, created_at, last_used_at, expires_at, revoked_at, oauth_client_id")
     .eq("family_id", session.session.familyId)
     .order("created_at", { ascending: false });
 
@@ -66,6 +68,19 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await requireSession(request);
   if (!session.ok) return session.response;
+
+  // Both verbs are settings changes a PIN protects: creating a token hands
+  // the family's data to a machine, and revoking one can break Home
+  // Assistant. A session alone is any joined device; the unlock is a device
+  // that entered the PIN in the last 15 minutes (lib/settings-pin.ts).
+  let locked: NextResponse | null;
+  try {
+    locked = await requireSettingsUnlock(session.session);
+  } catch (err) {
+    await logApiError("integration-tokens/pin", err);
+    return NextResponse.json({ error: "Could not check the settings PIN" }, { status: 500 });
+  }
+  if (locked) return locked;
 
   const familyId = session.session.familyId;
   let body: Record<string, unknown>;
@@ -115,7 +130,7 @@ export async function POST(request: NextRequest) {
   const { data, error } = await (supabase as any)
     .from("integration_tokens")
     .insert({ family_id: familyId, name, token_hash: hash, scopes })
-    .select("id, name, scopes, created_at, last_used_at, expires_at, revoked_at")
+    .select("id, name, scopes, created_at, last_used_at, expires_at, revoked_at, oauth_client_id")
     .single();
 
   if (error) {

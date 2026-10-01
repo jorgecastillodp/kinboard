@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { KeyRound, Copy, Check, Ban } from "lucide-react";
+import { useState, useEffect } from "react";
+import { KeyRound, Copy, Check, Ban, Bot } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -11,9 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { ConfirmDestructive } from "@/components/confirm-destructive";
+import { isPinRequired, relockSettings } from "@/lib/pin-session";
 
 interface TokenRow {
   id: string;
@@ -23,6 +25,7 @@ interface TokenRow {
   last_used_at: string | null;
   expires_at: string | null;
   revoked_at: string | null;
+  oauth_client_id: string | null;
 }
 
 /**
@@ -44,6 +47,11 @@ export default function IntegrationsPage() {
   const [scopes, setScopes] = useState<string[]>(["family:read"]);
   const [secret, setSecret] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [mcpUrl, setMcpUrl] = useState("/api/mcp");
+
+  useEffect(() => {
+    setMcpUrl(`${window.location.origin}/api/mcp`);
+  }, []);
 
   const { data, isPending, isError, refetch } = useQuery({
     queryKey: ["integration-tokens"],
@@ -61,10 +69,17 @@ export default function IntegrationsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, scopes }),
       });
+      // The server wants the PIN again (RFC-010 §3.5): PinGuard re-prompts
+      // and says why, so this is not an error to toast as well.
+      if (await isPinRequired(r)) {
+        relockSettings();
+        return null;
+      }
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`);
       return (await r.json()) as { secret: string };
     },
     onSuccess: (result) => {
+      if (!result) return;
       setSecret(result.secret);
       setName("");
       void qc.invalidateQueries({ queryKey: ["integration-tokens"] });
@@ -79,13 +94,55 @@ export default function IntegrationsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "revoke", id }),
       });
+      if (await isPinRequired(r)) {
+        relockSettings();
+        return false;
+      }
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return true;
     },
-    onSuccess: () => {
+    onSuccess: (done) => {
+      if (!done) return;
       toast.success(t("revoked"));
       void qc.invalidateQueries({ queryKey: ["integration-tokens"] });
     },
     onError: () => toast.error(t("revokeFailed")),
+  });
+
+  // "Allow AI assistants" (RFC-010), off by default. While it is off the
+  // OAuth and MCP routes answer 404, so the address below would only lead
+  // to an error — it is hidden rather than offered.
+  const assistants = useQuery({
+    queryKey: ["assistants-enabled"],
+    queryFn: async () => {
+      const r = await fetch("/api/assistants");
+      if (!r.ok) throw new Error(`assistants: ${r.status}`);
+      return (await r.json()) as { enabled: boolean };
+    },
+  });
+  const assistantsEnabled = assistants.data?.enabled === true;
+
+  const setAssistants = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const r = await fetch("/api/assistants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      if (await isPinRequired(r)) {
+        relockSettings();
+        return null;
+      }
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return (await r.json()) as { enabled: boolean };
+    },
+    onSuccess: (result) => {
+      if (!result) return;
+      qc.setQueryData(["assistants-enabled"], result);
+      // Switching off revoked every assistant connection; show that.
+      void qc.invalidateQueries({ queryKey: ["integration-tokens"] });
+    },
+    onError: () => toast.error(t("assistantsToggleFailed")),
   });
 
   const toggleScope = (scope: string) =>
@@ -99,6 +156,15 @@ export default function IntegrationsPage() {
       await navigator.clipboard.writeText(secret);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error(t("copyFailed"));
+    }
+  };
+
+  const copyMcpUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(mcpUrl);
+      toast.success(t("copied"));
     } catch {
       toast.error(t("copyFailed"));
     }
@@ -138,6 +204,41 @@ export default function IntegrationsPage() {
           </Button>
         </Card>
       )}
+
+      <Card className="mb-8 p-6">
+        <div className="mb-3 flex items-center justify-between gap-4">
+          <h2 className="font-semibold">{t("assistantsHeading")}</h2>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="assistants-enabled" className="text-sm font-normal">{t("assistantsToggle")}</Label>
+            <Switch
+              id="assistants-enabled"
+              checked={assistantsEnabled}
+              disabled={assistants.isPending || assistants.isError || setAssistants.isPending}
+              onCheckedChange={(v) => setAssistants.mutate(v)}
+            />
+          </div>
+        </div>
+        {assistantsEnabled ? (
+          <>
+            <p className="mb-3 text-sm text-muted-foreground">{t("assistantsBody")}</p>
+            <div className="flex items-center gap-2">
+              <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1.5 text-sm">{mcpUrl}</code>
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label={t("copyMcpUrl")}
+                onClick={() => void copyMcpUrl()}
+              >
+                <Copy className="size-4" />
+              </Button>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">{t("assistantsReachability")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("assistantsOffHint")}</p>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">{t("assistantsOff")}</p>
+        )}
+      </Card>
 
       <Card className="mb-8 p-6">
         <h2 className="mb-4 font-semibold">{t("createHeading")}</h2>
@@ -208,6 +309,12 @@ export default function IntegrationsPage() {
                     {token.name}
                     {revoked && (
                       <span className="ml-2 text-xs text-muted-foreground">{t("revokedBadge")}</span>
+                    )}
+                    {token.oauth_client_id && (
+                      <span className="ml-2 inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                        <Bot className="size-3" aria-hidden />
+                        {t("assistantBadge")}
+                      </span>
                     )}
                   </p>
                   <p className="mt-1 flex flex-wrap gap-1">

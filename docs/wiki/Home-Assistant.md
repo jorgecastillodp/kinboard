@@ -118,6 +118,15 @@ write at all.
 | `tasks:write` | the task to-do list |
 | `notes:write` | creating notes |
 
+Three more exist for AI assistants connected through Kinboard's
+[built-in MCP endpoint](https://github.com/svenger87/kinboard/wiki/AI-Assistants);
+Home Assistant needs none of them: `notes:read` (reading notes),
+`calendar:write` (creating calendar events) and `energy:read` (the configured energy
+sensors — solar, battery, grid, consumption). A further three exist for the same assistants to edit family
+data and control the home: `meals:write` (the meal plan), `home:read`
+(listing catalogue devices and their state) and `home:control` (running an
+allowed action on one). Home Assistant needs none of these either.
+
 A token can be revoked on its own, at any time, without disturbing the others.
 Revoking keeps the row so you can still see what it was and when it was last
 used — which is exactly what you want to know *after* revoking something.
@@ -125,7 +134,7 @@ used — which is exactly what you want to know *after* revoking something.
 ## What Home Assistant gets
 
 - **Sensors** — the next appointment, whose birthday is next, which children
-  have school tomorrow, what's for dinner today and tomorrow, open and overdue
+  have school tomorrow (nobody during school holidays or at the weekend), what's for dinner today and tomorrow, open and overdue
   tasks, shopping items, and each child's pocket money.
 - **A calendar** — `calendar.kinboard_family`, including events that merely
   overlap the window being viewed, so a week's holiday appears on every day of

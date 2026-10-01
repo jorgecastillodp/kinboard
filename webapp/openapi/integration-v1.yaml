@@ -45,6 +45,7 @@ tags:
   - name: state
   - name: events
   - name: services
+  - name: home
 
 paths:
   /info:
@@ -117,6 +118,1454 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "429": { $ref: "#/components/responses/RateLimited" }
 
+  /energy/current:
+    get:
+      tags: [state]
+      summary: Read every sensor selected in Kinboard's energy settings
+      description: |
+        Returns the household energy sensors configured in Kinboard's energy
+        settings — power, energy today and battery charge — and nothing else.
+        No Home Assistant entity ID may be supplied by a client: IDs come only
+        from the settings, and only `sensor.*` IDs are read; a slot set to any
+        other entity is treated as unset. One `GET /api/states` is filtered
+        down to the configured IDs.
+
+        Keys are the energy settings' field names. A reading is null when its
+        slot is not configured or Home Assistant does not report the sensor;
+        `value` is null when the sensor reports `unavailable`, `unknown` or
+        anything non-numeric. Units are returned exactly as Home Assistant
+        reports them. A combined `battery_power` is positive while charging, a
+        combined `grid_power` positive while importing.
+
+        `solar_power` and `solar_energy_today` at the top level are the
+        original solar-only response, kept unchanged (with `entity_id`) for
+        existing clients; the same readings also appear under `power` and
+        `energy_today`.
+      x-required-scope: energy:read
+      responses:
+        "200":
+          description: Current energy measurements
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [solar_power, solar_energy_today, power, energy_today, battery_soc, fetched_at]
+                properties:
+                  solar_power: { $ref: "#/components/schemas/EnergyReading" }
+                  solar_energy_today: { $ref: "#/components/schemas/EnergyReading" }
+                  power:
+                    type: object
+                    description: Power sensors, as Home Assistant reports them (usually W or kW).
+                    required: [solar_power, battery_power, battery_charge_power, battery_discharge_power, grid_power, grid_import_power, grid_export_power, grid_to_battery_power, home_consumption]
+                    properties:
+                      solar_power: { $ref: "#/components/schemas/EnergySensorReading" }
+                      battery_power: { $ref: "#/components/schemas/EnergySensorReading" }
+                      battery_charge_power: { $ref: "#/components/schemas/EnergySensorReading" }
+                      battery_discharge_power: { $ref: "#/components/schemas/EnergySensorReading" }
+                      grid_power: { $ref: "#/components/schemas/EnergySensorReading" }
+                      grid_import_power: { $ref: "#/components/schemas/EnergySensorReading" }
+                      grid_export_power: { $ref: "#/components/schemas/EnergySensorReading" }
+                      grid_to_battery_power: { $ref: "#/components/schemas/EnergySensorReading" }
+                      home_consumption: { $ref: "#/components/schemas/EnergySensorReading" }
+                  energy_today:
+                    type: object
+                    description: Energy so far today (usually kWh).
+                    required: [solar_energy_today, battery_energy_in, battery_energy_out, grid_import, grid_export, grid_to_battery_energy]
+                    properties:
+                      solar_energy_today: { $ref: "#/components/schemas/EnergySensorReading" }
+                      battery_energy_in: { $ref: "#/components/schemas/EnergySensorReading" }
+                      battery_energy_out: { $ref: "#/components/schemas/EnergySensorReading" }
+                      grid_import: { $ref: "#/components/schemas/EnergySensorReading" }
+                      grid_export: { $ref: "#/components/schemas/EnergySensorReading" }
+                      grid_to_battery_energy: { $ref: "#/components/schemas/EnergySensorReading" }
+                  battery_soc:
+                    $ref: "#/components/schemas/EnergySensorReading"
+                  fetched_at: { type: string, format: date-time }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "404": { description: "Energy, or every one of its sensors, is not configured. Retrying will not help until they are." }
+        "502": { description: Home Assistant could not be reached. }
+
+  /home/devices:
+    get:
+      tags: [home]
+      summary: List the Home Assistant devices in the family's catalogue
+      description: |
+        Catalogue only (RFC-011 §4.1): an entity appears here only if the
+        household added it to its Kinboard catalogue. Nothing else in Home
+        Assistant can be seen or controlled through this API.
+
+        Each device carries its live state, a fixed whitelist of attributes
+        (never camera URLs, lock code formats, locations or other attributes)
+        and `allowed_actions` — the only services
+        `POST /home/devices/{entity}/actions` accepts for it, each marked
+        `sensitive` when a family member must confirm it first. A cover's
+        sensitivity follows its `device_class` as Home Assistant reports it
+        now. A catalogue device Home Assistant does not report has
+        `state: null`.
+      x-required-scope: home:read
+      responses:
+        "200":
+          description: Catalogue devices, in the household's display order
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [devices]
+                properties:
+                  devices:
+                    type: array
+                    items: { $ref: "#/components/schemas/HomeDevice" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "502": { description: Home Assistant could not be reached or answered with an error. }
+        "503": { description: "Home Assistant is not connected to Kinboard, or the catalogue could not be read." }
+
+  /home/devices/{entity}:
+    get:
+      tags: [home]
+      summary: Read one catalogue device
+      description: |
+        `entity` is a Home Assistant entity id (`light.kitchen`). A malformed
+        id, an entity outside this family's catalogue and one that does not
+        exist all answer the same `404`.
+      x-required-scope: home:read
+      parameters:
+        - $ref: "#/components/parameters/Entity"
+      responses:
+        "200":
+          description: The device
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [device]
+                properties:
+                  device: { $ref: "#/components/schemas/HomeDevice" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such device in this family's catalogue. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "502": { description: Home Assistant could not be reached or answered with an error. }
+        "503": { description: "Home Assistant is not connected to Kinboard, or the catalogue could not be read." }
+
+  /home/devices/{entity}/actions:
+    post:
+      tags: [home]
+      summary: Run an allowed action on a catalogue device
+      description: |
+        RFC-011 §4. Fails closed at every step:
+
+        1. The entity must be in this family's catalogue, else `404`.
+        2. `service` must be in the per-domain allowlist and `data` must
+           hold only the keys that service takes, each in range; targeting
+           keys (`entity_id`, `area_id`, …) and `code` are always refused.
+           Otherwise `400` with `reason` `not_allowed` or `invalid_data`,
+           and Home Assistant is not contacted.
+        3. The entity's state is read live. If it cannot be read — Home
+           Assistant not connected, unreachable, or not reporting the entity
+           — nothing runs: `503`.
+        4. Sensitivity is decided with the `device_class` Home Assistant
+           reports now; a `device_class` in the request is ignored.
+           Sensitive: locks, alarm panels, scripts, buttons, sirens, lawn
+           mowers, and every cover whose class is not awning, blind,
+           curtain, damper, shade or shutter (including none).
+        5. Not sensitive: Home Assistant is called once, `200`. Sensitive:
+           it waits for a family member to confirm with the settings PIN on
+           a Kinboard screen — `202 pending_confirmation`, with a
+           `request_id` to follow at `GET /actions/{id}` (or `GET /home/actions/{id}`). It runs, as
+           stored, only once approved; deny, expiry (2 minutes) or revoking
+           the assistant end it without running anything.
+
+        Every action that runs is recorded against the calling token.
+
+        Only `200` and `202` are remembered against the Idempotency-Key; the
+        key is bound to the entity as well as the body.
+      x-required-scope: home:control
+      parameters:
+        - $ref: "#/components/parameters/Entity"
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [service]
+              properties:
+                service:
+                  type: string
+                  pattern: "^[a-z_]+$"
+                  description: A bare service name from the device's `allowed_actions`, e.g. `turn_on`. The domain is the entity's own.
+                data:
+                  type: object
+                  description: "Service data, e.g. `{\"brightness_pct\": 40}` for `light.turn_on`. Never `entity_id` or `code`."
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Home Assistant ran the action
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [done] }
+        "202":
+          description: Sensitive — stored until a family member confirms it on a Kinboard screen with the settings PIN, or it expires
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, request_id, expires_at]
+                properties:
+                  status: { type: string, enum: [pending_confirmation] }
+                  request_id: { type: string }
+                  expires_at: { type: string, format: date-time }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { description: "Sensitive, and the family has no settings PIN, so nobody could allow it (`reason: pin_required`). Nothing was done." }
+        "404": { description: No such device in this family's catalogue. }
+        "409": { description: Idempotency key reused with different arguments. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "502": { description: "Home Assistant did not confirm the action. It may or may not have happened." }
+        "503": { description: "Home Assistant is not connected, or the device's state could not be read. Nothing was done." }
+
+  /home/actions/{id}:
+    get:
+      tags: [home]
+      summary: The outcome of a sensitive action this assistant asked for
+      description: |
+        A `request_id` from a `202 pending_confirmation`. Only the calling
+        token's own requests are visible; any other id, including another
+        assistant's in the same family, is `404`.
+
+        `status`: `pending` (waiting for a family member), `approved`
+        (allowed, running), `done`, `failed` (Home Assistant did not confirm
+        it — it may or may not have happened), `denied` (refused, or the
+        assistant was revoked) or `expired` (nobody answered within two
+        minutes). Only `approved` → `done`/`failed` ran anything. `result`
+        holds Home Assistant's HTTP status once it ran (`0`: no answer), and
+        a `reason` when it failed without reaching Home Assistant or with an
+        unknown outcome.
+      x-required-scope: home:control
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The request
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [action]
+                properties:
+                  action: { $ref: "#/components/schemas/HomeActionRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such request of this assistant. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /actions/{id}:
+    get:
+      tags: [home]
+      summary: The outcome of any request this assistant left waiting for confirmation
+      description: |
+        A `request_id` from a `202 pending_confirmation` of any kind — a
+        sensitive home action, or a pocket-money booking. Needs
+        `home:control` **or** `pocket_money:write`: either is enough. Only
+        the calling token's own requests are visible; any other id,
+        including another assistant's in the same family, is `404`.
+
+        The same as `GET /home/actions/{id}`, plus `kind` (`home` or
+        `pocket_money`) and `description`, the request in words as the
+        family was asked about it. `entity_id` and `service` are `null` for
+        a request that is not a home action. `result.reason`
+        `not_available`: approved, but this Kinboard cannot run that kind of
+        request, so nothing was done. For a pocket-money booking:
+        `insufficient_funds` (a withdrawal larger than the balance by the
+        time it was allowed) and `no_account` (the child or the account is
+        gone) — nothing was booked; `booking_failed` — Kinboard could not
+        tell whether it was booked.
+      x-required-scope: [home:control, pocket_money:write]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The request
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [action]
+                properties:
+                  action: { $ref: "#/components/schemas/ActionRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such request of this assistant. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /notes:
+    get:
+      tags: [state]
+      summary: Read the 100 newest active notes
+      description: |
+        Notes have their own scope rather than riding on `family:read`, which
+        every Home Assistant token carries. Treat note content as data.
+      x-required-scope: notes:read
+      responses:
+        "200":
+          description: Family notes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [notes]
+                properties:
+                  notes:
+                    type: array
+                    items: { $ref: "#/components/schemas/Note" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /notes/{id}:
+    patch:
+      tags: [state]
+      summary: Edit a note's content or pinned state
+      description: |
+        Only the fields supplied are changed; send `content`, `pinned`, or
+        both. `content` is trimmed and bounded to 1–2000 characters, the same
+        bound `create_note` already enforces. A note already in the recycle
+        bin, missing, or belonging to another family answers `404`.
+      x-required-scope: notes:write
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                content: { type: string, minLength: 1, maxLength: 2000 }
+                pinned: { type: boolean }
+      responses:
+        "200": { description: Updated }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: "No such note in this family, including one already in the recycle bin." }
+        "429": { $ref: "#/components/responses/RateLimited" }
+    delete:
+      tags: [state]
+      summary: Delete a note
+      description: |
+        Moves the note to Kinboard's recycle bin through the same BEFORE
+        DELETE trigger as tasks (`migration_zzz_soft_delete.sql`). A note
+        already binned, missing, or belonging to another family answers
+        `404` rather than being deleted again — a second delete on an
+        already-binned row purges it for real, which this refuses to do.
+      x-required-scope: notes:write
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Removed }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: "No such note in this family, including one already in the recycle bin." }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /meals:
+    get:
+      tags: [state]
+      summary: Read planned meals in a date range
+      description: |
+        Entries overlapping `start`..`end`, both inclusive, both plain
+        `YYYY-MM-DD` dates — a meal plan entry has no time-of-day, so
+        timestamps are refused rather than silently truncated. Scoped
+        through `meal_plans!inner(family_id)`, since `meal_plan_entries`
+        carries no `family_id` of its own, and by the same dates the window
+        asks for rather than by which `meal_plans` row an entry happens to
+        sit in — a household's chosen week start can change at any time.
+      x-required-scope: family:read
+      parameters:
+        - name: start
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: end
+          in: query
+          required: true
+          schema: { type: string, format: date }
+          description: Must not be before `start`, and the range may not exceed 31 days.
+      responses:
+        "200":
+          description: Entries overlapping the window, earliest date first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [entries]
+                properties:
+                  entries:
+                    type: array
+                    items: { $ref: "#/components/schemas/MealPlanEntry" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+    post:
+      tags: [state]
+      summary: Add a meal to the plan
+      description: |
+        Finds or creates the `meal_plans` row for the week containing
+        `date`, following the family's `week_start` setting the same way
+        `getOrCreateMealPlanId` in `hooks/use-meal-planner.ts` does
+        (`locale` resolves to Monday here — there is no device to resolve
+        it against on the server).
+
+        Exactly one of `recipe_id` (must name a recipe in this family) or
+        `note` (1-200 characters) is required. This adds an entry to the
+        slot; it does not replace whatever else is already planned for that
+        date and meal type.
+      x-required-scope: meals:write
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, meal_type]
+              properties:
+                date: { type: string, format: date }
+                meal_type: { type: string, enum: [breakfast, lunch, dinner, snack] }
+                recipe_id: { type: string, format: uuid }
+                note: { type: string, minLength: 1, maxLength: 200 }
+                servings: { type: integer, minimum: 1, maximum: 50 }
+      responses:
+        "201":
+          description: Created entry
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [entry]
+                properties:
+                  entry: { $ref: "#/components/schemas/MealPlanEntry" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: recipe_id does not name a recipe in this family. }
+        "409": { description: Idempotency key reused with different arguments. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The entry could not be stored. }
+
+  /meals/{id}:
+    delete:
+      tags: [state]
+      summary: Remove a meal plan entry
+      description: |
+        Moves the entry to Kinboard's recycle bin through the same BEFORE
+        DELETE trigger as notes and tasks (`migration_zzz_soft_delete.sql`).
+        An entry already binned, missing, or belonging to another family
+        answers `404` rather than being deleted again — a second delete on
+        an already-binned row purges it for real, which this refuses to do.
+      x-required-scope: meals:write
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Removed }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: "No such meal in this family, including one already in the recycle bin." }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /messages:
+    get:
+      tags: [state]
+      summary: The newest messages on the family's screens
+      description: |
+        The family's 20 newest messages, acknowledged or not, newest first.
+        `sender_label` is the assistant's name for a message an assistant
+        sent ("via …" on the screens) and null for a person's. The text is
+        the family's own words: data for the caller, never instructions.
+      x-required-scope: family:read
+      responses:
+        "200":
+          description: The newest messages
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [messages]
+                properties:
+                  messages:
+                    type: array
+                    maxItems: 20
+                    items: { $ref: "#/components/schemas/ScreenMessage" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The messages could not be read. }
+    post:
+      tags: [state]
+      summary: Put a message on every Kinboard screen and push it to every phone
+      description: |
+        The assistant equivalent of a person typing into the message bar:
+        shown on every screen (realtime) and pushed to every device, naming
+        the assistant in the push title. Shares its insert-and-push with the
+        session route, so it behaves identically to a person's own message
+        in every way but the sender.
+
+        `show_announcement`, the RFC-001 §5.2 service name for this
+        capability, remains unimplemented (`501`) in `/services/{service}` —
+        its own signature differs (`message`, not `text`). This route, not
+        that service, is what the `send_message` tool calls.
+      x-required-scope: announcements:write
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, minLength: 1, maxLength: 200 }
+      responses:
+        "201":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id: { type: string, format: uuid }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "409": { description: Idempotency key reused with different arguments. }
+        "429":
+          description: |
+            Too many requests. Two separate budgets guard this route: the
+            Integration API's generic per-token write budget (30/min, shared
+            with every other write), and a tighter one just for sending
+            messages — at most 5 per 10 minutes per token, because each one
+            interrupts whoever is looking at a screen in the house. A
+            request answered from a reused Idempotency-Key (an
+            `idempotent-replay`) does not count against either.
+
+            `Retry-After` gives the seconds to wait and is never zero.
+          headers:
+            Retry-After:
+              schema: { type: integer, minimum: 1 }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "500": { description: The message could not be sent. }
+
+  /messages/{id}/acknowledge:
+    post:
+      tags: [state]
+      summary: Acknowledge a screen message ("Got it")
+      description: |
+        Writes the same columns as tapping "Got it" on a screen, so the
+        message leaves every screen over realtime. The first
+        acknowledgement wins: a message already acknowledged — on a screen
+        or by another token — is answered `200` with that acknowledgement
+        unchanged and `already_acknowledged: true`. Not a create, so no
+        Idempotency-Key, and it does not spend the assistant edit/delete
+        budget (only the generic write budget). A message that is missing or belongs to another family answers `404`.
+      x-required-scope: announcements:write
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Acknowledged, now or already
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message, already_acknowledged]
+                properties:
+                  message: { $ref: "#/components/schemas/ScreenMessage" }
+                  already_acknowledged: { type: boolean }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: "No such message in this family." }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The message could not be acknowledged. }
+
+  /vehicles:
+    get:
+      tags: [state]
+      summary: Read the family's cars - charge level, range and charging status
+      description: |
+        One entry per vehicle in Kinboard, read live from the Home Assistant
+        entities its settings name - the same readings the Vehicles page
+        shows. Numbers are finite or null; units are returned as Home
+        Assistant reports them (no conversion), except `charger_power_kw`,
+        which is converted from W. `observed_at` is when Home Assistant last
+        updated the battery reading, so a value may be a few minutes old.
+
+        Never a location: a configured device tracker and the car's
+        home/driving state are presence data and are not read at all.
+
+        Home Assistant failing does not fail the request: each affected car
+        comes back `available: false` with a `reason`.
+      x-required-scope: vehicles:read
+      responses:
+        "200":
+          description: The family's vehicles
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [vehicles, fetched_at]
+                properties:
+                  vehicles:
+                    type: array
+                    items: { $ref: "#/components/schemas/VehicleStatus" }
+                  fetched_at: { type: string, format: date-time }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /recipes:
+    get:
+      tags: [state]
+      summary: Find the family's recipes
+      description: |
+        The family's own saved recipes, never binned ones; there is no
+        external recipe search. `query` matches the title or any tag name,
+        `tag` a whole tag name, both case-insensitively. Favourites first,
+        then by title.
+      x-required-scope: family:read
+      parameters:
+        - name: query
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - name: tag
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        "200":
+          description: Matching recipes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [recipes]
+                properties:
+                  recipes:
+                    type: array
+                    items: { $ref: "#/components/schemas/RecipeSummary" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /recipes/{id}:
+    get:
+      tags: [state]
+      summary: Read one recipe
+      description: |
+        Ingredients in their sort order, each with the `id` that
+        `POST /recipes/{id}/shopping` takes, and the instructions as plain
+        steps. Another family's recipe and a binned one are both not found.
+      x-required-scope: family:read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The recipe
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [recipe]
+                properties:
+                  recipe: { $ref: "#/components/schemas/RecipeDetail" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such recipe in this family. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /recipes/{id}/shopping:
+    post:
+      tags: [state]
+      summary: Put a recipe's ingredients on the shopping list
+      description: |
+        What the recipe page's "add to shopping list" does: quantities are
+        scaled by `servings` over the recipe's servings (an ingredient with
+        no quantity stays without one), each item gets the catalogue's
+        category, picture and catalogue id where one matches (else the
+        ingredient's own category, else `sonstiges`), and every item carries
+        the recipe's id. `ingredient_ids` limits the add to those
+        ingredients; an id that is not in this recipe is refused and nothing
+        is added. With Bring! two-way sync on, each item is also put on the
+        family's Bring! list; the catalogue or Bring! failing never fails
+        the add. Every call adds new items. No body means every ingredient
+        at the recipe's servings; a body that is not a JSON object is
+        refused (400) and nothing is added.
+      x-required-scope: shopping:write
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                servings: { type: integer, minimum: 1, maximum: 50 }
+                ingredient_ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 200
+                  items: { type: string, format: uuid }
+      responses:
+        "201":
+          description: The items added, in the recipe's order
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [added]
+                properties:
+                  added:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, quantity, unit]
+                      properties:
+                        id: { type: string, format: uuid }
+                        name: { type: string }
+                        quantity: { type: [number, "null"] }
+                        unit: { type: [string, "null"] }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such recipe in this family. }
+        "409": { description: Idempotency key reused with different arguments. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The items could not be stored. }
+
+  /timers:
+    get:
+      tags: [state]
+      summary: List the kitchen timers on the screens
+      description: |
+        Every timer not yet dismissed: running, or ringing because its time
+        is up and nobody has acknowledged it. `remaining_seconds` is derived
+        from `started_at` and `duration_seconds` at the moment of the call
+        (0 once ringing). Sorted by `ends_at`, the one due soonest first.
+      x-required-scope: family:read
+      responses:
+        "200":
+          description: The family's running and ringing timers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timers]
+                properties:
+                  timers:
+                    type: array
+                    items: { $ref: "#/components/schemas/Timer" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+    post:
+      tags: [state]
+      summary: Start a kitchen timer
+      description: |
+        Starts a timer exactly as the panel does: it counts down and rings
+        on the family's screens where the timers card is shown, and a push
+        is queued for the phones. For an assistant's (OAuth) token, refused
+        with `429` and code `too_many_timers` while the family already has
+        10 timers running or ringing — counted across everyone's timers, not
+        only this token's, and leaving out any that has rung for over an
+        hour without being dismissed. A token made by hand in Settings (Home
+        Assistant) is not capped. Every call starts a new timer.
+      x-required-scope: timers:write
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [duration_seconds]
+              properties:
+                duration_seconds: { type: integer, minimum: 1, maximum: 86400 }
+                label:
+                  type: [string, "null"]
+                  maxLength: 60
+                  description: |
+                    Trimmed first; the 60-character limit applies to the
+                    trimmed text. Empty or only spaces means no label.
+      responses:
+        "201":
+          description: The timer started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timer]
+                properties:
+                  timer: { $ref: "#/components/schemas/Timer" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "409": { description: Idempotency key reused with different arguments. }
+        "429":
+          description: |
+            `too_many_timers` — an assistant's token, and the family already
+            has 10 timers running or ringing; stop one first. Or
+            `rate_limited`, the token's write budget.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "500": { description: The timer could not be started. }
+
+  /timers/{id}:
+    delete:
+      tags: [state]
+      summary: Stop a timer
+      description: |
+        The panel's dismiss: the queued push is cancelled and the timer
+        leaves the screens, whether it was still running or already
+        ringing. The row is kept, stamped `dismissed_at`; a stopped timer
+        cannot be resumed. A timer that is missing, belongs to another
+        family, or was already dismissed answers `404`.
+      x-required-scope: timers:write
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Stopped
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, id]
+                properties:
+                  ok: { type: boolean }
+                  id: { type: string, format: uuid }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: "No such running or ringing timer in this family." }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The timer could not be stopped. }
+
+  /schedule:
+    get:
+      tags: [state]
+      summary: Read the school timetable
+      description: |
+        Read only. Without `day`: each child with lessons and their lessons
+        per weekday, Monday first. With `day` (a date in the family's time
+        zone): who has school that day and which lessons. `school_day` is
+        `false` when a school holiday covers the day — one typed in under
+        the timetable's holidays, or an event on a calendar marked as
+        holidays — with `reason: holiday` and the holiday's name, or else on
+        a Saturday or Sunday with `reason: weekend`; `children` is then
+        empty. A holiday takes precedence over the weekend.
+
+        A child counts when they are a child in the family, not in the
+        recycle bin, and have at least one lesson — the children the
+        dashboard shows a timetable for. Lessons are in time order; a slot
+        without a subject is not a lesson. `person_id` narrows it to one
+        person; a person who is missing, binned or in another family
+        answers `404`.
+      x-required-scope: family:read
+      parameters:
+        - name: day
+          in: query
+          schema: { type: string, format: date }
+        - name: person_id
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: |
+            Without `day`: `WeeklySchedule`, only `children`, each with
+            their lessons per weekday. With `day`: `SchoolDay`, which always
+            carries `date`, `weekday`, `school_day`, `reason` and `holiday`
+            beside `children`. `WeeklySchedule` allows no other property, so
+            a body matches exactly one of the two — including a holiday or
+            weekend `SchoolDay`, whose `children` is empty.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: "#/components/schemas/WeeklySchedule" }
+                  - { $ref: "#/components/schemas/SchoolDay" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such person in this family. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The timetable could not be read. }
+
+  /recycle-bin:
+    get:
+      tags: [state]
+      summary: List what is in the recycle bin
+      description: |
+        The family's deleted tasks, notes, meal plan entries and birthdays
+        still in the recycle bin — the kinds an assistant can delete and
+        restore — newest deletion first, at most 50 in all. `type` narrows
+        it to one kind. `title` and `subtitle` are what the Settings bin
+        shows: a task's title; a note's text, cut to 120 characters; a
+        birthday's name and date; a meal entry's date and meal type. An
+        empty title is `—`. `detail` tells binned meal entries apart: the
+        linked recipe's title (left out when that recipe is itself binned)
+        and the entry's note, joined with ` — `. Recipes, people and the other binned kinds are
+        not listed here.
+      x-required-scope: family:read
+      parameters:
+        - name: type
+          in: query
+          schema: { $ref: "#/components/schemas/RestoreType" }
+      responses:
+        "200":
+          description: The binned items
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 50
+                    items: { $ref: "#/components/schemas/DeletedItem" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The recycle bin could not be read. }
+
+  /recycle-bin/{type}/{id}/restore:
+    post:
+      tags: [state]
+      summary: Restore an item from the recycle bin
+      description: |
+        Takes one task, note, meal plan entry or birthday back out of the
+        recycle bin, exactly as it was. Requires the type's own write scope:
+        `tasks:write` for `task`, `notes:write` for `note`, `meals:write`
+        for `meal`, `birthdays:write` for `birthday`. An unknown type is
+        authenticated with `family:read` and answers `404`.
+
+        Restore only; nothing can be purged through the API. An item that
+        is missing, belongs to another family, or is not in the bin answers
+        `404`, so restoring the same item twice answers `404` the second
+        time — after a retry, a `404` can mean the first call succeeded;
+        `GET /recycle-bin` shows whether it is still binned. Restoring is not counted against an assistant's budget of
+        edits and deletes. No `Idempotency-Key` is needed.
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/RestoreType" }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Restored
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, type, id]
+                properties:
+                  ok: { type: boolean }
+                  type: { $ref: "#/components/schemas/RestoreType" }
+                  id: { type: string, format: uuid }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such item of this type in the family's recycle bin, or an unknown type. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The item could not be restored. }
+
+  /birthdays:
+    get:
+      tags: [state]
+      summary: List the family's birthdays
+      description: |
+        Every birthday not in the recycle bin, sorted by `days_until` (the
+        next one first; ties by name). `today` is the family's date in its
+        time zone, which `next_date`, `days_until`, `age` and `turns` are
+        computed from. 29 February falls on 1 March in a year without one,
+        as everywhere else in Kinboard.
+
+        Kinboard has no separate "unknown year" field: the birthdays page
+        stores a blank year as the current year, and a stored year that is
+        not before the current one reads as unknown. Such a birthday comes
+        back as `--MM-DD` with `year_known: false` and `age`/`turns` null.
+        A child born this year reads the same way.
+      x-required-scope: family:read
+      responses:
+        "200":
+          description: The family's birthdays
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [today, birthdays]
+                properties:
+                  today: { type: string, format: date }
+                  birthdays:
+                    type: array
+                    items: { $ref: "#/components/schemas/Birthday" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The birthdays could not be read. }
+    post:
+      tags: [state]
+      summary: Add a birthday
+      description: |
+        Adds a birthday as the birthdays page does. `date` is `YYYY-MM-DD`
+        with a birth year from 1900 to last year (in the family's time
+        zone), or `--MM-DD` when the year is unknown — stored with the
+        current year, as the page stores a blank year, so `--02-29` is
+        refused in a year that is not a leap year. A full date with this
+        year's birth year is refused (`400`, pointing at `--MM-DD`): it
+        would be stored exactly like an unknown year and read back without
+        it. A later year is refused as a date in the future. `person_id` must name a person of this
+        family who is not in the recycle bin. `notify_days_before` defaults
+        to 7. Nothing is written when any field is refused.
+      x-required-scope: birthdays:write
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, date]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 100, description: Trimmed first. }
+                date: { $ref: "#/components/schemas/BirthdayDate" }
+                person_id: { type: [string, "null"], format: uuid }
+                notify_days_before: { type: integer, minimum: 0, maximum: 60, default: 7 }
+      responses:
+        "201":
+          description: The birthday was added
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [birthday]
+                properties:
+                  birthday: { $ref: "#/components/schemas/Birthday" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "409": { description: Idempotency key reused with different arguments. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The birthday could not be added. }
+
+  /birthdays/{id}:
+    patch:
+      tags: [state]
+      summary: Edit a birthday
+      description: |
+        Only the fields supplied change, with the same rules as creating
+        one; `person_id: null` links nobody. A birthday that is missing, in
+        the recycle bin or another family's answers `404`. Counts against
+        an assistant's edit/delete budget.
+      x-required-scope: birthdays:write
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                name: { type: string, minLength: 1, maxLength: 100 }
+                date: { $ref: "#/components/schemas/BirthdayDate" }
+                person_id: { type: [string, "null"], format: uuid }
+                notify_days_before: { type: integer, minimum: 0, maximum: 60 }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [birthday]
+                properties:
+                  birthday: { $ref: "#/components/schemas/Birthday" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: "No such birthday in this family, including one already in the recycle bin." }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The birthday could not be updated. }
+    delete:
+      tags: [state]
+      summary: Delete a birthday
+      description: |
+        Moves the birthday to Kinboard's recycle bin through the same BEFORE
+        DELETE trigger the birthdays page relies on;
+        `POST /recycle-bin/birthday/{id}/restore` takes it back out. A
+        birthday already binned, missing, or another family's answers `404`
+        rather than being deleted again — a second delete on a binned row
+        would purge it, which this refuses to do. Counts against an
+        assistant's edit/delete budget.
+      x-required-scope: birthdays:write
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Moved to the recycle bin
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, id]
+                properties:
+                  ok: { type: boolean }
+                  id: { type: string, format: uuid }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: "No such birthday in this family, including one already in the recycle bin." }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The birthday could not be deleted. }
+
+  /countdowns:
+    get:
+      tags: [state]
+      summary: The countdowns on the countdown widget
+      description: |
+        What the countdown widget shows: countdowns dated today or later,
+        the soonest first, with `days_until` counted from today in the
+        family's time zone (0 is today). They are stored in the
+        `countdowns` setting, as the widget stores them.
+      x-required-scope: family:read
+      responses:
+        "200":
+          description: The family's countdowns
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [today, countdowns]
+                properties:
+                  today: { type: string, format: date, description: "The family's today." }
+                  countdowns:
+                    type: array
+                    items: { $ref: "#/components/schemas/Countdown" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The countdowns could not be read. }
+    post:
+      tags: [state]
+      summary: Add a countdown
+      description: |
+        Adds a countdown as the widget does. The list is one settings row,
+        so the write is optimistic: it applies only if the row is unchanged
+        since it was read, and otherwise is redone on the newer list — so it
+        never overwrites a change made in between, and a countdown another
+        token adds at the same moment is kept. A screen's own save writes
+        the whole list it holds, so a screen saving a stale list can still
+        drop this countdown. After four lost attempts in a row the answer is
+        `409` `conflict`, and nothing was written. Every call adds a new
+        countdown.
+      x-required-scope: calendar:write
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, date]
+              properties:
+                title: { type: string, minLength: 1, maxLength: 60, description: Trimmed first. }
+                date: { type: string, format: date, description: "Today or later, in the family's time zone." }
+                icon:
+                  type: string
+                  enum: ["🎉", "🎄", "🎂", "🏖️", "🎒", "🚗", "⭐"]
+                  description: The widget's icons; 🎉 when not given.
+      responses:
+        "201":
+          description: Added
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [countdown]
+                properties:
+                  countdown: { $ref: "#/components/schemas/Countdown" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "409":
+          description: "Idempotency key reused with different arguments, or `conflict`: the list kept changing under the write; nothing was written, try again."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The countdown could not be added. }
+
+  /countdowns/{id}:
+    delete:
+      tags: [state]
+      summary: Delete a countdown
+      description: |
+        Takes the countdown off the widget, as its bin button does.
+        Permanent: countdowns have no recycle bin. Written with the same
+        optimistic check as adding one. An id not in this family's list
+        answers `404`. Spends the assistant edit/delete budget.
+      x-required-scope: calendar:write
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, id]
+                properties:
+                  ok: { type: boolean }
+                  id: { type: string, format: uuid }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: "No such countdown in this family." }
+        "409":
+          description: "`conflict`: the list kept changing under the write; nothing was deleted, try again."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The countdown could not be deleted. }
+
+  /attention:
+    get:
+      tags: [state]
+      summary: The hints on the attention panel
+      description: |
+        The Heute-Motor's hints the attention panel shows right now — not
+        resolved, not acknowledged, snoozed or dismissed — most important
+        (lowest `priority`) first. `title` and `detail` are in the family's
+        language (its `locale` setting, English when unset), falling back to
+        the stored English where a hint has no translation. `item_key` is
+        what `POST /services/dismiss_attention` takes as `key`; a dismissal
+        reaches the panels at their next refresh, within a few minutes.
+
+        A hint built from Home Assistant states (for example "2 still open"
+        at bedtime, whose detail names the open doors and windows) is shown
+        in full only to a token that also holds `home:read`. Without it, its
+        title keeps only the count and `detail` is null, and no entity id or
+        name is returned.
+      x-required-scope: family:read
+      responses:
+        "200":
+          description: The open hints
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [locale, items]
+                properties:
+                  locale: { type: string, enum: [en, de, fr] }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [item_key, rule_id, title, detail, priority, first_seen_at]
+                      properties:
+                        item_key: { type: string }
+                        rule_id: { type: string }
+                        title: { type: string }
+                        detail: { type: [string, "null"] }
+                        priority: { type: integer }
+                        first_seen_at: { type: string, format: date-time }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The hints could not be read. }
+
+  /pocket-money:
+    get:
+      tags: [state]
+      summary: Read the children's pocket money
+      description: |
+        Every child (`is_child`) with a pocket-money account, people in the
+        recycle bin left out, oldest account first. Amounts are in currency
+        units (`12.5` is 12.50 in `currency`). `allowance` is null when the
+        child gets none. `goals` are the active saving goals, the primary one
+        first; `saved` is the balance counted towards a goal, capped at its
+        target, as on the family summary. Names are the family's own text.
+      x-required-scope: family:read
+      responses:
+        "200":
+          description: The children's accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accounts]
+                properties:
+                  accounts:
+                    type: array
+                    items: { $ref: "#/components/schemas/PocketMoneyAccount" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: Pocket money could not be read. }
+
+  /pocket-money/bookings:
+    post:
+      tags: [state]
+      summary: Ask the family to allow a pocket-money booking
+      description: |
+        RFC-012 §3. **Nothing is booked by this call.** Every booking an
+        assistant asks for waits for a family member to allow it on a
+        Kinboard screen with the settings PIN — anyone may deny it, and it
+        expires after 2 minutes — exactly as a sensitive home action does.
+        The answer is `202 pending_confirmation` with a `request_id` to
+        follow at `GET /actions/{id}`; only `done` there means it was
+        booked. The same limits as home confirmations apply, counted
+        together: at most 2 requests waiting and 5 per 10 minutes per token.
+
+        `person_id` must be a child of this family, not in the recycle bin,
+        with a pocket-money account (`GET /pocket-money`): otherwise `404`
+        (`reason` `no_person` or `no_account`) or `400` (`reason`
+        `not_a_child`). `amount` is in the account's currency, 0.01 to 500,
+        at most two decimals. A withdrawal larger than the balance is
+        refused at once (`400`, `reason: insufficient_funds`); it is checked
+        again, atomically, when the approved booking runs, and if the money
+        is no longer there the request ends `failed` with
+        `result.reason: insufficient_funds` and nothing is booked. `note`
+        (at most 100 characters) is shown to the family in quotes and
+        stored with the transaction; invisible control and format
+        characters (bidi overrides, zero-width spaces) are removed first. A
+        booking that could not be run as stored — the child's name or the
+        account's currency unusable — is refused with `400` before anyone is
+        asked.
+
+        The Idempotency-Key is required. Repeating it with the same body
+        answers the same request (`idempotent-replay`); only a `202` is
+        remembered.
+      x-required-scope: pocket_money:write
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [person_id, amount, type]
+              properties:
+                person_id: { type: string, format: uuid }
+                amount: { type: number, minimum: 0.01, maximum: 500, description: "Currency units, at most two decimals." }
+                type: { type: string, enum: [deposit, withdrawal] }
+                note: { type: [string, "null"], maxLength: 100, description: Trimmed first. }
+      responses:
+        "202":
+          description: Stored until a family member allows it with the settings PIN, denies it, or it expires
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, request_id, expires_at]
+                properties:
+                  status: { type: string, enum: [pending_confirmation] }
+                  request_id: { type: string, format: uuid }
+                  expires_at: { type: string, format: date-time }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { description: "The family has no settings PIN, so nobody could allow it (`reason: pin_required`). Nothing was done." }
+        "404": { description: "No such person in this family (`reason: no_person`), or the child has no account (`reason: no_account`)." }
+        "409": { description: Idempotency key reused with different arguments. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503": { description: "Kinboard could not check the PIN or this assistant's pending requests. Nothing was done." }
+
+  /people:
+    get:
+      tags: [state]
+      summary: List the people in the family
+      description: |
+        Names and ids, so a task can be assigned to someone —
+        `update_task`'s `person_id` comes from here. `family:read` rather than
+        a scope of its own: every token that can read anything about the
+        family can already see who is in it elsewhere (events, the summary).
+
+        Only `id`, `name`, `color` and `is_child` are returned. `people` also
+        holds an avatar and a date of birth, and neither goes out to an
+        assistant token.
+      x-required-scope: family:read
+      responses:
+        "200":
+          description: The family's people
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [people]
+                properties:
+                  people:
+                    type: array
+                    items: { $ref: "#/components/schemas/Person" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
   /calendar/events:
     get:
       tags: [state]
@@ -133,23 +1582,37 @@ paths:
         start alone would drop exactly the long events a calendar most needs
         to show.
 
-        Both bounds are required. A default would be a guess, and the two
-        plausible guesses ("today", "everything") differ by orders of
-        magnitude in cost.
+        Both bounds are required for a listing. A default would be a guess,
+        and the two plausible guesses ("today", "everything") differ by
+        orders of magnitude in cost.
+
+        With `query` it is a **search**: only events whose title, location
+        or description contains the text, ignoring case, at most 100,
+        earliest first. The text is matched literally — `%`, `_`, `*`, `\`,
+        commas and brackets are characters to find, not wildcards or filter
+        syntax. A search may leave out both bounds, and then covers today
+        to 365 days ahead in the family's time zone (from local midnight);
+        given, they are used unchanged. Send both or neither.
       x-required-scope: family:read
       parameters:
         - name: start
           in: query
-          required: true
+          required: false
           schema: { type: string, format: date-time }
+          description: Required unless `query` is given.
         - name: end
           in: query
-          required: true
+          required: false
           schema: { type: string, format: date-time }
-          description: Must be after `start`, and no more than 370 days later.
+          description: Must be after `start`, and no more than 370 days later. Required unless `query` is given.
+        - name: query
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200 }
+          description: Text to find in the title, location or description. Plain text, no control characters.
       responses:
         "200":
-          description: Events overlapping the window, oldest first
+          description: Events overlapping the window, oldest first (a search returns at most 100)
           content:
             application/json:
               schema:
@@ -160,6 +1623,219 @@ paths:
                     type: array
                     items: { $ref: "#/components/schemas/CalendarEvent" }
         "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+    post:
+      tags: [state]
+      summary: Create a family event with Google or CalDAV write-through
+      description: |
+        ICS subscriptions and read-only CalDAV calendars cannot be targeted.
+        The response reports whether the connected provider accepted the event.
+
+        A **timed** event takes `start_at` and `end_at`, each with `Z` or a
+        `+HH:MM` offset (`+0200` is rejected).
+
+        An **all-day** event takes `all_day: true` with `start_date` and
+        `end_date` as plain dates, `end_date` being the **last** day
+        (inclusive; it defaults to `start_date`). Timestamps are rejected for
+        all-day events, because a midnight sent in the wrong zone lands on the
+        wrong day. Kinboard converts the dates in the family's time zone.
+      x-required-scope: calendar:write
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [calendar_id, title]
+              properties:
+                calendar_id: { type: string, format: uuid }
+                title: { type: string, maxLength: 300 }
+                start_at: { type: string, format: date-time, description: Timed events only. }
+                end_at: { type: string, format: date-time, description: Timed events only. }
+                all_day: { type: boolean }
+                start_date: { type: string, format: date, description: All-day events only. First day. }
+                end_date: { type: string, format: date, description: All-day events only. Last day, inclusive. }
+                description: { type: string, maxLength: 2000 }
+                location: { type: string, maxLength: 300 }
+                person_id:
+                  type: [string, "null"]
+                  format: uuid
+                  description: |
+                    Who the event is for: a person of this family (see
+                    `/people`). Anyone else, or someone in the recycle bin,
+                    is a `400`. On a Google calendar it is also stored with
+                    the event in Google, so Google sync keeps it. With no
+                    person, sync assigns the event as it assigns any other:
+                    from the calendar's own person or the mapping rules.
+      responses:
+        "201":
+          description: Created local event
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [event, sync]
+                properties:
+                  event:
+                    allOf:
+                      - { $ref: "#/components/schemas/CalendarEvent" }
+                      - type: object
+                        required: [calendar_id]
+                        properties:
+                          calendar_id: { type: string, format: uuid }
+                  sync:
+                    type: object
+                    required: [provider, synced]
+                    properties:
+                      provider: { type: string, enum: [local, google, caldav] }
+                      synced: { type: boolean }
+                      reason: { type: string }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: Calendar is not writable or in this family. }
+        "409": { description: Idempotency key reused with different arguments. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The event could not be stored. }
+
+  /calendar/events/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [state]
+      summary: Edit an event, written through to Google or CalDAV
+      description: |
+        Only the fields supplied change. The same rules as creating apply: a
+        **timed** event takes `start_at`/`end_at` with `Z` or a `+HH:MM`
+        offset; an **all-day** event takes `start_date`/`end_date` as plain
+        dates, `end_date` being the last day (inclusive). An end that is not
+        sent keeps its stored value; a start that would land at or after it
+        is rejected rather than moving the end. Switching between all-day and
+        timed (`all_day`) needs **both** ends in the new form.
+
+        `description` and `location` accept `null` to clear them.
+        `calendar_id` cannot be changed.
+
+        `person_id` assigns the event to a person of this family, or to
+        nobody with `null`; a person of another family is a `400`, worded
+        as for one that does not exist. On a Google calendar the assignee is
+        written to the event in Google as well, as Kinboard's screens do, so
+        the next sync keeps it. Clearing it (`null`) on a Google calendar
+        that has its own person, or whose mapping rules match the event,
+        gives the event that person again at the next sync, as clearing it
+        on the screens does. A CalDAV calendar's sync assigns events from
+        the calendar's own settings.
+
+        The row is updated first, then pushed to the provider; `sync`
+        reports whether the provider took it (`reason: not_linked` when the
+        event was never written there). One occurrence of a repeating CalDAV
+        event answers `409` before anything is written.
+
+        An event in another family's calendar, or in a read-only calendar
+        (ICS subscription, read-only CalDAV), answers `404`.
+      x-required-scope: calendar:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                title: { type: string, minLength: 1, maxLength: 300 }
+                start_at: { type: string, format: date-time, description: Timed events only. }
+                end_at: { type: string, format: date-time, description: Timed events only. }
+                all_day: { type: boolean }
+                start_date: { type: string, format: date, description: All-day events only. First day. }
+                end_date: { type: string, format: date, description: All-day events only. Last day, inclusive. }
+                description: { type: [string, "null"], maxLength: 2000 }
+                location: { type: [string, "null"], maxLength: 300 }
+                person_id: { type: [string, "null"], format: uuid }
+      responses:
+        "200":
+          description: The updated event and the provider outcome
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [event, sync]
+                properties:
+                  event:
+                    allOf:
+                      - { $ref: "#/components/schemas/CalendarEvent" }
+                      - type: object
+                        required: [calendar_id]
+                        properties:
+                          calendar_id: { type: string, format: uuid }
+                  sync: { $ref: "#/components/schemas/CalendarSync" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such event in a writable calendar of this family. }
+        "409": { description: One occurrence of a repeating CalDAV event; edit the series in the calendar app. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The event could not be updated. }
+    delete:
+      tags: [state]
+      summary: Delete an event, from Google or CalDAV first
+      description: |
+        The provider is asked first, as Kinboard's own screens do: deleting
+        locally while the event survives upstream would let the next sync
+        bring it straight back. If the provider refuses, the local event is
+        **kept** and the answer is `502 upstream_unavailable` (or `409` for a
+        server-side change or one occurrence of a repeating CalDAV event).
+        An event never written to its provider is deleted locally with
+        `sync.reason: not_linked`. Calendar events have no recycle bin; this
+        cannot be undone.
+      x-required-scope: calendar:write
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, sync]
+                properties:
+                  ok: { type: boolean, const: true }
+                  sync: { $ref: "#/components/schemas/CalendarSync" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such event in a writable calendar of this family. }
+        "409": { description: The event changed on the CalDAV server, or is one occurrence of a repeating event. The event is kept. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "502": { description: The provider could not delete the event. The event is kept. }
+        "500": { description: The event could not be deleted. }
+
+  /calendars:
+    get:
+      tags: [state]
+      summary: List local, Google, and CalDAV calendars available for event creation
+      x-required-scope: family:read
+      responses:
+        "200":
+          description: Writable local, Google, and CalDAV calendars
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [calendars]
+                properties:
+                  calendars:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, format: uuid }
+                        name: { type: string }
+                        person_id: { type: [string, "null"], format: uuid }
+                        provider: { type: string, enum: [local, google, caldav] }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "429": { $ref: "#/components/responses/RateLimited" }
 
@@ -247,6 +1923,9 @@ paths:
         Requires the list's own scope, so a token that may add shopping items
         still cannot create tasks. An `Idempotency-Key` is required, as
         everywhere that creates a row.
+
+        A task can also be created with an assignee, a repetition, a
+        priority, an icon and points, the fields the task form offers.
       parameters:
         - name: list
           in: path
@@ -268,6 +1947,36 @@ paths:
                 due:
                   type: [string, "null"]
                   description: Calendar day. Ignored by lists that have no due date.
+                person_id:
+                  type: [string, "null"]
+                  format: uuid
+                  description: |
+                    Tasks only. Must name a person in the same family, or be
+                    null for nobody; anyone else is refused with `400`. Ignored
+                    on the shopping list, like the other task fields.
+                recurrence:
+                  type: string
+                  description: |
+                    Tasks only. `once` (no repeat), `daily`, `weekly`,
+                    `biweekly`, `monthly`, or `days:` followed by iCalendar
+                    weekday codes, e.g. `days:MO,WE,FR`. All seven days are
+                    stored as `daily`. An unknown value or an empty `days:` is
+                    refused with `400`.
+                priority:
+                  type: string
+                  enum: [high, medium, low]
+                  description: Tasks only.
+                icon:
+                  type: [string, "null"]
+                  enum: ["🧹", "🗑️", "🧺", "🍽️", "📚", "🪥", "🐾", "🌱", "⭐", null]
+                  description: Tasks only. One of the task form's icons; null or empty for none.
+                points:
+                  type: integer
+                  minimum: 0
+                  maximum: 10000
+                  description: |
+                    Tasks only. Awarded when the task is completed, but only
+                    when it is assigned to a child.
       responses:
         "201":
           description: Created
@@ -282,12 +1991,24 @@ paths:
   /lists/{list}/{item}:
     patch:
       tags: [state]
-      summary: Tick, rename or re-date an item
+      summary: Tick, rename, re-date or otherwise edit an item
       description: |
         No `Idempotency-Key`: this addresses one row by id, so repeating it is
         already harmless — ticking a ticked item leaves it ticked. Requiring a
         key for something idempotent by construction would be ceremony, and a
         to-do list ticks items constantly.
+
+        On the `tasks` list, `status: completed` behaves differently for a
+        recurring task than for a one-off one, matching the Kinboard UI: a
+        one-off task is simply marked `completed`, while a recurring task
+        records today (in the family's time zone) as done and leaves
+        `completed` false, so it is due again on its next occurrence. Setting
+        `status: needs_action` on a recurring task is refused with `409` — the
+        UI itself has no "undo" for a day already marked done.
+
+        `person_id` (tasks only) assigns or unassigns the task; it must be a
+        person in the same family, or `null`. `recurrence`, `priority`, `icon`
+        and `points` (tasks only) take the same values as on create.
       parameters:
         - name: list
           in: path
@@ -314,11 +2035,47 @@ paths:
                     have none — a generic client sends a uniform patch without
                     knowing which lists carry a due date. A non-null date on
                     such a list is refused.
+                person_id:
+                  type: [string, "null"]
+                  format: uuid
+                  description: |
+                    Tasks only. Must name a person in the same family, or be
+                    null to unassign. Refused with `400` on any other list.
+                recurrence:
+                  type: string
+                  description: |
+                    Tasks only (refused with `400` on any other list). `once` (no repeat), `daily`, `weekly`,
+                    `biweekly`, `monthly`, or `days:` followed by iCalendar
+                    weekday codes, e.g. `days:MO,WE,FR`. All seven days are
+                    stored as `daily`. An unknown value or an empty `days:` is
+                    refused with `400`.
+                priority:
+                  type: string
+                  enum: [high, medium, low]
+                  description: Tasks only (refused with `400` on any other list).
+                icon:
+                  type: [string, "null"]
+                  enum: ["🧹", "🗑️", "🧺", "🍽️", "📚", "🪥", "🐾", "🌱", "⭐", null]
+                  description: Tasks only (refused with `400` on any other list). One of the task form's icons; null or empty for none.
+                points:
+                  type: integer
+                  minimum: 0
+                  maximum: 10000
+                  description: |
+                    Tasks only (refused with `400` on any other list). Awarded when the task is completed, but only
+                    when it is assigned to a child.
       responses:
         "200": { description: Updated }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "404": { description: No such item in this family. }
+        "409":
+          description: |
+            A recurring task on the `tasks` list cannot be reopened with
+            `status: needs_action`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "429": { $ref: "#/components/responses/RateLimited" }
     delete:
       tags: [state]
@@ -330,6 +2087,10 @@ paths:
         a single tap by design and has Undo in the UI. Removing from Home
         Assistant behaves the same way as removing in Kinboard rather than
         inventing a third behaviour.
+
+        On the `tasks` list, a task already in the recycle bin answers `404`
+        rather than being deleted again — a second delete on an already-binned
+        task purges it for real, which this refuses to do.
       parameters:
         - name: list
           in: path
@@ -342,6 +2103,7 @@ paths:
       responses:
         "200": { description: Removed }
         "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: "No such item in this family (tasks: including one already in the recycle bin)." }
         "429": { $ref: "#/components/responses/RateLimited" }
 
   /services/{service}:
@@ -361,6 +2123,11 @@ paths:
         Services named in this contract but not yet implemented answer `501`,
         not `404`, so the difference between a typo and an unbuilt feature is
         visible.
+
+        `add_pocket_money` books at once, so an assistant's (OAuth-issued)
+        token is refused with `403`: assistants ask at
+        `POST /pocket-money/bookings`, which a family member confirms with
+        the settings PIN. Tokens created in Settings are unaffected.
       parameters:
         - name: service
           in: path
@@ -408,6 +2175,7 @@ paths:
                   id: { type: string, format: uuid }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { description: "`add_pocket_money` called with an assistant's token. Nothing was booked." }
         "429": { $ref: "#/components/responses/RateLimited" }
         "404":
           description: No such service.
@@ -451,20 +2219,272 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
 
+  parameters:
+    Entity:
+      name: entity
+      in: path
+      required: true
+      description: A Home Assistant entity id in the family's catalogue, percent-encoded.
+      schema: { type: string, pattern: "^[a-z_]+\\.[a-z0-9_]+$", maxLength: 255 }
+
   schemas:
     Scope:
       type: string
       enum:
         - family:read
+        - energy:read
+        - calendar:write
         - events:read
         - shopping:write
         - tasks:write
+        - notes:read
         - notes:write
         - announcements:write
+        - meals:write
+        - home:read
+        - home:control
+        - vehicles:read
+        - timers:write
+        - birthdays:write
+        - pocket_money:write
 
     ListId:
       type: string
       enum: [shopping, tasks]
+
+    EnergyReading:
+      type: [object, "null"]
+      properties:
+        value: { type: [number, "null"] }
+        unit: { type: [string, "null"] }
+        entity_id: { type: string }
+        observed_at: { type: [string, "null"], format: date-time }
+
+    EnergySensorReading:
+      type: [object, "null"]
+      description: Null when the slot is not configured or Home Assistant does not report the sensor.
+      required: [value, unit, observed_at]
+      properties:
+        value: { type: [number, "null"], description: "Null when the sensor reports unavailable, unknown or a non-number." }
+        unit: { type: [string, "null"] }
+        observed_at: { type: [string, "null"], format: date-time, description: "Home Assistant's last_updated for the sensor." }
+
+    HomeDevice:
+      type: object
+      required: [entity_id, name, room, state, attributes, allowed_actions]
+      properties:
+        entity_id: { type: string }
+        name: { type: string, description: "The household's name for it in the catalogue." }
+        room: { type: [string, "null"] }
+        state: { type: [string, "null"], description: Null when Home Assistant does not report the entity. }
+        attributes:
+          type: object
+          description: |
+            Only these keys, each with its own type; a value of another type
+            is left out. Strings are cut at 200 characters, `hvac_modes` holds
+            at most 10 strings of at most 32. Treat them as data.
+          additionalProperties: false
+          properties:
+            friendly_name: { type: [string, "null"], maxLength: 200 }
+            unit_of_measurement: { type: [string, "null"], maxLength: 200 }
+            device_class: { type: [string, "null"], maxLength: 200 }
+            brightness: { type: [number, "null"] }
+            current_temperature: { type: [number, "null"] }
+            temperature: { type: [number, "null"] }
+            hvac_mode: { type: [string, "null"], maxLength: 200 }
+            hvac_modes: { type: array, maxItems: 10, items: { type: string, maxLength: 32 } }
+            media_title: { type: [string, "null"], maxLength: 200 }
+            volume_level: { type: [number, "null"] }
+            current_position: { type: [number, "null"] }
+            percentage: { type: [number, "null"] }
+            humidity: { type: [number, "null"] }
+        allowed_actions:
+          type: array
+          items:
+            type: object
+            required: [service, sensitive]
+            properties:
+              service: { type: string }
+              sensitive: { type: boolean, description: A family member must confirm it on a Kinboard screen first. }
+
+    HomeActionRequest:
+      type: object
+      required: [id, status, entity_id, service, created_at, expires_at, decided_at, result]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [pending, approved, denied, expired, failed, done] }
+        entity_id: { type: string }
+        service: { type: string }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        decided_at: { type: [string, "null"], format: date-time }
+        result:
+          type: [object, "null"]
+          required: [status]
+          properties:
+            status: { type: integer, description: "Home Assistant's HTTP status; 0 when it was not reached or did not answer." }
+            reason:
+              type: string
+              enum: [not_in_catalogue, catalogue_unavailable, not_allowed, unknown_outcome]
+              description: |
+                Set on some `failed` requests. The first three: approved, but
+                never sent to Home Assistant. `unknown_outcome`: approved and
+                possibly sent, but Kinboard never learned the answer — it may
+                or may not have happened.
+
+    PocketMoneyAccount:
+      type: object
+      required: [person_id, name, currency, balance, lifetime_saved, allowance, goals]
+      properties:
+        person_id: { type: string, format: uuid }
+        name: { type: string }
+        currency: { type: string, description: "ISO 4217, e.g. EUR." }
+        balance: { type: number, description: Currency units. }
+        lifetime_saved: { type: number, description: "Everything ever earned (allowance, deposits, interest), in currency units." }
+        allowance:
+          type: [object, "null"]
+          required: [amount, every_days]
+          properties:
+            amount: { type: number }
+            every_days: { type: integer }
+        goals:
+          type: array
+          items:
+            type: object
+            required: [id, name, target, saved, percent, is_primary]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              target: { type: number }
+              saved: { type: number, description: "The balance counted towards it, at most the target." }
+              percent: { type: integer, minimum: 0, maximum: 100 }
+              is_primary: { type: boolean }
+
+    ActionRequest:
+      type: object
+      required: [id, kind, description, status, entity_id, service, created_at, expires_at, decided_at, result]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [home, pocket_money] }
+        description: { type: string, description: "The request in words, e.g. `unlock Front door (Hallway)` or `add €5.00 to Enno’s pocket money (note: “mowing the lawn”)`." }
+        status: { type: string, enum: [pending, approved, denied, expired, failed, done] }
+        entity_id: { type: [string, "null"] }
+        service: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        decided_at: { type: [string, "null"], format: date-time }
+        result:
+          type: [object, "null"]
+          required: [status]
+          properties:
+            status: { type: integer, description: "Home Assistant's HTTP status for a home request; 0 when it was not reached or did not answer, and for other kinds." }
+            reason:
+              type: string
+              enum: [not_in_catalogue, catalogue_unavailable, not_allowed, unknown_outcome, not_available, insufficient_funds, no_account, booking_failed]
+
+    VehicleStatus:
+      type: object
+      required: [id, nickname, vendor, available]
+      properties:
+        id: { type: string, format: uuid }
+        nickname: { type: string }
+        vendor: { type: string, description: "tesla or generic-ev; both are read from Home Assistant." }
+        available: { type: boolean }
+        reason:
+          type: string
+          enum: [not_configured, unsupported_vendor, home_assistant_not_connected, home_assistant_unavailable, no_readings]
+          description: Present only when `available` is false.
+        battery_level_pct: { type: [number, "null"] }
+        range: { type: [number, "null"] }
+        range_unit: { type: [string, "null"] }
+        charging: { type: [boolean, "null"] }
+        charging_state: { type: [string, "null"], description: "The charging entity's state, lowercased (e.g. charging, complete, disconnected)." }
+        plugged_in: { type: [boolean, "null"] }
+        charge_limit_pct: { type: [number, "null"] }
+        minutes_to_full: { type: [integer, "null"], description: "Only while charging and when the car reports it." }
+        charger_power_kw: { type: [number, "null"] }
+        inside_temp: { type: [number, "null"] }
+        inside_temp_unit: { type: [string, "null"] }
+        outside_temp: { type: [number, "null"] }
+        outside_temp_unit: { type: [string, "null"] }
+        locked: { type: [boolean, "null"] }
+        doors_open: { type: [boolean, "null"] }
+        windows_open: { type: [boolean, "null"] }
+        odometer: { type: [number, "null"] }
+        odometer_unit: { type: [string, "null"] }
+        observed_at: { type: [string, "null"], format: date-time }
+
+    Person:
+      type: object
+      required: [id, name, color, is_child]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        color: { type: string }
+        is_child: { type: boolean }
+
+    Note:
+      type: object
+      required: [id, content]
+      properties:
+        id: { type: string, format: uuid }
+        content: { type: string }
+        pinned: { type: boolean }
+        person_id: { type: [string, "null"], format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    RecipeSummary:
+      type: object
+      required: [id, title, servings, tags, is_favorite]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        servings: { type: integer, description: The recipe's servings; 4 when unset. }
+        total_time_minutes: { type: [integer, "null"] }
+        prep_time_minutes: { type: [integer, "null"] }
+        cook_time_minutes: { type: [integer, "null"] }
+        difficulty: { type: [string, "null"], enum: [einfach, mittel, schwer, null] }
+        tags: { type: array, items: { type: string } }
+        is_favorite: { type: boolean }
+        image_url: { type: [string, "null"] }
+
+    RecipeDetail:
+      allOf:
+        - $ref: "#/components/schemas/RecipeSummary"
+        - type: object
+          required: [ingredients, instructions]
+          properties:
+            description: { type: [string, "null"] }
+            source_url: { type: [string, "null"] }
+            ingredients:
+              type: array
+              items:
+                type: object
+                required: [id, name, quantity, unit, group, notes, sort_order]
+                properties:
+                  id: { type: string, format: uuid }
+                  name: { type: string }
+                  quantity: { type: [number, "null"] }
+                  unit: { type: [string, "null"] }
+                  group: { type: [string, "null"] }
+                  notes: { type: [string, "null"] }
+                  sort_order: { type: integer }
+            instructions: { type: array, items: { type: string } }
+
+    MealPlanEntry:
+      type: object
+      required: [id, date, meal_type]
+      properties:
+        id: { type: string, format: uuid }
+        date: { type: string, format: date }
+        meal_type: { type: string, enum: [breakfast, lunch, dinner, snack] }
+        recipe_id: { type: [string, "null"], format: uuid }
+        recipe_title:
+          type: [string, "null"]
+          description: Null when the entry has no linked recipe.
+        note: { type: [string, "null"] }
+        servings: { type: [integer, "null"] }
 
     ListItem:
       type: object
@@ -576,10 +2596,155 @@ components:
             - upstream_unavailable
             - unavailable
             - internal_error
+            - too_many_timers
             - not_implemented
         correlationId:
           type: string
           description: Also sent as the `x-correlation-id` header, and printed on every log line for this request.
+
+    Countdown:
+      type: object
+      required: [id, title, date, icon, days_until]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string, description: "At most 60 characters when added here; one typed on a screen can be longer." }
+        date: { type: string, format: date }
+        icon: { type: string }
+        days_until: { type: integer, minimum: 0, description: "Days from the family's today; 0 is today." }
+    ScreenMessage:
+      type: object
+      required: [id, text, created_at, sender_label, from_assistant, acknowledged, acknowledged_at]
+      properties:
+        id: { type: string, format: uuid }
+        text: { type: string, maxLength: 200 }
+        created_at: { type: string, format: date-time }
+        sender_label: { type: [string, "null"], description: "The assistant's name; null for a person's message." }
+        from_assistant: { type: boolean, description: "The message carries an assistant's label (`sender_label` is set). A label that is empty after trimming is stored as none, and such a message reads as a person's, as it does on the screens." }
+        acknowledged: { type: boolean }
+        acknowledged_at: { type: [string, "null"], format: date-time }
+    Timer:
+      type: object
+      required: [id, label, duration_seconds, started_at, ends_at, remaining_seconds, state]
+      properties:
+        id: { type: string, format: uuid }
+        label: { type: [string, "null"] }
+        duration_seconds: { type: integer, minimum: 1 }
+        started_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        remaining_seconds: { type: integer, minimum: 0 }
+        state:
+          type: string
+          enum: [running, ringing]
+          description: "`ringing`: the time is up and nobody has dismissed it yet."
+
+    RestoreType:
+      type: string
+      enum: [task, note, meal, birthday]
+
+    BirthdayDate:
+      type: string
+      pattern: "^(\\d{4}|-)-\\d{2}-\\d{2}$"
+      description: "`YYYY-MM-DD`, or `--MM-DD` when the birth year is unknown."
+
+    Birthday:
+      type: object
+      required: [id, name, date, year_known, next_date, days_until, age, turns, person_id, notify_days_before]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        date: { $ref: "#/components/schemas/BirthdayDate" }
+        year_known: { type: boolean }
+        next_date: { type: string, format: date, description: "The day it next falls on; today counts." }
+        days_until: { type: integer, minimum: 0 }
+        age: { type: [integer, "null"], description: Age today; null without a birth year. }
+        turns: { type: [integer, "null"], description: "Age on `next_date`; null without a birth year." }
+        person_id: { type: [string, "null"], format: uuid }
+        notify_days_before: { type: integer, minimum: 0 }
+
+    Weekday:
+      type: string
+      enum: [sunday, monday, tuesday, wednesday, thursday, friday, saturday]
+
+    Lesson:
+      type: object
+      required: [period, start, end, subject, room]
+      properties:
+        period: { type: [integer, "null"] }
+        start: { type: [string, "null"], description: "HH:MM" }
+        end: { type: [string, "null"], description: "HH:MM" }
+        subject: { type: string }
+        room: { type: [string, "null"] }
+
+    WeeklySchedule:
+      type: object
+      additionalProperties: false
+      required: [children]
+      properties:
+        children:
+          type: array
+          items: { $ref: "#/components/schemas/ScheduleChild" }
+
+    ScheduleChild:
+      type: object
+      required: [person_id, name, days]
+      properties:
+        person_id: { type: string, format: uuid }
+        name: { type: string }
+        days:
+          type: array
+          description: Weekdays with lessons, Monday first.
+          items:
+            type: object
+            required: [day_of_week, weekday, slots]
+            properties:
+              day_of_week: { type: integer, minimum: 0, maximum: 6, description: "0 = Sunday" }
+              weekday: { $ref: "#/components/schemas/Weekday" }
+              slots:
+                type: array
+                items: { $ref: "#/components/schemas/Lesson" }
+
+    SchoolDay:
+      type: object
+      required: [date, weekday, school_day, reason, holiday, children]
+      properties:
+        date: { type: string, format: date }
+        weekday: { $ref: "#/components/schemas/Weekday" }
+        school_day: { type: boolean }
+        reason:
+          type: [string, "null"]
+          enum: [holiday, weekend, null]
+        holiday:
+          type: [string, "null"]
+          description: The holiday's name when `reason` is `holiday`.
+        children:
+          type: array
+          description: Who has lessons that day; empty when `school_day` is false.
+          items:
+            type: object
+            required: [person_id, name, slots]
+            properties:
+              person_id: { type: string, format: uuid }
+              name: { type: string }
+              slots:
+                type: array
+                items: { $ref: "#/components/schemas/Lesson" }
+
+    DeletedItem:
+      type: object
+      required: [id, type, title, subtitle, detail, deleted_at]
+      properties:
+        id: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/RestoreType" }
+        title: { type: string }
+        subtitle: { type: [string, "null"] }
+        detail:
+          type: [string, "null"]
+          maxLength: 120
+          description: |
+            Meal entries only: the linked recipe's title, unless that recipe
+            is itself in the recycle bin, and the entry's note, joined with
+            ` — `. Null for other types and for an entry with neither.
+        deleted_at: { type: string, format: date-time }
 
     CalendarEvent:
       type: object
@@ -593,6 +2758,19 @@ components:
         end_at: { type: string, format: date-time }
         all_day: { type: [boolean, "null"] }
         person_id: { type: [string, "null"], format: uuid }
+
+    CalendarSync:
+      type: object
+      required: [provider, synced]
+      properties:
+        provider: { type: string, enum: [local, google, caldav] }
+        synced: { type: boolean }
+        reason:
+          type: string
+          description: |
+            Why `synced` is false: `not_linked`, `recurring`, `conflict`,
+            `google_not_connected`, `caldav_not_connected`,
+            `provider_write_failed`, `calendar_read_only`.
 
     DomainEvent:
       type: object
@@ -697,12 +2875,27 @@ components:
           description: |
             `state` is the children's names, not a count. A dashboard renders
             the state and hides attributes, so the state has to be the human
-            answer — "0" does not tell anyone who has school.
+            answer — "0" does not tell anyone who has school. Tomorrow is the
+            family's tomorrow; a school holiday or a weekend lists nobody, and
+            a child in the recycle bin is never listed (the same rules as
+            `GET /schedule` with `day`).
           properties:
             state: { type: [string, "null"] }
             children: { type: array, items: { type: string } }
             count: { type: integer }
             first_lesson: { type: [string, "null"] }
+            date:
+              type: [string, "null"]
+              format: date
+              description: Tomorrow in the family's time zone.
+            school_day:
+              type: [boolean, "null"]
+              description: |
+                `false` on a school holiday or a weekend, when nobody is
+                listed; `null` when the timetable could not be read.
+            reason:
+              type: [string, "null"]
+              enum: [holiday, weekend, null]
         birthdays_upcoming:
           type: object
           description: "`state` is the person, with the day count alongside."
