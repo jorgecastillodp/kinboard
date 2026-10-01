@@ -2390,6 +2390,16 @@
       "whyTwoSourcesTitle": "Welche Quelle passt?",
       "whyTwoSourcesBody": "CalDAV ist die beste Wahl beim Selbst-Hosten oder bei Anbietern außerhalb von Google: Benutzername und Passwort genügen, und in Kinboard erstellte Termine werden zurückgeschrieben. Google Kalender benötigt ein Google-Cloud-Projekt mit OAuth. ICS-Feeds brauchen nur eine öffentliche URL, sind aber nur lesbar. Ein lokaler Kalender braucht gar nichts, seine Termine bleiben aber in Kinboard und erscheinen auf keinem Handy."
     },
+    "calendarDisplay": {
+      "title": "Im Kalender anzeigen",
+      "description": "Markierungen an jedem Tag, zusätzlich zu Terminen. Gilt für alle Geräte der Familie.",
+      "holidaysLabel": "Feiertage",
+      "holidaysHint": "Ein bernsteinfarbener Punkt am Tag und der Name des Feiertags, wo Platz ist. Das Land kommt aus Einstellungen → Sprache.",
+      "tasksLabel": "Aufgaben",
+      "tasksHint": "Ein Punkt in der Farbe der Person an jedem Tag, an dem eine Aufgabe fällig ist. Wiederkehrende Aufgaben werden an jedem Tag markiert, an dem sie wieder anstehen.",
+      "tasksAsEventsLabel": "Aufgaben wie Termine behandeln",
+      "tasksAsEventsHint": "Aufgaben erscheinen auch zwischen den Terminen: im Widget Termine, in der Wochenübersicht und in der Tagesliste des Kalenders. In Vorschau-Listen zeigt eine wiederkehrende Aufgabe nur ihr nächstes Mal."
+    },
     "caldav": {
       "title": "CalDAV-Kalender",
       "subtitle": "Bidirektionale Synchronisation mit Nextcloud, Radicale, Fastmail, iCloud und anderen",
@@ -2645,6 +2655,11 @@
     "weekView": {
       "allDayLabel": "Ganztag",
       "overlapAria": "{count, plural, one {überschneidet sich mit 1 weiteren Termin} other {überschneidet sich mit # weiteren Terminen}}"
+    },
+    "markers": {
+      "tasksDue": "Fällige Aufgaben",
+      "taskTitle": "✓ {title}",
+      "taskTitleWithPerson": "✓ {title} · {person}"
     }
   },
   "weather": {

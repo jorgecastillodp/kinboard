@@ -2390,6 +2390,16 @@
       "whyTwoSourcesTitle": "Which one should I use?",
       "whyTwoSourcesBody": "CalDAV is the best default if you self-host or use a non-Google provider: a username and password, and events you create in Kinboard are written back. Google Calendar needs a Google Cloud project + OAuth credentials. ICS feeds need only a public URL, but are read-only. A local calendar needs nothing at all, but its events stay in Kinboard and reach no phone."
     },
+    "calendarDisplay": {
+      "title": "Show on the calendar",
+      "description": "Marks on each day besides events. Applies to every device in the family.",
+      "holidaysLabel": "Public holidays",
+      "holidaysHint": "An amber dot on the day, and the holiday's name where there is room. The country comes from Settings → Language.",
+      "tasksLabel": "Tasks",
+      "tasksHint": "A dot in the person's color on each day a task is due. Repeating tasks are marked on every day they come round.",
+      "tasksAsEventsLabel": "Treat tasks as events",
+      "tasksAsEventsHint": "Tasks also appear among events: in the Events widget, the Week overview and the calendar's day list. In lists of what is coming up, a repeating task shows only its next time."
+    },
     "caldav": {
       "title": "CalDAV calendars",
       "subtitle": "Two-way sync with Nextcloud, Radicale, Fastmail, iCloud and friends",
@@ -2645,6 +2655,11 @@
     "weekView": {
       "allDayLabel": "All day",
       "overlapAria": "{count, plural, one {overlaps 1 other event} other {overlaps # other events}}"
+    },
+    "markers": {
+      "tasksDue": "Tasks due",
+      "taskTitle": "✓ {title}",
+      "taskTitleWithPerson": "✓ {title} · {person}"
     }
   },
   "weather": {

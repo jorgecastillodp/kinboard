@@ -1460,7 +1460,7 @@ export function useDeleteEvent() {
 // TODOS HOOKS
 // ===================
 
-export function useTodos() {
+export function useTodos(options?: { enabled?: boolean }) {
   const supabase = createClient();
   const { family } = useFamilyStore();
 
@@ -1476,7 +1476,7 @@ export function useTodos() {
       if (error) throw error;
       return data as Todo[];
     },
-    enabled: !!family?.id,
+    enabled: !!family?.id && (options?.enabled ?? true),
   });
 }
 
