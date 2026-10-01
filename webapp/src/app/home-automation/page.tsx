@@ -35,6 +35,9 @@ import {
 } from "@/hooks";
 import { useRooms } from "@/hooks/use-rooms-table";
 import { useCatalogue } from "@/hooks/use-catalogue";
+import { useCameras } from "@/hooks/use-cameras";
+import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
+import { CameraGrid } from "@/components/camera-viewer";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { iconFor } from "@/components/home-assistant/room-icon";
@@ -49,7 +52,7 @@ import { dangerousAction } from "@/lib/ha-dangerous-actions";
 */
 import { OPTIMISTIC_SETTLE_MS, POLL_MS } from "@/lib/home-assistant-optimism";
 import type { CatalogueItem, Room } from "@/types/database";
-import type { HAEntity, HAServiceCall } from "@/types/home-assistant";
+import type { CameraConfig, HAEntity, HAServiceCall } from "@/types/home-assistant";
 
 /** Domains whose tile is a plain on/off switch. */
 const TOGGLE_DOMAINS = new Set(["light", "switch", "input_boolean", "fan"]);
@@ -163,6 +166,8 @@ export default function HausautomationPage() {
     isError: catalogueError,
     refetch: refetchCatalogue,
   } = useCatalogue();
+  const { cameras } = useCameras();
+  const camerasEnabled = useIsPluginEnabled("cameras");
 
   /**
    * "Configured", not "answering". The same derivation the page has always
@@ -413,6 +418,29 @@ export default function HausautomationPage() {
     }
     return { byRoom, unroomed };
   }, [catalogue, rooms]);
+
+  /**
+   * Camera feeds filed under a room, keyed like `grouped.byRoom`.
+   *
+   * Only cameras with a room that currently exists are placed. A camera with
+   * no room, or with the id of a room since deleted, is left out rather than
+   * gathered into a "no room" group: /cameras already shows every camera,
+   * and this page is about rooms. Disabled cameras are already filtered by
+   * `useCameras`, and the whole thing stands down if the cameras plugin is
+   * switched off for the family.
+   */
+  const camerasByRoom = useMemo(() => {
+    const byRoom = new Map<string, CameraConfig[]>();
+    if (!camerasEnabled) return byRoom;
+    const known = new Set(rooms.map((r) => r.id));
+    for (const camera of cameras) {
+      if (!camera.room_id || !known.has(camera.room_id)) continue;
+      const list = byRoom.get(camera.room_id) ?? [];
+      list.push(camera);
+      byRoom.set(camera.room_id, list);
+    }
+    return byRoom;
+  }, [cameras, camerasEnabled, rooms]);
 
   /**
    * Which room a device is in is unknown while the rooms query is in flight
@@ -683,7 +711,7 @@ export default function HausautomationPage() {
               {t("unreachableRetry")}
             </Button>
           </div>
-        ) : catalogue.length === 0 ? (
+        ) : catalogue.length === 0 && !roomsLoading && camerasByRoom.size === 0 ? (
           <EmptyState
             icon={Boxes}
             title={t("noDevices")}
@@ -728,9 +756,27 @@ export default function HausautomationPage() {
           <div className="flex flex-col gap-8">
             {rooms.map((room) => {
               const items = grouped.byRoom.get(room.id) ?? [];
+              const roomCameras = camerasByRoom.get(room.id) ?? [];
               // A heading with nothing under it tells a wall panel nothing.
-              if (items.length === 0) return null;
-              return <RoomGroup key={room.id} room={room}>{items.map(renderTile)}</RoomGroup>;
+              if (items.length === 0 && roomCameras.length === 0) return null;
+              return (
+                <RoomGroup
+                  key={room.id}
+                  room={room}
+                  feed={
+                    roomCameras.length > 0 ? (
+                      // One feed at full width on a wall panel is taller than
+                      // the screen and pushes the controls under the fold;
+                      // capped so the room's buttons stay in view beside it.
+                      <div className={roomCameras.length === 1 ? "w-full max-w-3xl" : "w-full"}>
+                        <CameraGrid cameras={roomCameras} columns={roomCameras.length === 1 ? 1 : 2} />
+                      </div>
+                    ) : undefined
+                  }
+                >
+                  {items.length > 0 ? items.map(renderTile) : null}
+                </RoomGroup>
+              );
             })}
 
             {grouped.unroomed.length > 0 && (
@@ -787,10 +833,13 @@ export default function HausautomationPage() {
 function RoomGroup({
   room,
   unroomedLabel,
+  feed,
   children,
 }: {
   room: Room | null;
   unroomedLabel?: string;
+  /** Camera feeds for this room, shown first: the glanceable thing leads. */
+  feed?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const Icon = room ? iconFor(room.icon) : Boxes;
@@ -813,9 +862,12 @@ function RoomGroup({
         </span>
         <h2 className="font-display text-lg font-medium">{room ? room.name : unroomedLabel}</h2>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {children}
-      </div>
+      {feed}
+      {children != null && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {children}
+        </div>
+      )}
     </motion.section>
   );
 }

@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - **Graphite, a neutral tone with no tint.** Settings -> Design -> Neutral tone gains Graphite: true neutral greys, near-black in dark mode, for anyone who finds Sand, Salbei and Warm grey too warm -- in dark mode they read as brown rather than black. The accent colour and monthly themes are unchanged.
+- **Camera feeds can be placed in a room.** Editing a camera under Settings -> Cameras now offers a room. The feed then also appears in that room on the Automation page, above the room's devices, so a wall panel can show the gate camera next to the gate controls instead of on a separate page. Cameras keep appearing on the Cameras page whether or not they have a room, and a camera with no room behaves exactly as before. No database migration: the room is stored with the rest of the camera settings.
 
 ### Changed
 

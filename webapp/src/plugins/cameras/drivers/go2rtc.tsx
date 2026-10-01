@@ -59,6 +59,7 @@ import {
   useUpdateCamera,
   useDeleteCamera,
 } from "@/hooks";
+import { useRooms } from "@/hooks/use-rooms-table";
 import type { CameraConfig, CameraSettings, CameraStreamType } from "@/types/home-assistant";
 import type { CameraDriver } from "./types";
 
@@ -138,6 +139,7 @@ function Go2rtcConfigForm() {
   const addCamera = useAddCamera();
   const updateCamera = useUpdateCamera();
   const deleteCamera = useDeleteCamera();
+  const { data: rooms, isLoading: roomsLoading, isError: roomsError } = useRooms();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCamera, setEditingCamera] = useState<CameraConfig | null>(null);
@@ -153,6 +155,7 @@ function Go2rtcConfigForm() {
   const [authType, setAuthType] = useState<"basic" | "digest">("digest");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [roomId, setRoomId] = useState<string | null>(null);
 
   const cameras = settings?.cameras || [];
 
@@ -166,6 +169,7 @@ function Go2rtcConfigForm() {
     setAuthType("digest");
     setUsername("");
     setPassword("");
+    setRoomId(null);
     setError("");
     setEditingCamera(null);
   };
@@ -185,6 +189,7 @@ function Go2rtcConfigForm() {
     setAuthType(camera.auth?.type || "digest");
     setUsername(camera.auth?.username || "");
     setPassword(camera.auth?.password || "");
+    setRoomId(camera.room_id ?? null);
     setError("");
     setDialogOpen(true);
   };
@@ -217,6 +222,7 @@ function Go2rtcConfigForm() {
             stream_url: streamUrl.trim(),
             snapshot_url: snapshotUrl.trim() || undefined,
             auth: authConfig,
+            room_id: roomId,
           },
         });
       } else {
@@ -226,6 +232,7 @@ function Go2rtcConfigForm() {
           stream_url: streamUrl.trim(),
           snapshot_url: snapshotUrl.trim() || undefined,
           auth: authConfig,
+          room_id: roomId,
           enabled: true,
         });
       }
@@ -435,6 +442,36 @@ function Go2rtcConfigForm() {
                 onChange={(e) => setName(e.target.value)}
               />
             </div>
+
+            {/*
+              Offered only once the rooms are known. While they load, or if
+              the request failed, `roomId` is left exactly as it was loaded,
+              so saving the dialog for an unrelated edit never silently clears
+              a room the picker could not show. A household with no rooms has
+              nothing to choose and gets no field.
+            */}
+            {!roomsLoading && !roomsError && rooms.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="camera-room">{t("roomLabel")}</Label>
+                <Select
+                  value={roomId && rooms.some((r) => r.id === roomId) ? roomId : "none"}
+                  onValueChange={(value) => setRoomId(value === "none" ? null : value)}
+                >
+                  <SelectTrigger id="camera-room">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{t("roomNone")}</SelectItem>
+                    {rooms.map((room) => (
+                      <SelectItem key={room.id} value={room.id}>
+                        {room.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">{t("roomHint")}</p>
+              </div>
+            )}
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="stream-type">{t("streamTypeLabel")}</Label>
