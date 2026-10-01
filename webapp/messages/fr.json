@@ -2387,7 +2387,7 @@
       "statusNone": "Aucun",
       "statusCalendarCount": "{count, plural, one {1 calendrier} other {# calendriers}}",
       "whyTwoSourcesTitle": "Laquelle choisir ?",
-      "whyTwoSourcesBody": "CalDAV est le meilleur choix par défaut si vous auto-hébergez ou utilisez un fournisseur autre que Google : un identifiant et un mot de passe suffisent, et les événements créés dans Kinboard sont réécrits sur le serveur. Google Agenda nécessite un projet Google Cloud + des identifiants OAuth. Les flux ICS ne demandent qu'une URL publique, mais sont en lecture seule."
+      "whyTwoSourcesBody": "CalDAV est le meilleur choix par défaut si vous auto-hébergez ou utilisez un fournisseur autre que Google : un identifiant et un mot de passe suffisent, et les événements créés dans Kinboard sont réécrits sur le serveur. Google Agenda nécessite un projet Google Cloud + des identifiants OAuth. Les flux ICS ne demandent qu'une URL publique, mais sont en lecture seule. Un calendrier local ne demande rien du tout, mais ses événements restent dans Kinboard et n'apparaissent sur aucun téléphone."
     },
     "caldav": {
       "title": "Calendriers CalDAV",

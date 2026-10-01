@@ -2387,7 +2387,7 @@
       "statusNone": "Noch keine",
       "statusCalendarCount": "{count, plural, one {1 Kalender} other {# Kalender}}",
       "whyTwoSourcesTitle": "Welche Quelle passt?",
-      "whyTwoSourcesBody": "CalDAV ist die beste Wahl beim Selbst-Hosten oder bei Anbietern außerhalb von Google: Benutzername und Passwort genügen, und in Kinboard erstellte Termine werden zurückgeschrieben. Google Kalender benötigt ein Google-Cloud-Projekt mit OAuth. ICS-Feeds brauchen nur eine öffentliche URL, sind aber nur lesbar."
+      "whyTwoSourcesBody": "CalDAV ist die beste Wahl beim Selbst-Hosten oder bei Anbietern außerhalb von Google: Benutzername und Passwort genügen, und in Kinboard erstellte Termine werden zurückgeschrieben. Google Kalender benötigt ein Google-Cloud-Projekt mit OAuth. ICS-Feeds brauchen nur eine öffentliche URL, sind aber nur lesbar. Ein lokaler Kalender braucht gar nichts, seine Termine bleiben aber in Kinboard und erscheinen auf keinem Handy."
     },
     "caldav": {
       "title": "CalDAV-Kalender",

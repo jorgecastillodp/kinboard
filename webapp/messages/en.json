@@ -2387,7 +2387,7 @@
       "statusNone": "None yet",
       "statusCalendarCount": "{count, plural, one {1 calendar} other {# calendars}}",
       "whyTwoSourcesTitle": "Which one should I use?",
-      "whyTwoSourcesBody": "CalDAV is the best default if you self-host or use a non-Google provider: a username and password, and events you create in Kinboard are written back. Google Calendar needs a Google Cloud project + OAuth credentials. ICS feeds need only a public URL, but are read-only."
+      "whyTwoSourcesBody": "CalDAV is the best default if you self-host or use a non-Google provider: a username and password, and events you create in Kinboard are written back. Google Calendar needs a Google Cloud project + OAuth credentials. ICS feeds need only a public URL, but are read-only. A local calendar needs nothing at all, but its events stay in Kinboard and reach no phone."
     },
     "caldav": {
       "title": "CalDAV calendars",
