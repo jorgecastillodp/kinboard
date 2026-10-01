@@ -539,6 +539,8 @@
     "fieldAssignTo": "Assign to",
     "fieldPriority": "Priority",
     "fieldRecurrence": "Recurrence",
+    "recurrenceDaysLabel": "Repeat on",
+    "recurrenceDaysHint": "Pick at least one day.",
     "fieldDueDate": "Due date",
     "fieldOptional": "Optional",
     "titlePlaceholder": "What needs to be done?",
@@ -603,7 +605,9 @@
       "daily": "Daily",
       "weekly": "Weekly",
       "biweekly": "Every 2 weeks",
-      "monthly": "Monthly"
+      "monthly": "Monthly",
+      "custom": "Custom days",
+      "weekdays": "Weekdays"
     }
   },
   "meals": {
