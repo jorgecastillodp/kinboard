@@ -34,7 +34,6 @@ export function MobileNav() {
   const startActive = pathname === "/";
   const calendarActive = pathname === "/calendar" || pathname.startsWith("/calendar/");
   const shoppingActive = pathname === "/shopping" || pathname.startsWith("/shopping/");
-  const moreActive = !startActive && !calendarActive && !shoppingActive;
 
   if (isNoNavPath(pathname)) {
     return null;
@@ -47,13 +46,18 @@ export function MobileNav() {
 
   // Hidden means hidden on every form factor. These three are laid out by
   // hand rather than read from navItems, so without this filter a surface
-  // switched off in Settings -> Navigation would vanish from the wall panel
-  // and stay put on a phone. Home is never dropped: it is the way back.
+  // switched off in Settings → Navigation on a kiosk would vanish from a wide
+  // screen and stay put on a narrow one. Home is never in hiddenItems: it is
+  // the way back (see canHideNavItem).
   const fixedTabs = [
     { href: "/", icon: Home, labelKey: "home", active: startActive },
     { href: "/calendar", icon: CalendarDays, labelKey: "calendar", active: calendarActive },
     { href: "/shopping", icon: ShoppingCart, labelKey: "shopping", active: shoppingActive },
-  ].filter((tab) => tab.href === "/" || !hiddenItems.includes(tab.href));
+  ].filter((tab) => !hiddenItems.includes(tab.href));
+  // More stands for every page without a tab of its own -- including one
+  // whose tab is hidden, reached from a widget or a link, which would
+  // otherwise leave nothing in the bar marked.
+  const moreActive = !fixedTabs.some((tab) => tab.active);
 
   return (
     <>

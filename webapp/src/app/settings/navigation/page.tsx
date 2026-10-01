@@ -9,29 +9,10 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { useVisibleNavItems } from "@/hooks/use-visible-nav-items";
 import { setNavOrder, clearNavOrder } from "@/lib/nav-order";
-import { getHiddenNavItems, setHiddenNavItems, setSettingsIconOnly } from "@/lib/nav-visibility";
+import { canHideNavItem, getHiddenNavItems, setHiddenNavItems, setSettingsIconOnly } from "@/lib/nav-visibility";
 import { useHiddenNavItems, useSettingsIconOnly } from "@/hooks/use-hidden-nav-items";
 import { Switch } from "@/components/ui/switch";
 import { useFamilyStore } from "@/stores/family-store";
-
-/**
- * Nav items the switch never unlocks.
- *
- * A device with no way Home and no way into Settings cannot be recovered
- * from the UI at all — the only way back is clearing site data, which on a
- * wall panel means finding a keyboard. These two stay fixed everywhere.
- */
-const ALWAYS_FIXED: readonly string[] = ["/", "/settings"];
-
-/**
- * Locked on ordinary devices, unlockable in kiosk mode.
- *
- * The default lock exists so a family member cannot accidentally hide the
- * surfaces everyone else relies on. A kiosk is the opposite case: it is
- * curated once by whoever mounted it, and a wall display that only ever
- * shows the gate has no use for a shopping list it cannot be shopped from.
- */
-const FIXED_UNLESS_KIOSK: readonly string[] = ["/calendar", "/shopping"];
 
 export default function NavigationSettingsPage() {
   const t = useTranslations("settings.navigation");
@@ -186,7 +167,7 @@ function NavItemRow({
       </button>
       <Icon className="size-5" />
       <span className="text-sm font-medium">{label}</span>
-      <Switch className="ml-auto" checked={enabled} onCheckedChange={onEnabledChange} disabled={ALWAYS_FIXED.includes(href) || (!isKiosk && FIXED_UNLESS_KIOSK.includes(href))} aria-label={t("showItem", { label })} />
+      <Switch className="ml-auto" checked={enabled} onCheckedChange={onEnabledChange} disabled={!canHideNavItem(href, isKiosk)} aria-label={t("showItem", { label })} />
     </Reorder.Item>
   );
 }
