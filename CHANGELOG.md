@@ -8,7 +8,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- **Holidays and tasks can be shown on the calendar.** Settings -> Calendar gains three switches, all off until you turn them on. Public holidays get an amber dot on the day, with the holiday's name where there is room; until now they appeared only in a day's details. Tasks get a dot in the colour of the person they belong to on each day one is due, and a repeating task is marked on every day it comes round, from today on. Both appear in the month and week views. The third, Treat tasks as events, also lists tasks among events -- in the Events widget, the week overview and the calendar's day list, where tapping one opens the task list. In lists of what is coming up, a repeating task shows only its next time, so a daily chore does not crowd out the events.
+- **Holidays and tasks can be shown on the calendar.** Settings -> Calendar gains three switches, all off until you turn them on. Public holidays get an amber dot on the day, with the holiday's name where there is room; until now they appeared only in a day's details. Tasks get a dot in the colour of the person they belong to on each day one is due, and a repeating task is marked on every day it comes round, from today on. Both appear in the month and week views. The third, Treat tasks as events, also lists tasks among events, with the name of the person each is for -- in the Events widget, the week overview and the calendar's day list, where tapping one opens the task list. In lists of what is coming up, a repeating task shows only its next time, so a daily chore does not crowd out the events.
 
 ### Changed
 

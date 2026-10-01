@@ -2619,7 +2619,8 @@
     },
     "markers": {
       "tasksDue": "Fällige Aufgaben",
-      "taskTitle": "✓ {title}"
+      "taskTitle": "✓ {title}",
+      "taskTitleWithPerson": "✓ {title} · {person}"
     }
   },
   "weather": {

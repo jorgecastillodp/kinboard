@@ -114,7 +114,9 @@ export function UpcomingEvents({
       taskOccurrences(todos ?? [], people ?? [], new Date(startDate), new Date(endDate), "hsl(var(--muted-foreground))"),
     ).map((o) => ({
       id: o.id,
-      title: tCalendar("markers.taskTitle", { title: o.title }),
+      title: o.personName
+        ? tCalendar("markers.taskTitleWithPerson", { title: o.title, person: o.personName })
+        : tCalendar("markers.taskTitle", { title: o.title }),
       start: o.date,
       color: o.color,
       allDay: true,

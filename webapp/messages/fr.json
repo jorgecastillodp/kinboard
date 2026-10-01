@@ -2619,7 +2619,8 @@
     },
     "markers": {
       "tasksDue": "Tâches à faire",
-      "taskTitle": "✓ {title}"
+      "taskTitle": "✓ {title}",
+      "taskTitleWithPerson": "✓ {title} · {person}"
     }
   },
   "weather": {

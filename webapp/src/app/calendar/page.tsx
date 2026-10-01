@@ -343,7 +343,9 @@ export default function CalendarPage() {
     const to = addDays(gridEnd > today ? gridEnd : today, 8);
     return taskOccurrences(todos ?? [], people ?? [], from, to, "hsl(var(--muted-foreground))").map((o) => ({
       id: o.id,
-      title: t("markers.taskTitle", { title: o.title }),
+      title: o.personName
+        ? t("markers.taskTitleWithPerson", { title: o.title, person: o.personName })
+        : t("markers.taskTitle", { title: o.title }),
       start: o.date,
       end: endOfDay(o.date),
       allDay: true,

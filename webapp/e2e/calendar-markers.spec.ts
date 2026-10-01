@@ -113,7 +113,7 @@ test("tasks become all-day items with an id no event can have, coloured by perso
       { id: "t1", title: "Water the plants", recurrence: "daily", person_id: "emma" },
       { id: "t2", title: "Dentist forms", due_date: "2026-10-03", person_id: null },
     ],
-    [{ id: "emma", color: "#ec4899" }],
+    [{ id: "emma", color: "#ec4899", name: "Emma" }],
     now,
     new Date(2026, 9, 4),
     "neutral",
@@ -125,6 +125,7 @@ test("tasks become all-day items with an id no event can have, coloured by perso
     todoId: "t1",
     dayKey: "2026-10-01",
     color: "#ec4899",
+    personName: "Emma", // shown with the title: who the task is for
   });
   // Local midnight of its day: an all-day item.
   const d = occurrences[0].date;
@@ -133,6 +134,7 @@ test("tasks become all-day items with an id no event can have, coloured by perso
     dayKey: "2026-10-03",
     color: "neutral",
     personId: null,
+    personName: null,
   });
 
   expect(occurrences.every((o) => isTaskEventId(o.id))).toBe(true);

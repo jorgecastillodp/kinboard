@@ -1,6 +1,6 @@
 import { getHolidays, type CountryCode, type Holiday } from "@/lib/holidays";
 import { toLocalDateKey } from "@/lib/local-date";
-import { isRecurring, recurrenceIntervalDays, type RecurringFields } from "@/lib/todo-recurrence";
+import { isRecurring, isRecurringTaskDue, type RecurringFields } from "@/lib/todo-recurrence";
 
 /**
  * What the calendar marks on a day besides events. Family-wide, and both off
@@ -39,12 +39,13 @@ const keyOf = (n: number): string => new Date(n * 86_400_000).toISOString().slic
  * `to` inclusive.
  *
  * A one-off task is marked on its due date while it is open, and not at all
- * without one: there is no day to put it on. A recurring task follows the same
- * rule as the task list and the nav badge (lib/todo-recurrence) -- due again
- * `interval` days after it was last done, due since it was created if it never
- * was -- so it is marked from its next due day (today, when it is due or
- * overdue) and every interval after. Nothing recurring is marked before today:
- * past occurrences are history, and that history is not stored.
+ * without one: there is no day to put it on. A recurring task is marked on the
+ * days the task list would call it due: the days are walked from today, each
+ * one asked isRecurringTaskDue -- the rule the task list and the nav badge use
+ * -- and the task is taken as done on every day it comes due. So whatever
+ * schedule that rule understands, the calendar follows, with no second copy of
+ * it here. An overdue task is marked today. Nothing recurring is marked before
+ * today: past occurrences are history, and that history is not stored.
  */
 export function taskDayKeys(todo: MarkerTodo, from: Date, to: Date, now: Date = new Date()): string[] {
   if (todo.deleted_at || todo.completed) return [];
@@ -58,21 +59,16 @@ export function taskDayKeys(todo: MarkerTodo, from: Date, to: Date, now: Date = 
     return n >= fromN && n <= toN ? [keyOf(n)] : [];
   }
 
-  const interval = recurrenceIntervalDays(todo);
-  if (!interval) return [];
-  const todayN = dayNumber(toLocalDateKey(now));
-  let next = todayN;
-  if (todo.last_completed) {
-    const last = new Date(todo.last_completed);
-    if (!Number.isNaN(last.getTime())) {
-      next = Math.max(todayN, dayNumber(toLocalDateKey(last)) + interval);
-    }
-  }
-  // Jump to the first occurrence inside the range rather than walking to it.
-  if (next < fromN) next += Math.ceil((fromN - next) / interval) * interval;
-
   const keys: string[] = [];
-  for (let n = next; n <= toN; n += interval) keys.push(keyOf(n));
+  let state: MarkerTodo = todo;
+  for (let n = dayNumber(toLocalDateKey(now)); n <= toN; n++) {
+    // Local noon of the day: clear of midnight whatever the timezone or DST.
+    const [y, m, d] = keyOf(n).split("-").map(Number);
+    const day = new Date(y, m - 1, d, 12);
+    if (!isRecurringTaskDue(state, day)) continue;
+    if (n >= fromN) keys.push(keyOf(n));
+    state = { ...state, last_completed: day.toISOString() };
+  }
   return keys;
 }
 
@@ -134,6 +130,8 @@ export interface TaskOccurrence {
   date: Date;
   color: string;
   personId: string | null;
+  /** Shown next to the title: who the task is for. */
+  personName: string | null;
 }
 
 export const TASK_EVENT_PREFIX = "task:";
@@ -149,13 +147,13 @@ export function isTaskEventId(id: string): boolean {
  */
 export function taskOccurrences(
   todos: readonly (MarkerTodo & { id: string; title: string })[],
-  people: readonly { id: string; color: string }[],
+  people: readonly { id: string; color: string; name?: string }[],
   from: Date,
   to: Date,
   unassignedColor: string,
   now: Date = new Date(),
 ): TaskOccurrence[] {
-  const colorOf = new Map(people.map((p) => [p.id, p.color]));
+  const byId = new Map(people.map((p) => [p.id, p]));
   const out: TaskOccurrence[] = [];
   for (const todo of todos) {
     for (const dayKey of taskDayKeys(todo, from, to, now)) {
@@ -166,8 +164,9 @@ export function taskOccurrences(
         title: todo.title,
         dayKey,
         date: new Date(y, m - 1, d),
-        color: (todo.person_id && colorOf.get(todo.person_id)) || unassignedColor,
+        color: (todo.person_id && byId.get(todo.person_id)?.color) || unassignedColor,
         personId: todo.person_id ?? null,
+        personName: (todo.person_id && byId.get(todo.person_id)?.name) || null,
       });
     }
   }
