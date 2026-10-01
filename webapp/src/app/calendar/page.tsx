@@ -125,7 +125,7 @@ import {
   holidaysByDay,
   isTaskEventId,
   taskMarkersByDay,
-  taskOccurrences,
+  taskOccurrencesIn,
   type CalendarDisplaySettings,
 } from "@/lib/calendar-markers";
 import { toLocalDateKey } from "@/lib/local-date";
@@ -324,17 +324,18 @@ export default function CalendarPage() {
   );
 
   // Every task occurrence the calendar can show, computed once for the grid's
-  // dots and the side panel's lists. The panel shows the selected day (today
-  // when none) and up to a week after it, which can lie outside the month
-  // being browsed. No name in the title: the panel badges the person already.
+  // dots and the side panel's lists: the grid's own range, and -- with tasks
+  // treated as events -- the selected day (today when none) and the week after
+  // it, which the panel lists and which can lie outside the month being
+  // browsed. No name in the title: the panel badges the person already.
   const taskEvents = useMemo<CalendarEvent[]>(() => {
     if (!showTaskMarkers && !tasksAsEvents) return [];
-    const today = startOfDay(new Date());
-    const gridStart = new Date(dateRange.start);
-    const gridEnd = new Date(dateRange.end);
-    const from = gridStart < today ? gridStart : today;
-    const to = addDays(gridEnd > today ? gridEnd : today, 8);
-    return taskOccurrences(todos ?? [], people ?? [], from, to, TASK_UNASSIGNED_COLOR).map((o) => ({
+    const ranges: [Date, Date][] = [[new Date(dateRange.start), new Date(dateRange.end)]];
+    if (tasksAsEvents) {
+      const panelDay = startOfDay(selectedDate ?? new Date());
+      ranges.push([panelDay, addDays(panelDay, 8)]);
+    }
+    return taskOccurrencesIn(todos ?? [], people ?? [], ranges, TASK_UNASSIGNED_COLOR).map((o) => ({
       id: o.id,
       title: t("markers.taskTitle", { title: o.title }),
       start: o.date,
@@ -343,7 +344,7 @@ export default function CalendarPage() {
       color: o.color,
       person_id: o.personId ?? undefined,
     }));
-  }, [showTaskMarkers, tasksAsEvents, todos, people, dateRange.start, dateRange.end, t]);
+  }, [showTaskMarkers, tasksAsEvents, todos, people, dateRange.start, dateRange.end, selectedDate, t]);
   const { data: googleStatus } = useGoogleCalendarStatus();
   const updateSetting = useUpdateSetting<string>();
   const createEvent = useCreateEvent();
