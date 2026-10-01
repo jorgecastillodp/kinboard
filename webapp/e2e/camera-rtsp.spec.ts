@@ -8,7 +8,7 @@ import {
   snapshotUrl,
   webrtcUrl,
 } from "../src/lib/go2rtc";
-import { inboundVideoBytes, showsLivePill } from "../src/lib/camera-live";
+import { inboundVideoBytes, NO_VIDEO_GRACE_MS, showsLivePill, trackRtspLive } from "../src/lib/camera-live";
 
 /**
  * The camera form has offered "RTSP" as a stream type since the first
@@ -195,37 +195,152 @@ test("a connection carrying only audio has received no video", () => {
   expect(inboundVideoBytes([{ type: "inbound-rtp", mediaType: "video", bytesReceived: 10 }])).toBe(10);
 });
 
-test("an RTSP camera goes live in one place, and not on ICE state alone", () => {
-  const source = readFileSync(join(process.cwd(), "src/components/camera-viewer.tsx"), "utf8");
+/**
+ * When an RTSP tile goes live is decided by trackRtspLive, driven here the way
+ * the viewer drives it: a fake connection, fake tracks and timers the test
+ * runs by hand. Two source checks stood here before and pinned lines of the
+ * viewer -- routing "connected means live" through them kept both green.
+ * These pin what the tile does.
+ */
+function rtspTile(options: { videoBytes?: number; statsFail?: boolean } = {}) {
+  const pc = {
+    iceConnectionState: "new",
+    getStats: async () => {
+      if (options.statsFail) throw new Error("connection closed");
+      const report = new Map<string, object>([["IT01A", { type: "inbound-rtp", kind: "audio", bytesReceived: 1_800_000 }]]);
+      if (options.videoBytes) report.set("IT01V", { type: "inbound-rtp", kind: "video", bytesReceived: options.videoBytes });
+      return report;
+    },
+  };
+  const states: boolean[] = []; // every setLive, in order
+  const timers: { callback: () => unknown; ms: number; cleared: boolean }[] = [];
+  let current = true;
+  let gaveUp = 0;
+  const live = trackRtspLive(pc, {
+    setLive: (value) => states.push(value),
+    isCurrent: () => current,
+    giveUp: () => gaveUp++,
+    setTimer: (callback, ms) => timers.push({ callback, ms, cleared: false }) - 1,
+    clearTimer: (handle) => { timers[handle as number].cleared = true; },
+  });
+  return {
+    live,
+    states,
+    timers,
+    isLive: () => states.at(-1) === true,
+    gaveUp: () => gaveUp,
+    ice(state: string) {
+      pc.iceConnectionState = state;
+      live.onIceStateChange();
+    },
+    /** A video track; muted until its first packet, as browsers deliver them. */
+    videoTrack(muted = true) {
+      const listeners: (() => void)[] = [];
+      live.onTrack({ kind: "video", muted, addEventListener: (_type, listener) => listeners.push(listener) });
+      return { firstPacket: () => listeners.forEach((listener) => listener()) };
+    },
+    supersede: () => { current = false; },
+    runTimer: async () => { await timers[0].callback(); },
+  };
+}
 
-  // Exactly one call site, and it is goLive — which runs on the first video
-  // packet, or when getStats() shows video bytes. The ICE handler only ever
-  // reaches it through goLive, for a connection that already had video.
-  const calls = [...source.matchAll(/setRtspLive\(true\)/g)];
-  expect(calls).toHaveLength(1);
-
-  const goLiveAt = source.indexOf("const goLive = () => {");
-  expect(goLiveAt).toBeGreaterThan(-1);
-  let depth = 0;
-  let end = -1;
-  for (let i = source.indexOf("{", goLiveAt); i < source.length; i++) {
-    if (source[i] === "{") depth++;
-    else if (source[i] === "}" && --depth === 0) { end = i; break; }
-  }
-  expect(calls[0].index).toBeGreaterThan(goLiveAt);
-  expect(calls[0].index).toBeLessThan(end);
+test("a new attempt starts from the still, even on a tile that was live", () => {
+  // Refresh in fullscreen starts one on a tile that may already be live. If
+  // that connection never got video, LIVE used to stay over a dead picture.
+  expect(rtspTile().states).toEqual([false]);
 });
 
-test("a new connection attempt on an RTSP camera starts from the still", () => {
-  // Refresh in fullscreen calls initWebRTC() on a tile that may already be
-  // live. If the new connection never got video, the no-video timer closed
-  // it and rtspLive stayed true: LIVE over a dead picture, and the still
-  // never came back. The reset has to come before the old connection goes.
+test("ICE connecting is not video: the tile stays on the still and waits", () => {
+  const tile = rtspTile();
+  tile.ice("checking");
+  tile.ice("connected");
+  expect(tile.isLive()).toBe(false);
+  expect(tile.timers).toHaveLength(1);
+  expect(tile.timers[0].ms).toBe(NO_VIDEO_GRACE_MS);
+});
+
+test("connected with audio only, it gives up after the wait and keeps the still", async () => {
+  // The H.265 camera in a browser without H.265: go2rtc sends audio alone.
+  const tile = rtspTile();
+  tile.ice("connected");
+  await tile.runTimer();
+  expect(tile.gaveUp()).toBe(1);
+  expect(tile.isLive()).toBe(false);
+});
+
+test("the first video packet makes it live and ends the wait", () => {
+  const tile = rtspTile();
+  const track = tile.videoTrack();
+  tile.ice("connected");
+  expect(tile.isLive()).toBe(false);
+  track.firstPacket();
+  expect(tile.isLive()).toBe(true);
+  expect(tile.timers[0].cleared).toBe(true);
+});
+
+test("a video track that arrives already playing is live at once", () => {
+  const tile = rtspTile();
+  tile.videoTrack(false);
+  expect(tile.isLive()).toBe(true);
+});
+
+test("an audio track never makes it live", () => {
+  const tile = rtspTile();
+  tile.live.onTrack({ kind: "audio", muted: false, addEventListener: () => {} });
+  expect(tile.isLive()).toBe(false);
+});
+
+test("getStats() is the second opinion for a browser that never fires unmute", async () => {
+  const tile = rtspTile({ videoBytes: 4_200_000 });
+  tile.videoTrack(); // never unmutes
+  tile.ice("connected");
+  await tile.runTimer();
+  expect(tile.isLive()).toBe(true);
+  expect(tile.gaveUp()).toBe(0);
+});
+
+test("stats that cannot be read count as no video", async () => {
+  const tile = rtspTile({ statsFail: true });
+  tile.ice("connected");
+  await tile.runTimer();
+  expect(tile.gaveUp()).toBe(1);
+  expect(tile.isLive()).toBe(false);
+});
+
+test("a blip drops to the still, and the video it had comes back live", () => {
+  const tile = rtspTile();
+  const track = tile.videoTrack();
+  tile.ice("connected");
+  track.firstPacket();
+  tile.ice("disconnected");
+  expect(tile.isLive()).toBe(false);
+  tile.ice("connected");
+  expect(tile.isLive()).toBe(true);
+  expect(tile.timers).toHaveLength(1); // no second wait: it has had video
+});
+
+test("once a newer attempt owns the tile, this one changes nothing", async () => {
+  const tile = rtspTile();
+  const track = tile.videoTrack();
+  tile.ice("connected");
+  tile.supersede();
+  track.firstPacket();
+  await tile.runTimer();
+  expect(tile.isLive()).toBe(false);
+  expect(tile.gaveUp()).toBe(0);
+});
+
+test("closing the connection stops the wait", () => {
+  const tile = rtspTile();
+  tile.ice("connected");
+  tile.live.dispose();
+  expect(tile.timers[0].cleared).toBe(true);
+});
+
+test("the viewer never says LIVE itself: it goes through trackRtspLive", () => {
+  // The one wiring check left as source: everything above counts only if
+  // the viewer routes its connection through the tracker.
   const source = readFileSync(join(process.cwd(), "src/components/camera-viewer.tsx"), "utf8");
-  const initAt = source.indexOf("const initWebRTC = useCallback(");
-  expect(initAt).toBeGreaterThan(-1);
-  const resetAt = source.indexOf("if (isFallbackCapable) setRtspLive(false);", initAt);
-  const cleanupAt = source.indexOf("cleanupWebRTC();", initAt);
-  expect(resetAt).toBeGreaterThan(initAt);
-  expect(resetAt).toBeLessThan(cleanupAt);
+  expect(source).not.toMatch(/setRtspLive\(true\)/);
+  expect(source).toContain("trackRtspLive(pc,");
 });
