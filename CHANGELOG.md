@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - **Graphite, a neutral tone with no tint.** Settings -> Design -> Neutral tone gains Graphite: true neutral greys, near-black in dark mode, for anyone who finds Sand, Salbei and Warm grey too warm -- in dark mode they read as brown rather than black. The accent colour and monthly themes are unchanged.
+- **Tasks can repeat on the days you pick.** A task's Repeat setting gains Custom days: pick any weekdays -- Monday to Friday, say, or Monday to Thursday -- and the task comes due on each of them. It is due once a picked day has come round since it was last done, so a missed day shows the task as overdue rather than piling up. The task list, the badges, the dashboard and reminders all follow the picked days; reminders use the family's timezone when one is set. No database change: the days are kept in the task's existing repeat field.
 - **Camera feeds can be placed in a room.** Editing a camera under Settings -> Cameras now offers a room. The feed then also appears in that room on the Automation page, above the room's devices, so a wall panel can show the gate camera next to the gate controls instead of on a separate page. Cameras keep appearing on the Cameras page whether or not they have a room, and a camera with no room behaves exactly as before. No database migration: the room is stored with the rest of the camera settings.
 
 ### Changed
@@ -16,6 +17,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **A policy for the Kinboard name and logos (`TRADEMARK.md`).** Talking about Kinboard, running it and passing on unmodified copies need no permission. A modified version that is published needs a name of its own and no Kinboard logos, and must say it is based on Kinboard. This applies to every version, including the MIT-licensed ones, because neither licence covers the name.
 
 ### Fixed
+
+- **RTSP cameras say LIVE only when they are.** A camera tile said LIVE over the still image an RTSP camera shows while it connects, which refreshes every few seconds. And in a browser that cannot play the camera's video format (an H.265 camera, viewed in a browser without H.265 in WebRTC) it switched to a black box marked LIVE and never drew a frame. The tile now switches to live video, and says LIVE, only once video is actually arriving. Until then, or if it never does, it stays on the refreshing still.
 
 ### Security
 

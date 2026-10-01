@@ -15,6 +15,7 @@ import {
   Repeat1,
   Repeat2,
   CalendarClock,
+  CalendarDays,
   Loader2,
   AlertTriangle,
   Clock,
@@ -99,12 +100,19 @@ import {
   queryKeys,
 } from "@/hooks";
 import { comparePriority } from "@/lib/todo-priority";
-import { isRecurringTaskDue } from "@/lib/todo-recurrence";
+import {
+  formatRecurrenceDays,
+  isRecurringTaskDue,
+  nextWeekdayDueDate,
+  recurrenceWeekdays,
+} from "@/lib/todo-recurrence";
+import { WeekdayPicker, useWeekdaysLabel } from "@/components/weekday-picker";
 import type { Todo } from "@/types/database";
 
 // Priority types and config
 type Priority = "low" | "medium" | "high";
-type RecurrenceType = "once" | "daily" | "weekly" | "biweekly" | "monthly";
+// "custom" is the form's name for picked weekdays; it is stored as "days:MO,TU,...".
+type RecurrenceType = "once" | "daily" | "weekly" | "biweekly" | "monthly" | "custom";
 
 const PRIORITY_COLORS: Record<Priority, string> = {
   low: "bg-priority-low",
@@ -118,6 +126,7 @@ const RECURRENCE_ICON_MAP: Record<RecurrenceType, LucideIcon | null> = {
   weekly: Repeat1,
   biweekly: Repeat2,
   monthly: CalendarClock,
+  custom: CalendarDays,
 };
 
 function TodosSkeleton() {
@@ -152,6 +161,7 @@ export default function TodosPage() {
     weekly: t("recurrence.weekly"),
     biweekly: t("recurrence.biweekly"),
     monthly: t("recurrence.monthly"),
+    custom: t("recurrence.custom"),
   };
 
   const [quickAddTitle, setQuickAddTitle] = useState("");
@@ -160,6 +170,7 @@ export default function TodosPage() {
   const [newTaskDueDate, setNewTaskDueDate] = useState<Date | undefined>();
   const [newTaskPriority, setNewTaskPriority] = useState<Priority>("medium");
   const [newTaskRecurrence, setNewTaskRecurrence] = useState<RecurrenceType>("once");
+  const [newTaskDays, setNewTaskDays] = useState<number[]>([]);
   const [newTaskIcon, setNewTaskIcon] = useState("");
   const [newTaskPoints, setNewTaskPoints] = useState(0);
   const [filterPerson, setFilterPerson] = useState<string>("all");
@@ -173,6 +184,12 @@ export default function TodosPage() {
   const [editDueDate, setEditDueDate] = useState<Date | undefined>();
   const [editPriority, setEditPriority] = useState<Priority>("medium");
   const [editRecurrence, setEditRecurrence] = useState<RecurrenceType>("once");
+  const [editDays, setEditDays] = useState<number[]>([]);
+  const weekdaysLabel = useWeekdaysLabel();
+  // The form's choice as stored: picked days become "days:MO,TU,..." -- or
+  // "daily" when all seven are picked.
+  const storedRecurrence = (type: RecurrenceType, days: number[]) =>
+    type === "custom" ? formatRecurrenceDays(days) ?? "once" : type;
   const [editIcon, setEditIcon] = useState("");
   const [editPoints, setEditPoints] = useState(0);
 
@@ -204,7 +221,7 @@ export default function TodosPage() {
         person_id: newTaskPerson || null,
         due_date: newTaskDueDate ? format(newTaskDueDate, "yyyy-MM-dd") : null,
         priority: newTaskPriority,
-        recurrence: newTaskRecurrence,
+        recurrence: storedRecurrence(newTaskRecurrence, newTaskDays),
         icon: newTaskIcon || null,
         points: newTaskPoints,
       });
@@ -214,6 +231,7 @@ export default function TodosPage() {
       setNewTaskDueDate(undefined);
       setNewTaskPriority("medium");
       setNewTaskRecurrence("once");
+      setNewTaskDays([]);
       setNewTaskIcon("");
       setNewTaskPoints(0);
       setDialogOpen(false);
@@ -244,7 +262,9 @@ export default function TodosPage() {
     setEditPerson(todo.person_id || "");
     setEditDueDate(todo.due_date ? new Date(todo.due_date) : undefined);
     setEditPriority((todo.priority as Priority) || "medium");
-    setEditRecurrence((todo.recurrence as RecurrenceType) || "once");
+    const pickedDays = recurrenceWeekdays(todo.recurrence);
+    setEditRecurrence(pickedDays ? "custom" : (todo.recurrence as RecurrenceType) || "once");
+    setEditDays(pickedDays ?? []);
     setEditIcon(todo.icon || "");
     setEditPoints(todo.points || 0);
     setEditDialogOpen(true);
@@ -260,7 +280,7 @@ export default function TodosPage() {
         person_id: editPerson || null,
         due_date: editDueDate ? format(editDueDate, "yyyy-MM-dd") : null,
         priority: editPriority,
-        recurrence: editRecurrence,
+        recurrence: storedRecurrence(editRecurrence, editDays),
         icon: editIcon || null,
         points: editPoints,
       });
@@ -334,10 +354,14 @@ export default function TodosPage() {
 
 
   // Get effective due date considering recurrence
-  const getEffectiveDueDate = (todo: { recurrence?: string | null; last_completed?: string | null; due_date?: string | null }): Date | null => {
+  const getEffectiveDueDate = (todo: { recurrence?: string | null; last_completed?: string | null; due_date?: string | null; created_at?: string | null }): Date | null => {
     if (!todo.recurrence || todo.recurrence === "once") {
       return todo.due_date ? new Date(todo.due_date) : null;
     }
+
+    // Picked weekdays: the first picked day since it was last done or made.
+    const pickedDays = recurrenceWeekdays(todo.recurrence);
+    if (pickedDays) return nextWeekdayDueDate(todo, pickedDays);
 
     if (!todo.last_completed) {
       return todo.due_date ? new Date(todo.due_date) : new Date();
@@ -667,7 +691,7 @@ export default function TodosPage() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="flex flex-col gap-2">
+                      <div className={`flex flex-col gap-2 ${newTaskRecurrence === "custom" ? "sm:col-span-2" : ""}`}>
                         <Label>{t("fieldRecurrence")}</Label>
                         <Select
                           value={newTaskRecurrence || "once"}
@@ -700,8 +724,16 @@ export default function TodosPage() {
                                 <CalendarClock className="size-4 text-muted-foreground" /> {t("recurrence.monthly")}
                               </div>
                             </SelectItem>
+                            <SelectItem value="custom">
+                              <div className="flex items-center gap-2">
+                                <CalendarDays className="size-4 text-muted-foreground" /> {t("recurrence.custom")}
+                              </div>
+                            </SelectItem>
                           </SelectContent>
                         </Select>
+                        {newTaskRecurrence === "custom" && (
+                          <WeekdayPicker value={newTaskDays} onChange={setNewTaskDays} />
+                        )}
                       </div>
 
                       <div className="flex flex-col gap-2">
@@ -735,7 +767,7 @@ export default function TodosPage() {
                     <Button
                       className="w-full"
                       onClick={handleAddTask}
-                      disabled={!newTaskTitle.trim() || createTodo.isPending}
+                      disabled={!newTaskTitle.trim() || createTodo.isPending || (newTaskRecurrence === "custom" && newTaskDays.length === 0)}
                     >
                       {createTodo.isPending ? (
                         <>
@@ -1065,7 +1097,8 @@ export default function TodosPage() {
                                       </p>
                                       {task.points > 0 && <span className="shrink-0 text-xs text-primary">⭐ {task.points}</span>}
                                       {isRecurring && task.recurrence && (() => {
-                                        const RecurrenceIcon = RECURRENCE_ICON_MAP[task.recurrence as RecurrenceType];
+                                        const pickedDays = recurrenceWeekdays(task.recurrence);
+                                        const RecurrenceIcon = RECURRENCE_ICON_MAP[pickedDays ? "custom" : (task.recurrence as RecurrenceType)];
                                         if (!RecurrenceIcon) return null;
                                         return (
                                           <Tooltip>
@@ -1075,7 +1108,7 @@ export default function TodosPage() {
                                               </span>
                                             </TooltipTrigger>
                                             <TooltipContent>
-                                              {RECURRENCE_LABELS[task.recurrence as RecurrenceType]}
+                                              {pickedDays ? weekdaysLabel(pickedDays) : RECURRENCE_LABELS[task.recurrence as RecurrenceType]}
                                             </TooltipContent>
                                           </Tooltip>
                                         );
@@ -1239,7 +1272,7 @@ export default function TodosPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-2">
+                <div className={`flex flex-col gap-2 ${editRecurrence === "custom" ? "sm:col-span-2" : ""}`}>
                   <Label>{t("fieldRecurrence")}</Label>
                   <Select
                     value={editRecurrence || "once"}
@@ -1272,8 +1305,16 @@ export default function TodosPage() {
                           <CalendarClock className="size-4 text-muted-foreground" /> {t("recurrence.monthly")}
                         </div>
                       </SelectItem>
+                      <SelectItem value="custom">
+                        <div className="flex items-center gap-2">
+                          <CalendarDays className="size-4 text-muted-foreground" /> {t("recurrence.custom")}
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
+                  {editRecurrence === "custom" && (
+                    <WeekdayPicker value={editDays} onChange={setEditDays} />
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -1307,7 +1348,7 @@ export default function TodosPage() {
               <Button
                 className="w-full"
                 onClick={handleEditTask}
-                disabled={!editTitle.trim() || updateTodo.isPending}
+                disabled={!editTitle.trim() || updateTodo.isPending || (editRecurrence === "custom" && editDays.length === 0)}
               >
                 {updateTodo.isPending ? (
                   <>
