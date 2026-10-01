@@ -179,7 +179,7 @@ export function taskOccurrences(
  * sorted the same way.
  *
  * Separate ranges rather than one span covering both: browsing years ahead, a
- * span from today to the grid built every occurrence in between -- some 60,000
+ * span from today to the grid built every occurrence in between -- about 39,000
  * items for 30 tasks ten years out, rebuilt on every refetch.
  */
 export function taskOccurrencesIn(
