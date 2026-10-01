@@ -10,11 +10,14 @@ import { isRecurring, recurrenceIntervalDays, type RecurringFields } from "@/lib
 export interface CalendarDisplaySettings {
   showHolidays: boolean;
   showTasks: boolean;
+  /** Tasks also listed among events: the Events widget, the week overview, the calendar's day lists. */
+  tasksAsEvents: boolean;
 }
 
 export const DEFAULT_CALENDAR_DISPLAY: CalendarDisplaySettings = {
   showHolidays: false,
   showTasks: false,
+  tasksAsEvents: false,
 };
 
 export interface MarkerTodo extends RecurringFields {
@@ -118,4 +121,69 @@ export function holidaysByDay(country: CountryCode, from: Date, to: Date): Map<s
     }
   }
   return out;
+}
+
+/** A task on one day, shaped to sit in a list of events. */
+export interface TaskOccurrence {
+  /** Unique per task and day, and never a real event id: `task:<todo id>:<day key>`. */
+  id: string;
+  todoId: string;
+  title: string;
+  dayKey: string;
+  /** Local midnight of `dayKey`: an all-day item. */
+  date: Date;
+  color: string;
+  personId: string | null;
+}
+
+export const TASK_EVENT_PREFIX = "task:";
+
+/** True for an id made by taskOccurrences -- a task in an event list, with no event row behind it. */
+export function isTaskEventId(id: string): boolean {
+  return id.startsWith(TASK_EVENT_PREFIX);
+}
+
+/**
+ * Every occurrence of every task between `from` and `to`, on the days
+ * taskDayKeys gives, coloured by person, sorted by day then title.
+ */
+export function taskOccurrences(
+  todos: readonly (MarkerTodo & { id: string; title: string })[],
+  people: readonly { id: string; color: string }[],
+  from: Date,
+  to: Date,
+  unassignedColor: string,
+  now: Date = new Date(),
+): TaskOccurrence[] {
+  const colorOf = new Map(people.map((p) => [p.id, p.color]));
+  const out: TaskOccurrence[] = [];
+  for (const todo of todos) {
+    for (const dayKey of taskDayKeys(todo, from, to, now)) {
+      const [y, m, d] = dayKey.split("-").map(Number);
+      out.push({
+        id: `${TASK_EVENT_PREFIX}${todo.id}:${dayKey}`,
+        todoId: todo.id,
+        title: todo.title,
+        dayKey,
+        date: new Date(y, m - 1, d),
+        color: (todo.person_id && colorOf.get(todo.person_id)) || unassignedColor,
+        personId: todo.person_id ?? null,
+      });
+    }
+  }
+  return out.sort((a, b) => a.dayKey.localeCompare(b.dayKey) || a.title.localeCompare(b.title));
+}
+
+/**
+ * Each task's first occurrence only. An upcoming list shows what comes next;
+ * listing every repeat would let one daily chore fill it and push the real
+ * events out. Expects the sorted output of taskOccurrences.
+ */
+export function nextTaskOccurrences(occurrences: readonly TaskOccurrence[]): TaskOccurrence[] {
+  const seen = new Set<string>();
+  return occurrences.filter((o) => {
+    if (seen.has(o.todoId)) return false;
+    seen.add(o.todoId);
+    return true;
+  });
 }

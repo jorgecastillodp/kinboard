@@ -2357,7 +2357,9 @@
       "holidaysLabel": "Feiertage",
       "holidaysHint": "Ein bernsteinfarbener Punkt am Tag und der Name des Feiertags, wo Platz ist. Das Land kommt aus Einstellungen → Sprache.",
       "tasksLabel": "Aufgaben",
-      "tasksHint": "Ein Punkt in der Farbe der Person an jedem Tag, an dem eine Aufgabe fällig ist. Wiederkehrende Aufgaben werden an jedem Tag markiert, an dem sie wieder anstehen."
+      "tasksHint": "Ein Punkt in der Farbe der Person an jedem Tag, an dem eine Aufgabe fällig ist. Wiederkehrende Aufgaben werden an jedem Tag markiert, an dem sie wieder anstehen.",
+      "tasksAsEventsLabel": "Aufgaben wie Termine behandeln",
+      "tasksAsEventsHint": "Aufgaben erscheinen auch zwischen den Terminen: im Widget Termine, in der Wochenübersicht und in der Tagesliste des Kalenders. In Vorschau-Listen zeigt eine wiederkehrende Aufgabe nur ihr nächstes Mal."
     },
     "caldav": {
       "title": "CalDAV-Kalender",
@@ -2616,7 +2618,8 @@
       "overlapAria": "{count, plural, one {überschneidet sich mit 1 weiteren Termin} other {überschneidet sich mit # weiteren Terminen}}"
     },
     "markers": {
-      "tasksDue": "Fällige Aufgaben"
+      "tasksDue": "Fällige Aufgaben",
+      "taskTitle": "✓ {title}"
     }
   },
   "weather": {

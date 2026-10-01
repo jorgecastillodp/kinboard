@@ -2357,7 +2357,9 @@
       "holidaysLabel": "Jours fériés",
       "holidaysHint": "Un point ambré sur le jour, et le nom du jour férié quand la place le permet. Le pays vient de Paramètres → Langue.",
       "tasksLabel": "Tâches",
-      "tasksHint": "Un point de la couleur de la personne chaque jour où une tâche est due. Les tâches récurrentes sont marquées chaque jour où elles reviennent."
+      "tasksHint": "Un point de la couleur de la personne chaque jour où une tâche est due. Les tâches récurrentes sont marquées chaque jour où elles reviennent.",
+      "tasksAsEventsLabel": "Traiter les tâches comme des événements",
+      "tasksAsEventsHint": "Les tâches apparaissent aussi parmi les événements : dans le widget Événements, l'Aperçu de la semaine et la liste du jour du calendrier. Dans les listes à venir, une tâche récurrente n'apparaît qu'à sa prochaine occurrence."
     },
     "caldav": {
       "title": "Calendriers CalDAV",
@@ -2616,7 +2618,8 @@
       "overlapAria": "{count, plural, one {chevauche 1 autre événement} other {chevauche # autres événements}}"
     },
     "markers": {
-      "tasksDue": "Tâches à faire"
+      "tasksDue": "Tâches à faire",
+      "taskTitle": "✓ {title}"
     }
   },
   "weather": {

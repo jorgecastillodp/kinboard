@@ -98,7 +98,7 @@ import { EventPill } from "@/components/event-pill";
 import { PersonChip } from "@/components/person-chip";
 import { FAB } from "@/components/fab";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   useEvents,
   useEventById,
@@ -123,7 +123,9 @@ import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import {
   DEFAULT_CALENDAR_DISPLAY,
   holidaysByDay,
+  isTaskEventId,
   taskMarkersByDay,
+  taskOccurrences,
   type CalendarDisplaySettings,
 } from "@/lib/calendar-markers";
 import { useTimeFormat } from "@/hooks/use-time-format";
@@ -327,6 +329,28 @@ export default function CalendarPage() {
         : undefined,
     [showTaskMarkers, todos, people, dateRange.start, dateRange.end],
   );
+
+  // Tasks among events, for the side panel's lists only: the grid already has
+  // them as dots. The panel shows the selected day (today when none) and up to
+  // a week after it, which can lie outside the month being browsed.
+  const tasksAsEvents = calendarDisplay?.tasksAsEvents ?? false;
+  const taskEvents = useMemo<CalendarEvent[]>(() => {
+    if (!tasksAsEvents) return [];
+    const today = startOfDay(new Date());
+    const gridStart = new Date(dateRange.start);
+    const gridEnd = new Date(dateRange.end);
+    const from = gridStart < today ? gridStart : today;
+    const to = addDays(gridEnd > today ? gridEnd : today, 8);
+    return taskOccurrences(todos ?? [], people ?? [], from, to, "hsl(var(--muted-foreground))").map((o) => ({
+      id: o.id,
+      title: t("markers.taskTitle", { title: o.title }),
+      start: o.date,
+      end: endOfDay(o.date),
+      allDay: true,
+      color: o.color,
+      person_id: o.personId ?? undefined,
+    }));
+  }, [tasksAsEvents, todos, people, dateRange.start, dateRange.end, t]);
   const { data: googleStatus } = useGoogleCalendarStatus();
   const updateSetting = useUpdateSetting<string>();
   const createEvent = useCreateEvent();
@@ -416,10 +440,10 @@ export default function CalendarPage() {
 
   // Apply the person filter, then the search filter. null personIds = no
   // filter yet (show all). Person-less events are always visible.
-  const visibleEvents = useMemo(() => {
+  const filterForView = useCallback((list: CalendarEvent[]) => {
     let filtered = selectedPersonIds
-      ? events.filter((e) => !e.person_id || selectedPersonIds.has(e.person_id))
-      : events;
+      ? list.filter((e) => !e.person_id || selectedPersonIds.has(e.person_id))
+      : list;
     const q = searchQuery.trim().toLowerCase();
     if (q.length >= 2) {
       filtered = filtered.filter((e) =>
@@ -429,15 +453,29 @@ export default function CalendarPage() {
       );
     }
     return filtered;
-  }, [events, selectedPersonIds, searchQuery]);
+  }, [selectedPersonIds, searchQuery]);
+  const visibleEvents = useMemo(() => filterForView(events), [events, filterForView]);
+  // The side panel's lists: events, plus tasks when they are treated as events.
+  // Same person and search filters; the grid keeps visibleEvents.
+  const panelEvents = useMemo(
+    () => (taskEvents.length > 0 ? filterForView([...events, ...taskEvents]) : visibleEvents),
+    [taskEvents, events, filterForView, visibleEvents],
+  );
 
   // Opens the event detail dialog and records a history entry so the
   // back button/gesture closes the dialog instead of leaving /calendar.
+  const router = useRouter();
   const openEventDetail = useCallback((event: CalendarEvent) => {
+    // A task in the side panel has no event behind it, and the event editor
+    // would try to load one. It opens where it lives instead.
+    if (isTaskEventId(event.id)) {
+      router.push("/todos");
+      return;
+    }
     eventHistoryPushedRef.current = true;
     window.history.pushState({}, "", `/calendar?event=${event.id}`);
     setSelectedEvent(event);
-  }, []);
+  }, [router]);
 
   // Closes the event detail dialog. If we pushed a history entry to open
   // it, go back (consumes that entry — no stacking on rapid open/close);
@@ -577,7 +615,7 @@ export default function CalendarPage() {
 
   // Get events for a specific day (including multi-day events)
   const getEventsForDay = (day: Date) => {
-    return visibleEvents.filter((event) => eventOccursOnDay(event, day));
+    return panelEvents.filter((event) => eventOccursOnDay(event, day));
   };
 
   // Get events for selected date (default to today when nothing selected)
@@ -1292,11 +1330,19 @@ export default function CalendarPage() {
                         {/* Coming up preview - show next events from future days */}
                         {(() => {
                           const upcomingEvents: { event: CalendarEvent; date: Date }[] = [];
+                          // A repeating task counts once, at its next day:
+                          // three slots of the same daily chore preview nothing.
+                          const seenTasks = new Set<string>();
                           for (let i = 1; i <= 7 && upcomingEvents.length < 3; i++) {
                             const futureDate = addDays(displayDate, i);
                             const dayEvents = getEventsForDay(futureDate);
                             for (const ev of dayEvents) {
                               if (upcomingEvents.length >= 3) break;
+                              if (isTaskEventId(ev.id)) {
+                                const todoId = ev.id.split(":")[1];
+                                if (seenTasks.has(todoId)) continue;
+                                seenTasks.add(todoId);
+                              }
                               upcomingEvents.push({ event: ev, date: futureDate });
                             }
                           }

@@ -40,6 +40,13 @@ export function CalendarDisplayCard() {
       checked: current.showTasks,
       onChange: (v) => set({ showTasks: v }),
     },
+    {
+      id: "calendar-tasks-as-events",
+      label: t("tasksAsEventsLabel"),
+      hint: t("tasksAsEventsHint"),
+      checked: current.tasksAsEvents,
+      onChange: (v) => set({ tasksAsEvents: v }),
+    },
   ];
 
   return (

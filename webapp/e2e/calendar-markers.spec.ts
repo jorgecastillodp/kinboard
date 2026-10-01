@@ -1,5 +1,14 @@
 import { test, expect } from "@playwright/test";
-import { holidaysByDay, taskDayKeys, taskMarkersByDay } from "../src/lib/calendar-markers";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  holidaysByDay,
+  isTaskEventId,
+  nextTaskOccurrences,
+  taskDayKeys,
+  taskMarkersByDay,
+  taskOccurrences,
+} from "../src/lib/calendar-markers";
 
 /**
  * The calendar could only show events. Public holidays appeared only in a
@@ -91,3 +100,71 @@ test("built-in holidays are keyed by their local day, across a year boundary", (
   const de = holidaysByDay("de", new Date(2026, 9, 1), new Date(2026, 9, 31));
   expect(de.get("2026-10-03")?.nameKey).toBe("tagDerDeutschenEinheit");
 });
+
+/**
+ * Treated as events, tasks join the lists events appear in -- the Events
+ * widget, the week overview, the calendar's day panel -- as all-day items
+ * with an id no event row can have, so the panel can send them to the task
+ * list instead of the event editor.
+ */
+test("tasks become all-day items with an id no event can have, coloured by person", () => {
+  const occurrences = taskOccurrences(
+    [
+      { id: "t1", title: "Water the plants", recurrence: "daily", person_id: "emma" },
+      { id: "t2", title: "Dentist forms", due_date: "2026-10-03", person_id: null },
+    ],
+    [{ id: "emma", color: "#ec4899" }],
+    now,
+    new Date(2026, 9, 4),
+    "neutral",
+    now,
+  );
+  expect(occurrences).toHaveLength(5); // the daily task on 1-4 October, the one-off on the 3rd
+  expect(occurrences[0]).toMatchObject({
+    id: "task:t1:2026-10-01",
+    todoId: "t1",
+    dayKey: "2026-10-01",
+    color: "#ec4899",
+  });
+  // Local midnight of its day: an all-day item.
+  const d = occurrences[0].date;
+  expect([d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()]).toEqual([2026, 9, 1, 0]);
+  expect(occurrences.find((o) => o.todoId === "t2")).toMatchObject({
+    dayKey: "2026-10-03",
+    color: "neutral",
+    personId: null,
+  });
+
+  expect(occurrences.every((o) => isTaskEventId(o.id))).toBe(true);
+  expect(isTaskEventId("5f0c1d2e-6b7a-4c3d-9e8f-0a1b2c3d4e5f")).toBe(false); // an event row's uuid
+});
+
+test("an upcoming list gets each task once, at its next occurrence", () => {
+  const occurrences = taskOccurrences(
+    [
+      { id: "t1", title: "Read", recurrence: "daily" },
+      { id: "t2", title: "Forms", due_date: "2026-10-03" },
+    ],
+    [],
+    now,
+    new Date(2026, 9, 14),
+    "neutral",
+    now,
+  );
+  expect(nextTaskOccurrences(occurrences).map((o) => `${o.todoId}@${o.dayKey}`)).toEqual([
+    "t1@2026-10-01",
+    "t2@2026-10-03",
+  ]);
+});
+
+test("the week overview compares due dates as dates, not as UTC midnights", () => {
+  // The bug, still asserted: a date-only string parses as midnight UTC, which
+  // west of UTC is the evening before -- a task due on the 14th was counted
+  // on the 13th in the Americas.
+  expect(new Date("2026-10-14").toISOString()).toBe("2026-10-14T00:00:00.000Z");
+
+  const source = readFileSync(join(process.cwd(), "src/components/widgets/week-overview-widget.tsx"), "utf8");
+  expect(source).not.toMatch(/new Date\(t\.due_date\)/);
+  expect(source).toContain("t.due_date?.slice(0, 10) === dayKey");
+});
+
