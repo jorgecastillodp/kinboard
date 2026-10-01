@@ -1138,6 +1138,7 @@
       "title": "Navigation",
       "showItem": "Show {label} in navigation",
       "fixedItemsHint": "Home, Calendar, Shopping and Settings remain visible as essential entry points.",
+      "fixedItemsHintKiosk": "This device is in kiosk mode, so Calendar and Shopping can be hidden too. Home and Settings always stay visible.",
       "settingsIconOnly": "Settings icon only",
       "settingsIconOnlyHint": "Saves space in the bottom bar on this device.",
       "intro": "Reorder the bottom navigation and hide items you do not need. These settings apply to this device only.",
