@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSetting, useUpdateSetting, useTextScale, type TextScale } from "@/hooks";
 import { useTheme } from "next-themes";
 import { PageHeader } from "@/components/page-header";
+import { ALL_PALETTE_CLASSES, type Palette as ThemePalette } from "@/hooks/use-theme-settings";
 
 // Month names are computed per-locale via date-fns; these are the
 // theme metadata only. The "name" is decorative branding kept in
@@ -33,14 +34,17 @@ const MONTHLY_THEMES = [
   { color: "#166534", name: "Pine", class: "theme-december" },
 ];
 
-type Palette = "salbei" | "sand" | "warmgrey";
+// Aliased: `Palette` is also the lucide icon imported above.
+type Palette = ThemePalette;
 
-// Neutral palettes — same accent/month themes, different warm-neutral tones.
+// Neutral palettes — same accent/month themes, different neutral tones: three
+// warm ones and Graphite, which has no tint at all.
 // Swatch HSL values mirror globals.css (light-mode background/card/border).
 const PALETTES: { id: Palette; bg: string; card: string; border: string }[] = [
   { id: "sand", bg: "38 37% 88%", card: "43 54% 97%", border: "37 31% 85%" },
   { id: "salbei", bg: "72 25% 92%", card: "75 50% 98%", border: "77 19% 85%" },
   { id: "warmgrey", bg: "37 18% 91%", card: "40 33% 98%", border: "37 18% 86%" },
+  { id: "graphite", bg: "0 0% 94%", card: "0 0% 99%", border: "0 0% 85%" },
 ];
 
 // Per-device text scale (localStorage, not the Supabase theme blob above —
@@ -107,7 +111,9 @@ export default function ThemeSettingsPage() {
   useEffect(() => {
     if (isLoading) return;
     const html = document.documentElement;
-    html.classList.remove("palette-salbei", "palette-warmgrey");
+    // The hook's list, not a copy: a palette missing here would stay on the
+    // page after switching away from it, until the next reload.
+    html.classList.remove(...ALL_PALETTE_CLASSES);
     if (palette !== "sand") html.classList.add(`palette-${palette}`);
   }, [palette, isLoading]);
 

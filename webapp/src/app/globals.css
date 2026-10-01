@@ -269,8 +269,9 @@
   /* ── Neutral palettes ──────────────────────────────────────────────
      Override ONLY the neutral tokens; the accent (--primary), month
      themes and person palette stay shared. Default (no class) = Sand.
-     Applied to <html> as `palette-salbei` / `palette-warmgrey` by
-     useThemeSettings, composes with `.dark` and `.theme-*`. */
+     Applied to <html> as `palette-salbei` / `palette-warmgrey` /
+     `palette-graphite` by useThemeSettings, composes with `.dark` and
+     `.theme-*`. */
   .palette-salbei {
     --background:72 25% 92%; --foreground:90 17% 14%;
     --card:75 50% 98%; --card-foreground:90 17% 14%;
@@ -309,6 +310,30 @@
     --muted:36 14% 15%; --muted-foreground:36 10% 60%; --label-foreground:36 14% 71%;
     --accent:36 14% 15%; --accent-foreground:37 30% 92%;
     --border:36 11% 18%; --input:36 11% 18%; --priority-low:36 10% 60%;
+  }
+
+  /* Graphite: the one palette with no tint. Every other neutral leans warm
+     (Sand and Warm grey toward brown, Salbei toward olive), which in dark mode
+     reads as brown rather than black. Saturation 0 throughout, and a
+     near-black background in dark mode. */
+  .palette-graphite {
+    --background:0 0% 94%; --foreground:0 0% 9%;
+    --card:0 0% 99%; --card-foreground:0 0% 9%;
+    --popover:0 0% 99%; --popover-foreground:0 0% 9%;
+    --secondary:0 0% 90%; --secondary-foreground:0 0% 9%;
+    --muted:0 0% 90%; --muted-foreground:0 0% 36%; --label-foreground:0 0% 27%;
+    --accent:0 0% 90%; --accent-foreground:0 0% 9%;
+    --border:0 0% 85%; --input:0 0% 85%; --priority-low:0 0% 36%;
+    --shadow-rgb:0 0 0;
+  }
+  .dark.palette-graphite {
+    --background:0 0% 5%; --foreground:0 0% 93%;
+    --card:0 0% 9%; --card-foreground:0 0% 93%;
+    --popover:0 0% 9%; --popover-foreground:0 0% 93%;
+    --secondary:0 0% 14%; --secondary-foreground:0 0% 93%;
+    --muted:0 0% 14%; --muted-foreground:0 0% 63%; --label-foreground:0 0% 74%;
+    --accent:0 0% 14%; --accent-foreground:0 0% 93%;
+    --border:0 0% 18%; --input:0 0% 18%; --priority-low:0 0% 63%;
   }
 }
 
