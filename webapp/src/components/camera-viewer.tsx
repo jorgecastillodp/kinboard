@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useFamilyStore } from "@/stores/family-store";
-import { inboundVideoBytes, showsLivePill } from "@/lib/camera-live";
+import { showsLivePill, trackRtspLive, type RtspLiveTracker } from "@/lib/camera-live";
 import type { CameraConfig } from "@/types/home-assistant";
 
 interface CameraViewerProps {
@@ -57,12 +57,6 @@ function ScanlineOverlay() {
 const SNAPSHOT_WIDTH_TILE = 640;
 const SNAPSHOT_WIDTH_FULLSCREEN = 1600;
 
-// How long an RTSP camera's WebRTC connection may sit connected with no video
-// before it is closed. The still stays on screen throughout, so a generous
-// wait costs nothing visible: it only has to outlast go2rtc dialling the
-// camera and waiting for its next keyframe.
-const NO_VIDEO_GRACE_MS = 15_000;
-
 // "LIVE" pill — red dot + label, shown only when a stream is actively rendering.
 function LivePill({ label }: { label: string }) {
   return (
@@ -92,7 +86,8 @@ export function CameraViewer({
   const imgRef = useRef<HTMLImageElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const noVideoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The current RTSP attempt's LIVE tracking, so cleanup can stop its wait.
+  const liveTrackerRef = useRef<RtspLiveTracker | null>(null);
 
   // Callback ref to attach stream when video element mounts
   const setVideoRef = useCallback((el: HTMLVideoElement | null) => {
@@ -155,10 +150,8 @@ export function CameraViewer({
 
   // Cleanup WebRTC connection
   const cleanupWebRTC = useCallback(() => {
-    if (noVideoTimerRef.current) {
-      clearTimeout(noVideoTimerRef.current);
-      noVideoTimerRef.current = null;
-    }
+    liveTrackerRef.current?.dispose();
+    liveTrackerRef.current = null;
     if (pcRef.current) {
       pcRef.current.close();
       pcRef.current = null;
@@ -177,12 +170,6 @@ export function CameraViewer({
     try {
       if (!isFallbackCapable) setIsLoading(true);
       setError(null);
-      // A new attempt starts from the still. cleanupWebRTC() ends the video
-      // the last connection had, and LIVE belongs to this one's video, not
-      // to that. Without this, Refresh on a live tile kept LIVE over a dead
-      // picture whenever the new connection never got video: the no-video
-      // timer gives up on the connection but never touched rtspLive.
-      if (isFallbackCapable) setRtspLive(false);
       cleanupWebRTC();
 
       const pc = new RTCPeerConnection({
@@ -192,23 +179,20 @@ export function CameraViewer({
       });
       pcRef.current = pc;
 
-      // An RTSP camera is live when video is arriving, not when ICE is up.
-      // go2rtc answers a browser that cannot take the camera's video codec
-      // (an H.265 camera, a browser without H.265 in WebRTC) with the audio
-      // track alone: ICE connects, nothing is ever drawn, and switching on
-      // "connected" put a black box marked LIVE where the still had been.
-      // This is the only place an RTSP tile goes live.
-      let videoArrived = false;
-      const goLive = () => {
-        // Once pcRef has moved on, a newer attempt owns the tile.
-        if (pcRef.current !== pc) return;
-        videoArrived = true;
-        if (noVideoTimerRef.current) {
-          clearTimeout(noVideoTimerRef.current);
-          noVideoTimerRef.current = null;
-        }
-        setRtspLive(true);
-      };
+      // An RTSP tile goes live only through trackRtspLive: when video is
+      // arriving, not when ICE is up. It also puts the tile back on the
+      // still for this new attempt.
+      const live = isFallbackCapable
+        ? trackRtspLive(pc, {
+            setLive: setRtspLive,
+            isCurrent: () => pcRef.current === pc,
+            giveUp: () => {
+              console.log("[WebRTC] Connected, but no video arrived; keeping the snapshot");
+              cleanupWebRTC();
+            },
+          })
+        : null;
+      liveTrackerRef.current = live;
 
       pc.ontrack = (event) => {
         if (event.streams[0]) {
@@ -217,52 +201,16 @@ export function CameraViewer({
             videoRef.current.srcObject = event.streams[0];
           }
         }
-        // A remote track stays muted until its first packet arrives.
-        if (isFallbackCapable && event.track.kind === "video") {
-          if (event.track.muted) event.track.addEventListener("unmute", goLive, { once: true });
-          else goLive();
-        }
+        live?.onTrack(event.track);
       };
 
       pc.oniceconnectionstatechange = () => {
         console.log("[WebRTC] ICE connection state:", pc.iceConnectionState);
-        if (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected") {
-          // For RTSP that is not an error the household needs to see — it
-          // means "no live video here", and the snapshot takes over.
-          if (isFallbackCapable) {
-            setRtspLive(false);
-          } else {
-            setError(t("errorConnectionLost"));
-          }
-        }
-        if (pc.iceConnectionState === "connected") {
-          setIsLoading(false);
-          if (isFallbackCapable) {
-            if (videoArrived) {
-              // Back from a blip: the video it had is flowing again.
-              goLive();
-            } else if (!noVideoTimerRef.current) {
-              // Connected, no video yet. Wait with the still up, then stop
-              // holding a connection that only carries audio nobody hears.
-              // getStats() is the second opinion, for a browser that never
-              // fires `unmute`.
-              noVideoTimerRef.current = setTimeout(async () => {
-                noVideoTimerRef.current = null;
-                if (videoArrived || pcRef.current !== pc) return;
-                try {
-                  if (inboundVideoBytes(await pc.getStats()) > 0) {
-                    goLive();
-                    return;
-                  }
-                } catch {
-                  // A closed or failed connection has no stats worth reading.
-                }
-                if (pcRef.current !== pc) return;
-                console.log("[WebRTC] Connected, but no video arrived; keeping the snapshot");
-                cleanupWebRTC();
-              }, NO_VIDEO_GRACE_MS);
-            }
-          }
+        if (pc.iceConnectionState === "connected") setIsLoading(false);
+        if (live) {
+          live.onIceStateChange();
+        } else if (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected") {
+          setError(t("errorConnectionLost"));
         }
       };
 
