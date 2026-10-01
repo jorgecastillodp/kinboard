@@ -128,8 +128,12 @@ import {
   taskOccurrences,
   type CalendarDisplaySettings,
 } from "@/lib/calendar-markers";
+import { toLocalDateKey } from "@/lib/local-date";
 import { useTimeFormat } from "@/hooks/use-time-format";
 import { useWeekStart } from "@/hooks/use-week-start";
+
+/** A task for nobody in particular, or for a person since removed. */
+const TASK_UNASSIGNED_COLOR = "hsl(var(--muted-foreground))";
 
 // Types
 interface CalendarEvent {
@@ -301,14 +305,16 @@ export default function CalendarPage() {
   const country: CountryCode = holidayCountry ?? "de";
 
   // Day markers besides events, each behind its own family-wide switch in
-  // Settings -> Calendar. Off, they are not computed and the views get nothing.
+  // Settings → Calendar. Off, they are not computed, the views get nothing,
+  // and with both task switches off the tasks are not fetched here at all.
   const { data: calendarDisplay } = useSetting<CalendarDisplaySettings>(
     SETTINGS_KEYS.calendarDisplay,
     DEFAULT_CALENDAR_DISPLAY,
   );
-  const { data: todos } = useTodos();
   const showHolidayMarkers = calendarDisplay?.showHolidays ?? false;
   const showTaskMarkers = calendarDisplay?.showTasks ?? false;
+  const tasksAsEvents = calendarDisplay?.tasksAsEvents ?? false;
+  const { data: todos } = useTodos({ enabled: showTaskMarkers || tasksAsEvents });
   const holidayMarkers = useMemo(
     () =>
       showHolidayMarkers
@@ -316,43 +322,28 @@ export default function CalendarPage() {
         : undefined,
     [showHolidayMarkers, country, dateRange.start, dateRange.end],
   );
-  const taskMarkers = useMemo(
-    () =>
-      showTaskMarkers
-        ? taskMarkersByDay(
-            todos ?? [],
-            people ?? [],
-            new Date(dateRange.start),
-            new Date(dateRange.end),
-            "hsl(var(--muted-foreground))",
-          )
-        : undefined,
-    [showTaskMarkers, todos, people, dateRange.start, dateRange.end],
-  );
 
-  // Tasks among events, for the side panel's lists only: the grid already has
-  // them as dots. The panel shows the selected day (today when none) and up to
-  // a week after it, which can lie outside the month being browsed.
-  const tasksAsEvents = calendarDisplay?.tasksAsEvents ?? false;
+  // Every task occurrence the calendar can show, computed once for the grid's
+  // dots and the side panel's lists. The panel shows the selected day (today
+  // when none) and up to a week after it, which can lie outside the month
+  // being browsed. No name in the title: the panel badges the person already.
   const taskEvents = useMemo<CalendarEvent[]>(() => {
-    if (!tasksAsEvents) return [];
+    if (!showTaskMarkers && !tasksAsEvents) return [];
     const today = startOfDay(new Date());
     const gridStart = new Date(dateRange.start);
     const gridEnd = new Date(dateRange.end);
     const from = gridStart < today ? gridStart : today;
     const to = addDays(gridEnd > today ? gridEnd : today, 8);
-    return taskOccurrences(todos ?? [], people ?? [], from, to, "hsl(var(--muted-foreground))").map((o) => ({
+    return taskOccurrences(todos ?? [], people ?? [], from, to, TASK_UNASSIGNED_COLOR).map((o) => ({
       id: o.id,
-      title: o.personName
-        ? t("markers.taskTitleWithPerson", { title: o.title, person: o.personName })
-        : t("markers.taskTitle", { title: o.title }),
+      title: t("markers.taskTitle", { title: o.title }),
       start: o.date,
       end: endOfDay(o.date),
       allDay: true,
       color: o.color,
       person_id: o.personId ?? undefined,
     }));
-  }, [tasksAsEvents, todos, people, dateRange.start, dateRange.end, t]);
+  }, [showTaskMarkers, tasksAsEvents, todos, people, dateRange.start, dateRange.end, t]);
   const { data: googleStatus } = useGoogleCalendarStatus();
   const updateSetting = useUpdateSetting<string>();
   const createEvent = useCreateEvent();
@@ -457,11 +448,25 @@ export default function CalendarPage() {
     return filtered;
   }, [selectedPersonIds, searchQuery]);
   const visibleEvents = useMemo(() => filterForView(events), [events, filterForView]);
-  // The side panel's lists: events, plus tasks when they are treated as events.
-  // Same person and search filters; the grid keeps visibleEvents.
+  // Tasks go through the same person and search filters as events, then
+  // become the grid's dots and, treated as events, the side panel's items.
+  const visibleTaskEvents = useMemo(() => filterForView(taskEvents), [taskEvents, filterForView]);
+  const taskMarkers = useMemo(
+    () =>
+      showTaskMarkers
+        ? taskMarkersByDay(
+            visibleTaskEvents.map((e) => ({ dayKey: toLocalDateKey(e.start), personId: e.person_id ?? null })),
+            people ?? [],
+            TASK_UNASSIGNED_COLOR,
+          )
+        : undefined,
+    [showTaskMarkers, visibleTaskEvents, people],
+  );
+  // The side panel's lists: events, plus tasks when they are treated as
+  // events. The grid keeps visibleEvents, with tasks only as dots.
   const panelEvents = useMemo(
-    () => (taskEvents.length > 0 ? filterForView([...events, ...taskEvents]) : visibleEvents),
-    [taskEvents, events, filterForView, visibleEvents],
+    () => (tasksAsEvents && visibleTaskEvents.length > 0 ? [...visibleEvents, ...visibleTaskEvents] : visibleEvents),
+    [tasksAsEvents, visibleTaskEvents, visibleEvents],
   );
 
   // Opens the event detail dialog and records a history entry so the

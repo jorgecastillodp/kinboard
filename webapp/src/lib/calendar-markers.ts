@@ -1,6 +1,11 @@
 import { getHolidays, type CountryCode, type Holiday } from "@/lib/holidays";
 import { toLocalDateKey } from "@/lib/local-date";
-import { isRecurring, isRecurringTaskDue, type RecurringFields } from "@/lib/todo-recurrence";
+import {
+  isRecurring,
+  recurrenceWeekdays,
+  recurringDueDayKeys,
+  type RecurringFields,
+} from "@/lib/todo-recurrence";
 
 /**
  * What the calendar marks on a day besides events. Family-wide, and both off
@@ -40,12 +45,15 @@ const keyOf = (n: number): string => new Date(n * 86_400_000).toISOString().slic
  *
  * A one-off task is marked on its due date while it is open, and not at all
  * without one: there is no day to put it on. A recurring task is marked on the
- * days the task list would call it due: the days are walked from today, each
- * one asked isRecurringTaskDue -- the rule the task list and the nav badge use
- * -- and the task is taken as done on every day it comes due. So whatever
- * schedule that rule understands, the calendar follows, with no second copy of
- * it here. An overdue task is marked today. Nothing recurring is marked before
- * today: past occurrences are history, and that history is not stored.
+ * days the task list would call it due: recurringDueDayKeys -- the rule the
+ * task list and the nav badge use, carried forward -- from today, taking the
+ * task as done on every day it comes due. An overdue task is marked today.
+ * Nothing recurring is marked before today: past occurrences are history, and
+ * that history is not stored.
+ *
+ * A repeating task never done but given a due date starts on that date, where
+ * the task list shows it, not today. Custom days are the exception, in the
+ * list as here: they count from the day the task was made.
  */
 export function taskDayKeys(todo: MarkerTodo, from: Date, to: Date, now: Date = new Date()): string[] {
   if (todo.deleted_at || todo.completed) return [];
@@ -59,40 +67,32 @@ export function taskDayKeys(todo: MarkerTodo, from: Date, to: Date, now: Date = 
     return n >= fromN && n <= toN ? [keyOf(n)] : [];
   }
 
-  const keys: string[] = [];
-  let state: MarkerTodo = todo;
-  for (let n = dayNumber(toLocalDateKey(now)); n <= toN; n++) {
-    // Local noon of the day: clear of midnight whatever the timezone or DST.
-    const [y, m, d] = keyOf(n).split("-").map(Number);
-    const day = new Date(y, m - 1, d, 12);
-    if (!isRecurringTaskDue(state, day)) continue;
-    if (n >= fromN) keys.push(keyOf(n));
-    state = { ...state, last_completed: day.toISOString() };
+  let startN = dayNumber(toLocalDateKey(now));
+  if (!todo.last_completed && todo.due_date && !recurrenceWeekdays(todo.recurrence)) {
+    startN = Math.max(startN, dayNumber(todo.due_date));
   }
-  return keys;
+  return recurringDueDayKeys(todo, keyOf(startN), keyOf(fromN), keyOf(toN));
 }
 
 /**
- * Day key -> one colour per person with a task marked that day, in `people`
- * order, then a single neutral dot for anything unassigned. One dot per person
- * rather than per task: the dot says "something is here for Emma", not how
- * much. A person_id that matches nobody (a removed person) counts as unassigned.
+ * Day key -> one colour per person with a task that day, in `people` order,
+ * then a single neutral dot for anything unassigned. One dot per person rather
+ * than per task: the dot says "something is here for Emma", not how much. A
+ * person id that matches nobody (a removed person) counts as unassigned.
+ *
+ * Takes occurrences rather than tasks, so the calendar can put them through
+ * the same person and search filters as its events before they become dots.
  */
 export function taskMarkersByDay(
-  todos: readonly MarkerTodo[],
+  occurrences: readonly { dayKey: string; personId: string | null }[],
   people: readonly { id: string; color: string }[],
-  from: Date,
-  to: Date,
   unassignedColor: string,
-  now: Date = new Date(),
 ): Map<string, string[]> {
   const byDay = new Map<string, Set<string | null>>();
-  for (const todo of todos) {
-    for (const key of taskDayKeys(todo, from, to, now)) {
-      let ids = byDay.get(key);
-      if (!ids) byDay.set(key, (ids = new Set()));
-      ids.add(todo.person_id ?? null);
-    }
+  for (const { dayKey, personId } of occurrences) {
+    let ids = byDay.get(dayKey);
+    if (!ids) byDay.set(dayKey, (ids = new Set()));
+    ids.add(personId);
   }
 
   const known = new Set(people.map((p) => p.id));

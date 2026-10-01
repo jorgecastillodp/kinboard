@@ -9,6 +9,8 @@ import {
   taskMarkersByDay,
   taskOccurrences,
 } from "../src/lib/calendar-markers";
+import { isRecurringTaskDue, recurringDueDayKeys, type RecurringFields } from "../src/lib/todo-recurrence";
+import { toLocalDateKey } from "../src/lib/local-date";
 
 /**
  * The calendar could only show events. Public holidays appeared only in a
@@ -55,6 +57,117 @@ test("a weekly task follows its last completion, and an overdue one is marked to
   expect(doneTenDaysAgo.slice(0, 2)).toEqual(["2026-10-01", "2026-10-08"]);
 });
 
+test("a repeating task never done starts on its due date, where the task list shows it", () => {
+  // Weekly, due Tuesday 6 October, never done, looked at on Thursday 1
+  // October. The task list says Tuesday; the calendar used to mark 1, 8 and
+  // 15 October.
+  const dueTuesday = taskDayKeys({ recurrence: "weekly", last_completed: null, due_date: "2026-10-06" }, from, to, now);
+  expect(dueTuesday.slice(0, 3)).toEqual(["2026-10-06", "2026-10-13", "2026-10-20"]);
+
+  // A due date already past is overdue: today, as without one.
+  const duePast = taskDayKeys({ recurrence: "weekly", last_completed: null, due_date: "2026-09-29" }, from, to, now);
+  expect(duePast[0]).toBe("2026-10-01");
+
+  // Once done, the due date no longer matters -- in the list or here.
+  const done = taskDayKeys(
+    { recurrence: "weekly", last_completed: new Date(2026, 8, 28, 9).toISOString(), due_date: "2026-10-30" },
+    from,
+    to,
+    now,
+  );
+  expect(done[0]).toBe("2026-10-05");
+
+  // Custom days count from the day the task was made, in the list as here.
+  const weekdays = taskDayKeys(
+    { recurrence: "days:MO,WE", last_completed: null, created_at: new Date(2026, 8, 30, 10).toISOString(), due_date: "2026-10-20" },
+    from,
+    to,
+    now,
+  );
+  expect(weekdays[0]).toBe("2026-10-01"); // Wednesday 30 September came round already: overdue, so today
+});
+
+/**
+ * The day-by-day walk the calendar used before: every day from the start asks
+ * isRecurringTaskDue, and the task is ticked off on each day it is due. It
+ * took about a second for 30 tasks ten years ahead, on every refetch, so
+ * recurringDueDayKeys now computes the same days. This is the reference it
+ * must agree with.
+ */
+function walkedDueDayKeys(todo: RecurringFields, startKey: string, fromKey: string, toKey: string): string[] {
+  const keys: string[] = [];
+  let state: RecurringFields = todo;
+  const [sy, sm, sd] = startKey.split("-").map(Number);
+  for (let day = new Date(sy, sm - 1, sd, 12); toLocalDateKey(day) <= toKey; day.setDate(day.getDate() + 1)) {
+    if (!isRecurringTaskDue(state, day)) continue;
+    if (toLocalDateKey(day) >= fromKey) keys.push(toLocalDateKey(day));
+    state = { ...state, last_completed: day.toISOString() };
+  }
+  return keys;
+}
+
+test("the computed days match the day-by-day walk for every kind of schedule", () => {
+  const recurrences = [
+    "daily",
+    "weekly",
+    "biweekly",
+    "monthly",
+    "days:MO,TU,WE,TH,FR",
+    "days:MO,WE,FR",
+    "days:SA",
+    "days:SU,SA",
+    "days:", // no valid day: never due
+    "yearly", // a schedule nothing knows: due until first done
+  ];
+  const lastCompleted = [
+    null,
+    "not a date",
+    new Date(2026, 9, 1, 7).toISOString(), // this morning
+    new Date(2026, 8, 30, 23, 30).toISOString(), // late last night
+    new Date(2026, 8, 28, 9).toISOString(),
+    new Date(2026, 7, 20, 18).toISOString(), // weeks ago
+  ];
+  const createdAt = [null, new Date(2026, 8, 30, 10).toISOString(), new Date(2026, 6, 1, 10).toISOString()];
+  const ranges: [string, string][] = [
+    ["2026-09-27", "2026-11-07"], // the month grid around today
+    ["2026-10-01", "2026-10-07"], // the week ahead
+    ["2027-02-22", "2027-04-04"], // a grid months ahead, across a DST change in most zones
+    ["2026-08-01", "2026-09-30"], // entirely in the past: nothing
+  ];
+  let compared = 0;
+  for (const recurrence of recurrences) {
+    for (const last_completed of lastCompleted) {
+      for (const created_at of createdAt) {
+        for (const [fromKey, toKey] of ranges) {
+          const todo = { recurrence, last_completed, created_at };
+          expect(recurringDueDayKeys(todo, "2026-10-01", fromKey, toKey), JSON.stringify({ todo, fromKey, toKey })).toEqual(
+            walkedDueDayKeys(todo, "2026-10-01", fromKey, toKey),
+          );
+          compared++;
+        }
+      }
+    }
+  }
+  expect(compared).toBe(720);
+});
+
+test("a range years ahead costs the days in it, not the days before it", () => {
+  // Ten years on, a daily task's 42-day grid is 42 keys, reached without
+  // visiting the 3,600-odd days between.
+  const keys = recurringDueDayKeys({ recurrence: "daily", last_completed: null }, "2026-10-01", "2036-09-29", "2036-11-09");
+  expect(keys).toHaveLength(42);
+  expect(keys[0]).toBe("2036-09-29");
+  const weekly = recurringDueDayKeys(
+    { recurrence: "weekly", last_completed: new Date(2026, 8, 28, 9).toISOString() },
+    "2026-10-01",
+    "2036-09-29",
+    "2036-11-09",
+  );
+  // 5 October 2026 plus whole weeks: still a Monday.
+  expect(weekly.every((key) => new Date(`${key}T12:00:00Z`).getUTCDay() === 1)).toBe(true);
+  expect(weekly).toHaveLength(6);
+});
+
 test("a one-off task is marked on its due date while open, and never without one", () => {
   expect(taskDayKeys({ due_date: "2026-10-14" }, from, to, now)).toEqual(["2026-10-14"]);
   expect(taskDayKeys({ due_date: "2026-10-14", completed: true }, from, to, now)).toEqual([]);
@@ -75,17 +188,14 @@ test("one dot per person per day; unassigned and removed people share one neutra
   ];
   const markers = taskMarkersByDay(
     [
-      { due_date: "2026-10-14", person_id: "ben" },
-      { due_date: "2026-10-14", person_id: "ana" },
-      { due_date: "2026-10-14", person_id: "ana" }, // same person twice: one dot
-      { due_date: "2026-10-14", person_id: null },
-      { due_date: "2026-10-15", person_id: "gone" }, // a person since removed
+      { dayKey: "2026-10-14", personId: "ben" },
+      { dayKey: "2026-10-14", personId: "ana" },
+      { dayKey: "2026-10-14", personId: "ana" }, // same person twice: one dot
+      { dayKey: "2026-10-14", personId: null },
+      { dayKey: "2026-10-15", personId: "gone" }, // a person since removed
     ],
     people,
-    from,
-    to,
     "neutral",
-    now,
   );
   expect(markers.get("2026-10-14")).toEqual(["#ec4899", "#3b82f6", "neutral"]);
   expect(markers.get("2026-10-15")).toEqual(["neutral"]);

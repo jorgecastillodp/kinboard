@@ -84,12 +84,12 @@ export function UpcomingEvents({
 
   const { data: events, isLoading, isError } = useEvents(startDate, endDate);
   const { data: people } = usePeople();
-  const { data: todos } = useTodos();
   const { data: calendarDisplay } = useSetting<CalendarDisplaySettings>(
     SETTINGS_KEYS.calendarDisplay,
     DEFAULT_CALENDAR_DISPLAY,
   );
   const tasksAsEvents = calendarDisplay?.tasksAsEvents ?? false;
+  const { data: todos } = useTodos({ enabled: tasksAsEvents });
 
   // Transform events to display format
   const calendarEvents = useMemo(() => (events || []).filter((event) => !event.calendar?.is_waste_collection).map((event) => {
