@@ -8,6 +8,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Graphite, a neutral tone with no tint.** Settings -> Design -> Neutral tone gains Graphite: true neutral greys, near-black in dark mode, for anyone who finds Sand, Salbei and Warm grey too warm -- in dark mode they read as brown rather than black. The accent colour and monthly themes are unchanged.
+
 ### Changed
 
 - **A policy for the Kinboard name and logos (`TRADEMARK.md`).** Talking about Kinboard, running it and passing on unmodified copies need no permission. A modified version that is published needs a name of its own and no Kinboard logos, and must say it is based on Kinboard. This applies to every version, including the MIT-licensed ones, because neither licence covers the name.
