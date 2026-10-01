@@ -539,6 +539,8 @@
     "fieldAssignTo": "Zuweisen an",
     "fieldPriority": "Priorität",
     "fieldRecurrence": "Wiederholung",
+    "recurrenceDaysLabel": "Wiederholen am",
+    "recurrenceDaysHint": "Wähle mindestens einen Tag.",
     "fieldDueDate": "Fällig am",
     "fieldOptional": "Optional",
     "titlePlaceholder": "Was muss erledigt werden?",
@@ -603,7 +605,9 @@
       "daily": "Täglich",
       "weekly": "Wöchentlich",
       "biweekly": "Alle 2 Wochen",
-      "monthly": "Monatlich"
+      "monthly": "Monatlich",
+      "custom": "Eigene Tage",
+      "weekdays": "Werktags"
     }
   },
   "meals": {
