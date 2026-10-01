@@ -107,6 +107,7 @@ import {
   useDeleteEvent,
   usePeople,
   useCalendars,
+  useTodos,
   useSetting,
   useUpdateSetting,
   useGoogleCalendarStatus,
@@ -118,6 +119,13 @@ import {
 import { matchPersonForEvent } from "@/lib/calendar-person-matcher";
 import { layoutDayEvents } from "@/lib/calendar-layout";
 import { getHolidays, type CountryCode } from "@/lib/holidays";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import {
+  DEFAULT_CALENDAR_DISPLAY,
+  holidaysByDay,
+  taskMarkersByDay,
+  type CalendarDisplaySettings,
+} from "@/lib/calendar-markers";
 import { useTimeFormat } from "@/hooks/use-time-format";
 import { useWeekStart } from "@/hooks/use-week-start";
 
@@ -289,6 +297,36 @@ export default function CalendarPage() {
   const { data: defaultCalendarId } = useSetting<string | null>("default_calendar_id", null);
   const { data: holidayCountry } = useSetting<CountryCode>("holiday_country", "de");
   const country: CountryCode = holidayCountry ?? "de";
+
+  // Day markers besides events, each behind its own family-wide switch in
+  // Settings -> Calendar. Off, they are not computed and the views get nothing.
+  const { data: calendarDisplay } = useSetting<CalendarDisplaySettings>(
+    SETTINGS_KEYS.calendarDisplay,
+    DEFAULT_CALENDAR_DISPLAY,
+  );
+  const { data: todos } = useTodos();
+  const showHolidayMarkers = calendarDisplay?.showHolidays ?? false;
+  const showTaskMarkers = calendarDisplay?.showTasks ?? false;
+  const holidayMarkers = useMemo(
+    () =>
+      showHolidayMarkers
+        ? holidaysByDay(country, new Date(dateRange.start), new Date(dateRange.end))
+        : undefined,
+    [showHolidayMarkers, country, dateRange.start, dateRange.end],
+  );
+  const taskMarkers = useMemo(
+    () =>
+      showTaskMarkers
+        ? taskMarkersByDay(
+            todos ?? [],
+            people ?? [],
+            new Date(dateRange.start),
+            new Date(dateRange.end),
+            "hsl(var(--muted-foreground))",
+          )
+        : undefined,
+    [showTaskMarkers, todos, people, dateRange.start, dateRange.end],
+  );
   const { data: googleStatus } = useGoogleCalendarStatus();
   const updateSetting = useUpdateSetting<string>();
   const createEvent = useCreateEvent();
@@ -1035,6 +1073,8 @@ export default function CalendarPage() {
                   events={visibleEvents}
                   onSelectDate={setSelectedDate}
                   onSelectEvent={openEventDetail}
+                  holidayMarkers={holidayMarkers}
+                  taskMarkers={taskMarkers}
                 />
               ) : (
                 <WeekView
@@ -1043,6 +1083,8 @@ export default function CalendarPage() {
                   events={visibleEvents}
                   onSelectDate={setSelectedDate}
                   onSelectEvent={openEventDetail}
+                  holidayMarkers={holidayMarkers}
+                  taskMarkers={taskMarkers}
                 />
               )}
             </motion.div>

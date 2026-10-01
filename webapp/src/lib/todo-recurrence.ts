@@ -41,6 +41,12 @@ const INTERVAL_DAYS: Record<string, number> = {
   monthly: 30,
 };
 
+/** Days between occurrences of a recurring task, or null for a one-off. */
+export function recurrenceIntervalDays(todo: RecurringFields): number | null {
+  if (!isRecurring(todo)) return null;
+  return INTERVAL_DAYS[todo.recurrence as string] ?? null;
+}
+
 export function isRecurring(todo: RecurringFields): boolean {
   return Boolean(todo.recurrence) && todo.recurrence !== "once";
 }

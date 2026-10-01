@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Calendar, Rss, Server, ChevronRight, Check, AlertCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
+import { CalendarDisplayCard } from "@/components/settings/calendar-display-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useGoogleCalendarStatus, useCalendars } from "@/hooks";
@@ -52,6 +53,9 @@ export default function CalendarSettingsPage() {
       <PageHeader title={t("title")} icon={Calendar} />
 
       <p className="text-sm text-muted-foreground">{t("intro")}</p>
+
+      {/* What the calendar marks on a day, besides events */}
+      <CalendarDisplayCard />
 
       {/* Google Calendar */}
       <motion.div

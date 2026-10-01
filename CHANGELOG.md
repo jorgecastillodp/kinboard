@@ -8,6 +8,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Holidays and tasks can be marked on the calendar itself.** Settings -> Calendar gains two switches, both off until you turn them on. Public holidays get an amber dot on the day, with the holiday's name where there is room; until now they appeared only in a day's details. Tasks get a dot in the colour of the person they belong to on each day one is due, and a repeating task is marked on every day it comes round, from today on. Both appear in the month and week views, on every device in the family.
+
 ### Changed
 
 - **A policy for the Kinboard name and logos (`TRADEMARK.md`).** Talking about Kinboard, running it and passing on unmodified copies need no permission. A modified version that is published needs a name of its own and no Kinboard logos, and must say it is based on Kinboard. This applies to every version, including the MIT-licensed ones, because neither licence covers the name.
