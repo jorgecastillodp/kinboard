@@ -179,10 +179,30 @@ export function CameraViewer({
       });
       pcRef.current = pc;
 
-      // An RTSP tile goes live only through trackRtspLive: when video is
-      // arriving, not when ICE is up. It also puts the tile back on the
-      // still for this new attempt.
-      const live = isFallbackCapable
+      pc.ontrack = (event) => {
+        if (event.streams[0]) {
+          streamRef.current = event.streams[0];
+          if (videoRef.current) {
+            videoRef.current.srcObject = event.streams[0];
+          }
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        console.log("[WebRTC] ICE connection state:", pc.iceConnectionState);
+        if (pc.iceConnectionState === "connected") setIsLoading(false);
+        // An RTSP camera that loses its connection falls back to the still,
+        // which is trackRtspLive's call; only a WebRTC camera shows an error.
+        if (!isFallbackCapable && (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected")) {
+          setError(t("errorConnectionLost"));
+        }
+      };
+
+      // An RTSP tile goes live only through trackRtspLive, which listens to
+      // the connection itself: when video is arriving, not when ICE is up. It
+      // also puts the tile back on the still for this new attempt. Created
+      // after the handlers above, so the stream is attached before it acts.
+      liveTrackerRef.current = isFallbackCapable
         ? trackRtspLive(pc, {
             setLive: setRtspLive,
             isCurrent: () => pcRef.current === pc,
@@ -192,27 +212,6 @@ export function CameraViewer({
             },
           })
         : null;
-      liveTrackerRef.current = live;
-
-      pc.ontrack = (event) => {
-        if (event.streams[0]) {
-          streamRef.current = event.streams[0];
-          if (videoRef.current) {
-            videoRef.current.srcObject = event.streams[0];
-          }
-        }
-        live?.onTrack(event.track);
-      };
-
-      pc.oniceconnectionstatechange = () => {
-        console.log("[WebRTC] ICE connection state:", pc.iceConnectionState);
-        if (pc.iceConnectionState === "connected") setIsLoading(false);
-        if (live) {
-          live.onIceStateChange();
-        } else if (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected") {
-          setError(t("errorConnectionLost"));
-        }
-      };
 
       // Add transceivers for receiving media
       pc.addTransceiver("video", { direction: "recvonly" });
