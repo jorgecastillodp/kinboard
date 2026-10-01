@@ -8,6 +8,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Local calendars.** A calendar can now live only in Kinboard. Settings -> Calendar -> Local calendars creates one with a name, a colour and optionally a person, with no Google account, CalDAV server or feed behind it. Until now every calendar had to be connected, so a household without any of them could not add a single event. Events in a local calendar stay in Kinboard and appear on every device; deleting the calendar deletes them.
+
 ### Changed
 
 - **A policy for the Kinboard name and logos (`TRADEMARK.md`).** Talking about Kinboard, running it and passing on unmodified copies need no permission. A modified version that is published needs a name of its own and no Kinboard logos, and must say it is based on Kinboard. This applies to every version, including the MIT-licensed ones, because neither licence covers the name.

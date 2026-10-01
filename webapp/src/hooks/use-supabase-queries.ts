@@ -749,6 +749,7 @@ export function useCreateCalendar() {
       name: string;
       color: string;
       google_calendar_id?: string;
+      person_id?: string | null;
     }) => {
        
       const { data, error } = await (supabase as any)
