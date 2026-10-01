@@ -16,6 +16,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **RTSP cameras say LIVE only when they are.** A camera tile said LIVE over the still image an RTSP camera shows while it connects, which refreshes every few seconds. And in a browser that cannot play the camera's video format (an H.265 camera, viewed in a browser without H.265 in WebRTC) it switched to a black box marked LIVE and never drew a frame. The tile now switches to live video, and says LIVE, only once video is actually arriving. Until then, or if it never does, it stays on the refreshing still.
+
 ### Security
 
 ## [1.12.1] - 2026-09-30
