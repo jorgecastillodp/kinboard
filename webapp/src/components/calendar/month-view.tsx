@@ -236,7 +236,7 @@ export function MonthView({
                         {format(day, "d")}
                       </span>
                       {holidayEvent && (
-                        <span className="hidden sm:inline text-3xs text-muted-foreground truncate leading-none">
+                        <span className="hidden sm:inline flex-1 min-w-0 text-3xs text-muted-foreground truncate leading-none">
                           {holidayEvent.title}
                         </span>
                       )}
@@ -253,7 +253,7 @@ export function MonthView({
                             title={tHolidays(holiday.nameKey)}
                           />
                           {!holidayEvent && (
-                            <span className="hidden sm:inline min-w-0 text-3xs text-amber-400 truncate leading-none">
+                            <span className="hidden sm:inline flex-1 min-w-0 text-3xs text-amber-400 truncate leading-none">
                               {tHolidays(holiday.nameKey)}
                             </span>
                           )}
@@ -262,10 +262,14 @@ export function MonthView({
                       {/* Tasks: one dot per person with something due, in
                           the corner from sm up. A phone cell is ~45px: the
                           number, a holiday dot and four task dots do not fit
-                          on one line, so there they get a row of their own. */}
+                          on one line, so there they get a row of their own.
+                          Up to ~850px a cell can still be too narrow for a
+                          holiday plus five people's dots and "+N", so the
+                          corner wraps onto a second line rather than cut the
+                          last ones off; the holiday name gives way first. */}
                       {taskColors.length > 0 && (
                         <span
-                          className="hidden sm:flex ml-auto items-center gap-0.5 shrink-0 pr-0.5"
+                          className="hidden sm:flex ml-auto min-w-0 flex-wrap items-center justify-end gap-0.5 pr-0.5"
                           role="img"
                           aria-label={t("markers.tasksDue")}
                           title={t("markers.tasksDue")}
