@@ -579,6 +579,15 @@ export interface CameraConfig {
   enabled: boolean;
   position: number;
   created_at: string;
+  /**
+   * Room this feed also appears in on /home-automation, above that room's
+   * device tiles. Absent or null keeps the camera on /cameras only, which is
+   * where every camera appears regardless. Cameras live in the `cameras`
+   * settings JSON rather than a table, so this is a plain id with no FK: a
+   * room_id whose room has been deleted simply matches no room and the feed
+   * drops back to /cameras only.
+   */
+  room_id?: string | null;
 }
 
 export interface CameraSettings {

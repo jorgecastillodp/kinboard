@@ -539,6 +539,8 @@
     "fieldAssignTo": "Zuweisen an",
     "fieldPriority": "Priorität",
     "fieldRecurrence": "Wiederholung",
+    "recurrenceDaysLabel": "Wiederholen am",
+    "recurrenceDaysHint": "Wähle mindestens einen Tag.",
     "fieldDueDate": "Fällig am",
     "fieldOptional": "Optional",
     "titlePlaceholder": "Was muss erledigt werden?",
@@ -603,7 +605,9 @@
       "daily": "Täglich",
       "weekly": "Wöchentlich",
       "biweekly": "Alle 2 Wochen",
-      "monthly": "Monatlich"
+      "monthly": "Monatlich",
+      "custom": "Eigene Tage",
+      "weekdays": "Werktags"
     }
   },
   "meals": {
@@ -1148,10 +1152,11 @@
       "monthlyThemeIntro": "Das Farbschema wechselt automatisch jeden Monat. Du kannst es auch manuell überschreiben.",
       "resetToAuto": "Zurück zu automatisch",
       "paletteHeading": "Grundton",
-      "paletteIntro": "Wähle die Wärme von Hintergrund und Flächen. Akzentfarbe und Monatsthemen bleiben gleich.",
+      "paletteIntro": "Wähle die Wärme von Hintergrund und Flächen, oder mit Graphit gar keine. Akzentfarbe und Monatsthemen bleiben gleich.",
       "palette_salbei": "Salbei",
       "palette_sand": "Sand",
       "palette_warmgrey": "Warmgrau",
+      "palette_graphite": "Graphit",
       "appearanceHeading": "Darstellung",
       "darkModeLabel": "Dunkler Modus",
       "darkModeDescription": "Optimiert für Wanddisplays",
@@ -1421,6 +1426,9 @@
       "dialogAddTitle": "Kamera hinzufügen",
       "nameLabel": "Name",
       "namePlaceholder": "z.B. Haustür, Garten...",
+      "roomLabel": "Raum",
+      "roomNone": "Kein Raum",
+      "roomHint": "Das Bild erscheint zusätzlich in diesem Raum unter Automation, über seinen Geräten. Unter Kameras bleibt es in jedem Fall.",
       "streamTypeLabel": "Stream-Typ",
       "streamUrlLabel": "Stream URL",
       "streamUrlPlaceholderRtsp": "rtsp://user:pass@192.168.1.100:554/stream1",

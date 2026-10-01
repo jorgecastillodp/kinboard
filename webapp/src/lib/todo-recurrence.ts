@@ -20,6 +20,8 @@ export interface RecurringFields {
   completed?: boolean;
   recurrence?: string | null;
   last_completed?: string | null;
+  /** When the task was made: where a never-done custom-days task starts counting. */
+  created_at?: string | null;
 }
 
 /** Whole calendar days between two dates, in the viewer's timezone. */
@@ -41,6 +43,121 @@ const INTERVAL_DAYS: Record<string, number> = {
   monthly: 30,
 };
 
+/**
+ * Custom days. A task can repeat on picked weekdays -- Monday to Friday, say --
+ * stored in `recurrence` as "days:" and iCalendar day codes, Monday first:
+ * "days:MO,TU,WE,TH,FR". The column is plain text, so no migration, and every
+ * other value is untouched.
+ *
+ * Codes are indexed in getDay() order: 0 is Sunday.
+ */
+export const WEEKDAY_CODES = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const;
+const DAYS_PREFIX = "days:";
+const MONDAY_FIRST = [1, 2, 3, 4, 5, 6, 0];
+
+/** The picked weekdays (getDay() numbers, Monday first) of a custom-days task, or null for any other recurrence. */
+export function recurrenceWeekdays(recurrence: string | null | undefined): number[] | null {
+  if (!recurrence?.startsWith(DAYS_PREFIX)) return null;
+  const picked = new Set(
+    recurrence
+      .slice(DAYS_PREFIX.length)
+      .split(",")
+      .map((code) => (WEEKDAY_CODES as readonly string[]).indexOf(code.trim().toUpperCase()))
+      .filter((day) => day >= 0),
+  );
+  return MONDAY_FIRST.filter((day) => picked.has(day));
+}
+
+/**
+ * How a set of picked weekdays is stored: "days:MO,WE,FR", Monday first. All
+ * seven is stored as "daily", so one schedule has one spelling; none is null,
+ * which is not a schedule at all.
+ */
+export function formatRecurrenceDays(days: Iterable<number>): string | null {
+  const picked = new Set([...days].filter((day) => Number.isInteger(day) && day >= 0 && day <= 6));
+  if (picked.size === 0) return null;
+  if (picked.size === 7) return "daily";
+  return DAYS_PREFIX + MONDAY_FIRST.filter((day) => picked.has(day)).map((day) => WEEKDAY_CODES[day]).join(",");
+}
+
+/** A local date key ("YYYY-MM-DD") in `timeZone`, or in this runtime's own zone without one. */
+export function dayKeyIn(date: Date, timeZone?: string | null): string {
+  if (timeZone) {
+    try {
+      // en-CA formats as YYYY-MM-DD.
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(date);
+    } catch {
+      // An unknown zone name: fall through to the runtime's own.
+    }
+  }
+  return toLocalDateKey(date);
+}
+
+const dayNumber = (key: string): number => {
+  const [y, m, d] = key.split("-").map(Number);
+  return Date.UTC(y, m - 1, d) / 86_400_000;
+};
+const weekdayOf = (dayN: number): number => new Date(dayN * 86_400_000).getUTCDay();
+
+/**
+ * The first day that counts for a custom-days task: the day after it was last
+ * done, or -- never done -- the day it was made (today if that is unknown).
+ */
+function weekdayWindowStart(todo: RecurringFields, todayN: number, timeZone?: string | null): number {
+  const last = todo.last_completed ? new Date(todo.last_completed) : null;
+  if (last && !Number.isNaN(last.getTime())) return dayNumber(dayKeyIn(last, timeZone)) + 1;
+  const created = todo.created_at ? new Date(todo.created_at) : null;
+  if (created && !Number.isNaN(created.getTime())) return dayNumber(dayKeyIn(created, timeZone));
+  return todayN;
+}
+
+/**
+ * True when a custom-days task is due: a picked weekday has come round since it
+ * was last done (or since it was made). Missed days do not pile up -- it is
+ * simply due, as an interval task is when overdue. `timeZone` decides what
+ * "today" is; without one, the runtime's own zone (the browser's, on a page).
+ */
+export function isWeekdayTaskDue(
+  todo: RecurringFields,
+  weekdays: readonly number[],
+  now: Date = new Date(),
+  timeZone?: string | null,
+): boolean {
+  if (weekdays.length === 0) return false;
+  const todayN = dayNumber(dayKeyIn(now, timeZone));
+  const startN = weekdayWindowStart(todo, todayN, timeZone);
+  // Seven days hold every weekday, so a longer gap need not be walked.
+  for (let n = startN; n <= todayN && n < startN + 7; n++) {
+    if (weekdays.includes(weekdayOf(n))) return true;
+  }
+  return false;
+}
+
+/**
+ * The day a custom-days task comes due next, at local midnight: the first
+ * picked weekday since it was last done or made. In the past when overdue.
+ */
+export function nextWeekdayDueDate(
+  todo: RecurringFields,
+  weekdays: readonly number[],
+  now: Date = new Date(),
+): Date | null {
+  if (weekdays.length === 0) return null;
+  const startN = weekdayWindowStart(todo, dayNumber(dayKeyIn(now)));
+  for (let n = startN; n < startN + 7; n++) {
+    if (weekdays.includes(weekdayOf(n))) {
+      const due = new Date(n * 86_400_000);
+      return new Date(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate());
+    }
+  }
+  return null;
+}
+
 export function isRecurring(todo: RecurringFields): boolean {
   return Boolean(todo.recurrence) && todo.recurrence !== "once";
 }
@@ -48,6 +165,8 @@ export function isRecurring(todo: RecurringFields): boolean {
 /** True when a recurring task has come round again. */
 export function isRecurringTaskDue(todo: RecurringFields, now: Date = new Date()): boolean {
   if (!isRecurring(todo)) return false;
+  const weekdays = recurrenceWeekdays(todo.recurrence);
+  if (weekdays) return isWeekdayTaskDue(todo, weekdays, now);
   // Never done — due since it was created.
   if (!todo.last_completed) return true;
 
