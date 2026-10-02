@@ -1,7 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { COUNTRIES, getHolidays, getObservances, nextHolidays } from "../src/lib/holidays";
+import { COUNTRIES, daysUntilHoliday, getHolidays, getObservances, nextHolidays } from "../src/lib/holidays";
+import { holidaysByDay } from "../src/lib/calendar-markers";
 import { DEFAULT_WIDGET_ORDER, DEFAULT_WIDGET_VISIBILITY } from "../src/types/widgets";
 
 /**
@@ -13,7 +14,7 @@ import { DEFAULT_WIDGET_ORDER, DEFAULT_WIDGET_VISIBILITY } from "../src/types/wi
  */
 const key = (date: Date | null) =>
   date && `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-const find = (country: "us" | "uk" | "de", from: Date, nameKey: string) =>
+const find = (country: "us" | "uk" | "de" | "nl", from: Date, nameKey: string) =>
   nextHolidays(country, from, 40).find((h) => h.nameKey === nameKey)!;
 
 test("the next holidays from today, the days that are celebrated but worked included", () => {
@@ -96,8 +97,8 @@ test("the US observances fall on their days", () => {
   });
 });
 
-test("every holiday the countdown can show has a name in English and German", () => {
-  for (const lang of ["en", "de"]) {
+test("every holiday the countdown can show has a name in English, German and French", () => {
+  for (const lang of ["en", "de", "fr"]) {
     const names = JSON.parse(readFileSync(join(process.cwd(), `messages/${lang}.json`), "utf8")).holidays;
     for (const country of COUNTRIES) {
       for (const holiday of [...getHolidays(country, 2026), ...getObservances(country, 2026)]) {
@@ -105,6 +106,58 @@ test("every holiday the countdown can show has a name in English and German", ()
       }
     }
   }
+});
+
+test("on the weekday a weekend holiday is taken, the countdown says today", () => {
+  // Juneteenth 2027 is Saturday 19 June, taken on Friday the 18th.
+  const juneteenth = find("us", new Date(2027, 5, 1), "usJuneteenth");
+  expect(key(juneteenth.observed)).toBe("2027-06-18");
+  expect(daysUntilHoliday(juneteenth, new Date(2027, 5, 16, 9))).toBe(2); // Wednesday: two days to the day off
+  expect(daysUntilHoliday(juneteenth, new Date(2027, 5, 18, 9))).toBe(0); // Friday: the day off is today
+  expect(daysUntilHoliday(juneteenth, new Date(2027, 5, 19, 9))).toBe(0); // Saturday: the holiday itself
+  // Sunday 4 July 2027, taken on Monday the 5th: Saturday counts one day, the Monday is today.
+  const july4 = find("us", new Date(2027, 5, 1), "usIndependence");
+  expect(daysUntilHoliday(july4, new Date(2027, 6, 3, 9))).toBe(1);
+  expect(daysUntilHoliday(july4, new Date(2027, 6, 5, 9))).toBe(0);
+  // A holiday that does not move counts to its own day.
+  expect(daysUntilHoliday(find("us", new Date(2026, 9, 1), "usColumbus"), new Date(2026, 9, 2, 9))).toBe(10);
+});
+
+test("Dutch King's Day moves to Saturday the 26th when the 27th is a Sunday", () => {
+  for (const [year, day] of [[2025, 26], [2026, 27], [2031, 26], [2036, 26]] as const) {
+    const kingsDay = getHolidays("nl", year).find((h) => h.nameKey === "nlKoningsdag")!;
+    expect(key(kingsDay.date), `${year}`).toBe(`${year}-04-${day}`);
+    expect(kingsDay.date.getDay(), `${year}`).not.toBe(0);
+  }
+  // The calendar reads the same list, so its marker moves too.
+  const april2025 = holidaysByDay("nl", new Date(2025, 3, 1), new Date(2025, 3, 30));
+  expect(april2025.get("2025-04-26")?.nameKey).toBe("nlKoningsdag");
+  expect(april2025.has("2025-04-27")).toBe(false);
+  expect(key(find("nl", new Date(2031, 3, 1), "nlKoningsdag").date)).toBe("2031-04-26");
+});
+
+test("Dutch Liberation Day is listed every year but a day off only in a lustrum year", () => {
+  const liberation = (year: number) => getHolidays("nl", year).find((h) => h.nameKey === "nlBevrijdingsdag")!;
+  for (const year of [2025, 2030, 2035]) {
+    expect(liberation(year).dayOff, `${year}`).toBe(true);
+  }
+  for (const year of [2026, 2027, 2028, 2029, 2031]) {
+    expect(key(liberation(year).date)).toBe(`${year}-05-05`);
+    expect(liberation(year).dayOff, `${year}`).toBe(false);
+  }
+});
+
+test("a narrow card's text wraps instead of overflowing", () => {
+  // In French, "Chômé le lun., 27. déc." is wider than the text column on a
+  // ~220px card. The line must be allowed to wrap, and break before the date
+  // rather than inside it. A long one-word name -- "Unabhängigkeitstag" --
+  // must break too, not be cut off by the line clamp.
+  const widget = readFileSync(join(process.cwd(), "src/components/widgets/holiday-widget.tsx"), "utf8");
+  const dayOffLine = widget.slice(widget.indexOf("{holiday.dayOff && ("), widget.indexOf("{isToday ? (", widget.indexOf("{holiday.dayOff && (")));
+  expect(dayOffLine).toContain("TreePalm");
+  expect(dayOffLine).not.toContain("whitespace-nowrap");
+  expect(widget).toMatch(/replace\(\/ \/g, "\\u00a0"\)/);
+  expect(widget).toMatch(/line-clamp-2 [^"]*break-words/);
 });
 
 test("the widget is opt-in and can be switched on under Settings -> Widgets", () => {

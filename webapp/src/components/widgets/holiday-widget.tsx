@@ -3,14 +3,14 @@
 import { motion } from "framer-motion";
 import { CalendarHeart, ChevronRight, TreePalm } from "lucide-react";
 import Link from "next/link";
-import { differenceInCalendarDays, format } from "date-fns";
+import { format } from "date-fns";
 import { useLocale, useTranslations } from "next-intl";
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { WidgetCard } from "@/components/widget-card";
 import { useSetting, useToday } from "@/hooks";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
-import { DEFAULT_COUNTRY, nextHolidays, type CountryCode } from "@/lib/holidays";
+import { DEFAULT_COUNTRY, daysUntilHoliday, nextHolidays, type CountryCode } from "@/lib/holidays";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 interface HolidayWidgetProps {
@@ -38,7 +38,9 @@ export function HolidayWidget({ maxItems = 3, className = "" }: HolidayWidgetPro
 
   const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
   const item = { hidden: { opacity: 0, x: -10 }, show: { opacity: 1, x: 0 } };
-  const day = (date: Date) => format(date, "EEE, d. MMM", { locale: dateLocale });
+  // Non-breaking spaces keep a date in one piece: when "Chômé le lun., 27. déc."
+  // has to wrap on a narrow card, it breaks before the date, not inside it.
+  const day = (date: Date) => format(date, "EEE, d. MMM", { locale: dateLocale }).replace(/ /g, "\u00a0");
 
   const headerRight = (
     <Link
@@ -60,10 +62,9 @@ export function HolidayWidget({ maxItems = 3, className = "" }: HolidayWidgetPro
       <WidgetCard icon={CalendarHeart} title={t("title")} headerRight={headerRight}>
         <motion.div variants={container} initial="hidden" animate="show" className="flex flex-col gap-3">
           {holidays.map((holiday) => {
-            // Counted to the holiday, or -- for one already past whose day off
-            // is today -- to that day off.
-            const target = holiday.date >= new Date(today) ? holiday.date : (holiday.observed ?? holiday.date);
-            const daysUntil = differenceInCalendarDays(target, new Date(today));
+            // To the holiday or its day off, whichever comes first: on the
+            // Friday a Saturday holiday is taken, the day off is today.
+            const daysUntil = daysUntilHoliday(holiday, new Date(today));
             const isToday = daysUntil === 0;
             const isSoon = daysUntil > 0 && daysUntil <= 7;
             return (
@@ -79,13 +80,15 @@ export function HolidayWidget({ maxItems = 3, className = "" }: HolidayWidgetPro
                   {holiday.emoji}
                 </span>
                 <div className="min-w-[6.5rem] flex-1">
-                  <p className="line-clamp-2 text-sm font-medium leading-snug">{tHolidays(holiday.nameKey)}</p>
+                  <p className="line-clamp-2 hyphens-auto break-words text-sm font-medium leading-snug">{tHolidays(holiday.nameKey)}</p>
                   <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground tabular-nums">
                     <span className="whitespace-nowrap">{day(holiday.date)}</span>
                     {holiday.dayOff && (
-                      <span className="inline-flex items-center gap-1 whitespace-nowrap text-success">
-                        <TreePalm className="size-3.5" strokeWidth={1.75} aria-hidden="true" />
-                        {holiday.observed ? t("dayOffOn", { date: day(holiday.observed) }) : t("dayOff")}
+                      <span className="inline-flex min-w-0 items-start gap-1 text-success">
+                        <TreePalm className="mt-px size-3.5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+                        <span className="min-w-0">
+                          {holiday.observed ? t("dayOffOn", { date: day(holiday.observed) }) : t("dayOff")}
+                        </span>
                       </span>
                     )}
                   </p>

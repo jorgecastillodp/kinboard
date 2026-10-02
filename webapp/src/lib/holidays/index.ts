@@ -4,6 +4,7 @@ import { getUsHolidays, getUsObservances } from "./us";
 import { getUkHolidays } from "./uk";
 import { getNlHolidays } from "./nl";
 import { getFrHolidays } from "./fr";
+import { differenceInCalendarDays } from "date-fns";
 import { addDays } from "./utils";
 
 export type CountryCode = "de" | "us" | "uk" | "nl" | "fr";
@@ -106,6 +107,20 @@ export function nextHolidays(country: CountryCode, from: Date, count: number): U
     .filter((h) => h.date >= today || (h.observed !== null && h.observed >= today))
     .sort((a, b) => a.date.getTime() - b.date.getTime() || Number(b.dayOff) - Number(a.dayOff))
     .slice(0, count);
+}
+
+/**
+ * The days the countdown shows for a holiday: to the holiday or its day off,
+ * whichever comes first and is not yet past. On the Friday a Saturday holiday
+ * is taken, and on the Monday after a Sunday one, that is 0 -- the badge says
+ * "Today", because today is the day off.
+ */
+export function daysUntilHoliday(holiday: UpcomingHoliday, from: Date): number {
+  const today = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const days = [holiday.date, holiday.observed]
+    .filter((d): d is Date => d !== null && d >= today)
+    .map((d) => differenceInCalendarDays(d, today));
+  return days.length > 0 ? Math.min(...days) : 0;
 }
 
 export type { Holiday } from "./types";
