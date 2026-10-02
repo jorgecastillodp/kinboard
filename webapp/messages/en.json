@@ -333,7 +333,43 @@
     "usFathersDay": "Father's Day",
     "usHalloween": "Halloween",
     "usChristmasEve": "Christmas Eve",
-    "usNewYearsEve": "New Year's Eve"
+    "usNewYearsEve": "New Year's Eve",
+    "heiligeDreiKoenige": "Epiphany",
+    "frauentag": "International Women's Day",
+    "ddrVolksaufstand75": "75th anniversary of the 17 June 1953 uprising",
+    "gruendonnerstag": "Maundy Thursday",
+    "fronleichnam": "Corpus Christi",
+    "allerheiligen": "All Saints' Day",
+    "bussUndBettag": "Day of Prayer and Repentance",
+    "mariaeHimmelfahrt": "Assumption Day",
+    "weltkindertag": "World Children's Day",
+    "mariaeEmpfaengnis": "Immaculate Conception",
+    "atStaatsfeiertag": "Labour Day",
+    "atNationalfeiertag": "Austrian National Day",
+    "atChristtag": "Christmas Day",
+    "atStefanitag": "St. Stephen's Day",
+    "atJosefitag": "St. Joseph's Day",
+    "atLeopolditag": "St. Leopold's Day",
+    "chBerchtoldstag": "St. Berchtold's Day",
+    "chJosefstag": "St. Joseph's Day",
+    "chAuffahrt": "Ascension Day",
+    "chPeterUndPaul": "Saints Peter and Paul",
+    "chBundesfeiertag": "Swiss National Day",
+    "chKnabenschiessen": "Knabenschiessen",
+    "chBettag": "Federal Day of Prayer",
+    "chBettagsmontag": "Federal Fast Monday",
+    "chBruderklausenfest": "St. Nicholas of Flüe",
+    "chNaefelserFahrt": "Näfels Pilgrimage",
+    "chMauritiustag": "St. Maurice's Day",
+    "chWeihnachtstag": "Christmas Day",
+    "chStephanstag": "St. Stephen's Day",
+    "chInstaurationRepublique": "Republic Day (Neuchâtel)",
+    "chJeuneGenevois": "Geneva Fast",
+    "chRestaurationRepublique": "Restoration of the Republic (Geneva)",
+    "chPlebisciteJurassien": "Jura Independence Day",
+    "ukPlatinumJubilee": "Platinum Jubilee bank holiday",
+    "ukStateFuneral": "State funeral of Queen Elizabeth II",
+    "ukCoronation": "Coronation of King Charles III"
   },
   "shoppingCategories": {
     "obst_gemuese": "Fruits & vegetables",
@@ -955,6 +991,8 @@
     "itemCatalogueDescription": "Lights, locks and appliances",
     "itemScheduleLabel": "School schedule",
     "itemScheduleDescription": "Children's school periods",
+    "itemHolidaysLabel": "Holidays",
+    "itemHolidaysDescription": "Public and school holidays",
     "itemGoogleLabel": "Google Calendar",
     "itemGoogleDescription": "Sync calendars",
     "itemIcsLabel": "iCalendar feeds",
@@ -2151,7 +2189,57 @@
       "holidayRangeInvalid": "The last day cannot be before the first.",
       "holidayInclusiveHint": "Both days are included. For a single day off, use the same date twice.",
       "toastHolidaySaveFailed": "Holiday period could not be saved",
-      "toastHolidayDeleteFailed": "Holiday period could not be deleted"
+      "toastHolidayDeleteFailed": "Holiday period could not be deleted",
+      "holidaysMovedLink": "School holidays are under <link>Settings → Holidays</link>."
+    },
+    "holidays": {
+      "title": "Holidays",
+      "subtitle": "Public holidays and school holidays",
+      "regionLabel": "Where you live",
+      "regionDescription": "Public holidays on the calendar and in the Holidays widget, and the days without school, follow this country and state.",
+      "countryLabel": "Country",
+      "countryPlaceholder": "Choose a country",
+      "stateLabel": "State, canton or region",
+      "stateWholeCountry": "Whole country (national holidays only)",
+      "notChosenNotice": "Nobody in the family has picked this yet: it is what Kinboard used before it knew about states.",
+      "keepButton": "Keep this",
+      "saveError": "Couldn't save the region. Try again.",
+      "previewHeading": "Next days off",
+      "subRegionNote": "Holidays that apply to only part of a state or canton aren't included: Augsburg's Peace Festival, Assumption Day in Bavaria's Catholic municipalities, a Swiss commune's own days. Add the ones that matter to you as school holidays below, or mark a calendar that has them as holidays.",
+      "attribution": "Holiday dates: <dh>date-holidays</dh> (<lic>CC BY-SA 3.0</lic>)",
+      "sync": {
+        "title": "School holidays from OpenHolidays",
+        "description": "Fetch the school holidays for where you live automatically, about once a week. Your own entries and holiday calendars always stay.",
+        "pickRegionFirst": "Pick your state above to get school holidays automatically.",
+        "regionLabel": "School region",
+        "regionPlaceholder": "Choose a region",
+        "childLabel": "Area",
+        "childPlaceholder": "Choose an area",
+        "groupLabel": "School type",
+        "groupPlaceholder": "Choose a school type",
+        "holidayRegionLabel": "Holiday region",
+        "holidayRegionPlaceholder": "Choose a holiday region",
+        "pendingRegion": "Pick the area your school is in to start.",
+        "pendingGroup": "Pick the school type to start.",
+        "pendingHolidayRegion": "Pick your holiday region to start.",
+        "lastUpdated": "Last updated {date}",
+        "lastError": "couldn't reach OpenHolidays on {date}",
+        "lastErrorOnly": "Couldn't reach OpenHolidays on {date}",
+        "neverUpdated": "Not fetched yet",
+        "refresh": "Refresh now",
+        "rateLimited": "Just refreshed. Try again in a minute.",
+        "rateLimitedAfterPick": "Saved. OpenHolidays was asked moments ago, so press Refresh now in a minute to fetch the school holidays.",
+        "syncFailed": "Couldn't fetch the school holidays. The ones you have are unchanged.",
+        "saveError": "Couldn't save. Try again.",
+        "optionsError": "Couldn't load the school regions from OpenHolidays. Try again later.",
+        "installOff": "This Kinboard no longer fetches school holidays from OpenHolidays. The ones fetched before still count as school holidays.",
+        "removeSynced": "Remove fetched holidays",
+        "removedSynced": "The fetched school holidays are gone. Your own entries stay.",
+        "sourceBadge": "OpenHolidays",
+        "sentNote": "Kinboard sends OpenHolidays your country, region and school type, never anything about your family.",
+        "odbl": "Contains information from <oh>OpenHolidays API</oh>, which is made available here under the <odbl>Open Database License (ODbL)</odbl>.",
+        "odblTitle": "Contains information from OpenHolidays API, which is made available here under the Open Database License (ODbL)."
+      }
     },
     "itemLanguageLabel": "Language",
     "itemLanguageDescription": "Switch the interface between English and German",
@@ -2159,14 +2247,7 @@
       "title": "Language",
       "subtitle": "Choose the interface language",
       "current": "current",
-      "countryLabel": "Country",
-      "countryDescription": "Public holidays shown on the calendar are based on this country.",
-      "countryError": "Failed to save country preference",
-      "country_de": "Germany",
-      "country_us": "United States",
-      "country_uk": "United Kingdom",
-      "country_nl": "Netherlands",
-      "country_fr": "France",
+      "holidaysMoved": "Public holidays and school holidays are set under <link>Settings → Holidays</link>.",
       "weekStartLabel": "Week starts on",
       "weekStartDescription": "Which day the calendar's week and month grids begin with. Following the language means Sunday for English, Monday for German and French.",
       "weekStart_locale": "Follow the language",
@@ -2594,6 +2675,10 @@
         "nothing-planned-for-dinner": {
           "title": "No dinner planned",
           "description": "In the evening, says if tomorrow has nothing planned to eat."
+        },
+        "holiday-region": {
+          "title": "Which state are you in?",
+          "description": "Once if nobody has picked where the family lives, and once more if only the country was picked: asks for the state, so holidays and school days are right."
         }
       }
     },
@@ -3791,7 +3876,8 @@
     "dayOff": "Day off",
     "dayOffOn": "Day off {date}",
     "viewCalendarAria": "Open the calendar",
-    "emptyState": "No holidays coming up"
+    "emptyState": "No holidays coming up",
+    "noRegion": "Choose your country under Settings → Holidays to see the next holidays."
   },
   "scheduleWidget": {
     "nextSchoolDay": "Next school day",
@@ -3844,12 +3930,19 @@
     "checklist": {
       "title": "Finish setting up Kinboard",
       "progress": "{done} of {total} done",
+      "item_region": "Choose where you live (for holidays)",
       "item_people": "Add your family members",
       "item_calendar": "Connect a calendar",
       "item_weather": "Set your weather location",
       "item_homeassistant": "Connect Home Assistant (optional)",
       "resume": "Resume setup",
       "finish": "Finish"
+    },
+    "region": {
+      "title": "Where do you live?",
+      "description": "Public holidays and days without school depend on your country and state. Kinboard shows the ones for where you live.",
+      "preselectedHint": "Suggested from your time zone. Change it if it's wrong.",
+      "saveError": "Couldn't save where you live. Try again."
     },
     "people": {
       "title": "Who's in your family?",
@@ -4120,6 +4213,7 @@
     "rule": "Rule",
     "disableRule": "Stop showing this hint",
     "snoozed": "Later today",
+    "choose": "Choose",
     "hints": {
       "leave-soon": {
         "title": "{what}",
@@ -4170,6 +4264,20 @@
       "lock-up-before-bed": {
         "title": "{count, plural, one {# still open} other {# still open}}",
         "detail": "{entities}"
+      },
+      "holiday-region": {
+        "unset": {
+          "title": "Which state are you in?",
+          "detail": "No public holidays are shown yet. Pick your country and state under Settings → Holidays."
+        },
+        "migrated": {
+          "title": "Which state are you in?",
+          "detail": "Public holidays and school days depend on where you live. Pick your country and state under Settings → Holidays."
+        },
+        "country": {
+          "title": "Which state are you in?",
+          "detail": "Only the holidays of the whole country are shown. Pick your state under Settings → Holidays for its own holidays and school holidays."
+        }
       }
     }
   },

@@ -1,3 +1,5 @@
+import type { HolidayRegionSetting } from "@/lib/holidays/region";
+
 /**
  * The Heute-Motor's contract (plan §Phase 3).
  *
@@ -52,6 +54,12 @@ export interface Signals {
    */
   weather?: SignalWeather;
   home?: SignalHome;
+  /**
+   * The family's holiday region (RFC-014 §4.2). Undefined when it could not
+   * be read -- a rule using it stays silent then; null when the family has
+   * no row.
+   */
+  holidayRegion?: HolidayRegionSetting | null;
 }
 
 export interface SignalEvent {
@@ -91,8 +99,8 @@ export interface SignalSchoolBreak {
   /** Inclusive local calendar days, `YYYY-MM-DD`. */
   startsOn: string;
   endsOn: string;
-  /** Where it came from, so a rule's evidence can say which. */
-  source: "manual" | "calendar";
+  /** Where it came from, so a rule's evidence can say which. Public holidays are computed (RFC-014 §6.3). */
+  source: "manual" | "calendar" | "openholidays" | "public_holiday";
 }
 
 /**
@@ -218,5 +226,12 @@ export interface Rule {
    * hints from a rule it does not know.
    */
   sensitive?: { keepParams: readonly string[] };
+  /**
+   * Asked once: after someone acknowledges or dismisses an item from this
+   * rule, the same key is never raised again, however long ago that was.
+   * Without it an answer holds for 24 hours after the item resolves
+   * (runner.ts, ANSWERED_LOOKBACK_MS).
+   */
+  once?: boolean;
   evaluate: (signals: Signals, ctx: RuleContext) => ProposedItem[];
 }

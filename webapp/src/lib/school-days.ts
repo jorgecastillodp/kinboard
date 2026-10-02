@@ -2,6 +2,12 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { isSchoolBreakOn, type SignalSchoolBreak } from "@/lib/attention/types";
 import { timetabledChildren } from "@/lib/timetabled-children";
 import { addDays } from "@/lib/family-time";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from "@/i18n/locales";
+import { parseRegionSetting } from "@/lib/holidays/region";
+import { getTranslator } from "@/lib/notifications/messages";
+import { holidayLabel, type HolidayTranslator } from "@/lib/holidays/label";
+import { publicHolidayBreaks } from "@/lib/holidays/school";
 
 /**
  * The school timetable and "is there school on day X", shared by every
@@ -43,14 +49,20 @@ export function dayOfWeekOf(day: string): number {
 
 /**
  * School holiday periods overlapping `from`..`to` (local `YYYY-MM-DD`,
- * inclusive), from the two places a family can express them.
+ * inclusive), from the four places they come from, in this order.
  *
- * 1. `school_holidays` — typed in by hand. The primary path, because it works
- *    in any country and needs no feed to exist for the family's own school.
+ * 1. Manual `school_holidays` rows — typed in by hand. The primary path,
+ *    because it works in any country and needs no feed to exist for the
+ *    family's own school.
  * 2. Events on a calendar flagged `is_holidays` — the ICS path, for anyone
  *    whose authority publishes a feed.
+ * 3. `school_holidays` rows synced from OpenHolidays (RFC-014 §5) — fetched
+ *    for the family, so named only where the family's own entries are not.
+ *    A row the family hid is skipped (§6.2).
+ * 4. Public holidays in the family's region (RFC-014 §6.3) -- computed, never
+ *    stored, and last, so the family's own words name a day first (§6.2).
  *
- * Both reduce to the same inclusive `YYYY-MM-DD` range, so a reader cannot
+ * All reduce to the same inclusive `YYYY-MM-DD` range, so a reader cannot
  * tell them apart and does not have to. Throws on a failed query; the
  * Heute-Motor catches that and degrades to "term time", while the
  * Integration API reports it rather than claiming a school day it could not
@@ -63,10 +75,10 @@ export async function fetchSchoolBreaks(
   timeZone: string,
   db: SchoolDb = createAdminClient(),
 ): Promise<SignalSchoolBreak[]> {
-  const [manual, calendarEvents] = await Promise.all([
+  const [stored, calendarEvents, settings] = await Promise.all([
     (db as any)
       .from("school_holidays")
-      .select("name, starts_on, ends_on")
+      .select("name, starts_on, ends_on, source, hidden")
       .eq("family_id", familyId)
       .lte("starts_on", to)
       .gte("ends_on", from),
@@ -77,33 +89,65 @@ export async function fetchSchoolBreaks(
       .eq("calendars.is_holidays", true)
       .lte("start_at", `${to}T23:59:59Z`)
       .gte("end_at", `${from}T00:00:00Z`),
+    (db as any)
+      .from("settings")
+      .select("key, value")
+      .eq("family_id", familyId)
+      .in("key", [SETTINGS_KEYS.holidayRegion, SETTINGS_KEYS.locale]),
   ]);
-  if (manual.error) throw manual.error;
+  if (stored.error) throw stored.error;
   if (calendarEvents.error) throw calendarEvents.error;
+  // The region read throws like the queries above, so a reader that cannot
+  // look reports it rather than claiming a school day.
+  if (settings.error) throw settings.error;
 
-  const breaks: SignalSchoolBreak[] = [];
-
-  for (const row of manual.data ?? []) {
+  // The family's own rows, then a feed they chose, then data fetched for
+  // them, then public holidays: isSchoolBreakOn takes the first match, so
+  // this order is what names a day (RFC-014 §6.2).
+  const manual: SignalSchoolBreak[] = [];
+  const synced: SignalSchoolBreak[] = [];
+  for (const row of stored.data ?? []) {
     if (!row?.starts_on || !row?.ends_on) continue;
-    breaks.push({
+    // A range the family hid is not a break (§6.2).
+    if (row.hidden === true) continue;
+    const source = row.source === "openholidays" ? "openholidays" : "manual";
+    (source === "manual" ? manual : synced).push({
       name: String(row.name ?? ""),
       startsOn: String(row.starts_on),
       endsOn: String(row.ends_on),
-      source: "manual",
+      source,
     });
   }
 
+  const calendar: SignalSchoolBreak[] = [];
   for (const row of calendarEvents.data ?? []) {
     if (!row?.start_at || !row?.end_at) continue;
     const start = new Date(row.start_at);
     const end = new Date(row.end_at);
     if (end.getTime() < start.getTime()) continue;
-    breaks.push({
+    calendar.push({
       name: String(row.title ?? ""),
       startsOn: localDayString(start, timeZone),
       endsOn: lastDayCovered(row, timeZone),
       source: "calendar",
     });
+  }
+
+  const breaks: SignalSchoolBreak[] = [...manual, ...calendar, ...synced];
+
+  // No region (a new family that skipped the wizard's first step): no public
+  // holidays. The names are said on the family's behalf, so they follow the
+  // Integration API's `familyLanguage()`: the `locale` setting, or English --
+  // not the German default push notifications keep for older installs.
+  const setting = (key: string) =>
+    ((settings.data ?? []) as { key: string; value: unknown }[]).find((r) => r?.key === key)?.value;
+  const region = parseRegionSetting(setting(SETTINGS_KEYS.holidayRegion));
+  if (region?.code) {
+    const saved = setting(SETTINGS_KEYS.locale);
+    const locale =
+      typeof saved === "string" && (SUPPORTED_LOCALES as readonly string[]).includes(saved) ? saved : DEFAULT_LOCALE;
+    const t = getTranslator(locale, "holidays") as unknown as HolidayTranslator;
+    breaks.push(...publicHolidayBreaks(region.code, from, to, locale, (h) => holidayLabel(h, t)));
   }
 
   return breaks;

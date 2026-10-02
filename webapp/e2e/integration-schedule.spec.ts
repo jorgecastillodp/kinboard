@@ -40,7 +40,7 @@ const TUESDAY = "2026-10-06";
 const SATURDAY = "2026-10-10";
 
 type Row = Record<string, unknown>;
-type Filter = [op: "eq" | "isnull" | "lte" | "gte", column: string, value?: unknown];
+type Filter = [op: "eq" | "in" | "isnull" | "lte" | "gte", column: string, value?: unknown];
 
 function fakeDb(tables: Record<string, Row[]>) {
   const queries: Array<{ table: string; filters: Filter[] }> = [];
@@ -58,6 +58,7 @@ function fakeDb(tables: Record<string, Row[]>) {
       const actual = value(table, row, column);
       if (op === "isnull") return actual === null;
       if (op === "eq") return actual === v;
+      if (op === "in") return (v as unknown[]).includes(actual);
       if (op === "lte") return String(actual) <= String(v);
       return String(actual) >= String(v);
     });
@@ -79,6 +80,7 @@ function fakeDb(tables: Record<string, Row[]>) {
       const chain = {
         select() { return chain; },
         eq(column: string, v: unknown) { filters.push(["eq", column, v]); return chain; },
+        in(column: string, v: unknown[]) { filters.push(["in", column, v]); return chain; },
         is(column: string, v: unknown) {
           if (v !== null) throw new Error(`unsupported is(${column}, ${String(v)})`);
           filters.push(["isnull", column]);
@@ -150,6 +152,7 @@ function household(extra: Partial<Record<string, Row[]>> = {}) {
       { calendar_id: CAL(9), title: "Their ICS break", all_day: true, start_at: "2026-10-05T12:00:00.000Z", end_at: "2026-10-06T12:00:00.000Z" },
       ...(extra.events ?? []),
     ],
+    settings: [...(extra.settings ?? [])],
   });
 }
 
@@ -431,5 +434,111 @@ test.describe("OpenAPI", () => {
     const weekend = (await readSchedule(OURS, { personId: null, day: SATURDAY }, TZ, db)).body;
     expect([fitsWeekly(week), fitsDay(week)]).toEqual([true, false]);
     expect([fitsWeekly(weekend), fitsDay(weekend)]).toEqual([false, true]);
+  });
+});
+
+test.describe("holiday sources (RFC-014 §5, §6)", () => {
+  const region = (code: string) => ({ family_id: OURS, key: "holiday_region", value: { code, chosen: false } });
+  const locale = (l: string) => ({ family_id: OURS, key: "locale", value: l });
+  const theirs = { family_id: THEIRS, key: "holiday_region", value: { code: "DE-NI", chosen: true } };
+
+  test("a weekday public holiday in the family's region is no school day, named in the family's language", async () => {
+    const { db } = household({ settings: [region("DE-NI"), locale("de")] });
+    // Friday 25 December 2026.
+    expect(await schoolOn(OURS, "2026-12-25", TZ, {}, db)).toMatchObject({
+      school_day: false, reason: "holiday", holiday: "1. Weihnachtstag", children: [],
+    });
+    expect((await schoolOn(OURS, "2026-12-23", TZ, {}, db)).school_day).toBe(true);
+  });
+
+  test("a family with no region, or another family's region, reads exactly as before", async () => {
+    for (const settings of [[], [theirs]]) {
+      const { db } = household({ settings });
+      expect((await schoolOn(OURS, "2026-12-25", TZ, {}, db)).school_day).toBe(true);
+    }
+  });
+
+  test("the US keeps school open on federal holidays", async () => {
+    const { db } = household({ settings: [region("US"), locale("en")] });
+    // Monday 12 October 2026, Columbus Day.
+    const day = await schoolOn(OURS, "2026-10-12", TZ, {}, db);
+    expect(day).toMatchObject({ school_day: true, reason: null, holiday: null });
+    expect(day.children.map((c) => c.name)).toEqual(["Mara", "Enno"]);
+  });
+
+  test("a substitute day and a school-only day are no school days too", async () => {
+    const gb = household({ settings: [region("GB-ENG"), locale("en")] });
+    expect(await schoolOn(OURS, "2027-12-27", TZ, {}, gb.db)).toMatchObject({ school_day: false, holiday: "Christmas Day" });
+    // A `school` day in Bavaria, not a day off: only the school rule closes it.
+    const by = household({ settings: [region("DE-BY"), locale("de")] });
+    expect(await schoolOn(OURS, "2026-11-18", TZ, {}, by.db)).toMatchObject({ school_day: false, holiday: "Buß- und Bettag" });
+    const ni = household({ settings: [region("DE-NI"), locale("de")] });
+    expect((await schoolOn(OURS, "2026-11-18", TZ, {}, ni.db)).school_day).toBe(true);
+  });
+
+  test("the family's own entry names the day before a public holiday does (§6.2)", async () => {
+    const { db } = household({
+      settings: [region("DE-NI"), locale("de")],
+      school_holidays: [{ family_id: OURS, name: "Weihnachtsferien", starts_on: "2026-12-21", ends_on: "2027-01-06" }],
+    });
+    expect((await schoolOn(OURS, "2026-12-25", TZ, {}, db)).holiday).toBe("Weihnachtsferien");
+  });
+
+  test("a holidays calendar names the day before a public holiday does (§6.2)", async () => {
+    const { db } = household({
+      settings: [region("DE-NI"), locale("de")],
+      events: [{ calendar_id: CAL(1), title: "Ferien (ICS)", all_day: true, start_at: "2026-12-24T12:00:00.000Z", end_at: "2026-12-26T12:00:00.000Z" }],
+    });
+    expect((await schoolOn(OURS, "2026-12-25", TZ, {}, db)).holiday).toBe("Ferien (ICS)");
+  });
+
+  test("a family with no saved language gets English names, not German", async () => {
+    const { db } = household({ settings: [region("GB-ENG")] });
+    expect(await schoolOn(OURS, "2026-12-25", TZ, {}, db)).toMatchObject({ school_day: false, holiday: "Christmas Day" });
+    const de = household({ settings: [region("DE-NI")] });
+    expect((await schoolOn(OURS, "2026-12-25", TZ, {}, de.db)).holiday).toBe("Christmas Day");
+  });
+
+  test("an unreadable region is an error, not a school day", async () => {
+    const h = household({ settings: [region("DE-NI")] });
+    h.failOn("settings");
+    await expect(schoolDayStatus(OURS, "2026-12-25", TZ, h.db)).rejects.toBeTruthy();
+  });
+
+  test("the summary's sensor says holiday on a public holiday", async () => {
+    const { db } = household({ settings: [region("DE-NI"), locale("en")] });
+    expect(schoolTomorrowSensor(await schoolOn(OURS, "2026-12-25", TZ, {}, db))).toMatchObject({
+      count: 0, school_day: false, reason: "holiday",
+    });
+  });
+  test("a synced row is a break, named after the family's own entry and calendars, before a public holiday", async () => {
+    const synced = { family_id: OURS, name: "Weihnachtsferien NI", starts_on: "2026-12-23", ends_on: "2027-01-06", source: "openholidays", hidden: false };
+    const own = household({ settings: [region("DE-NI"), locale("de")], school_holidays: [synced] });
+    expect((await schoolOn(OURS, "2026-12-25", TZ, {}, own.db)).holiday).toBe("Weihnachtsferien NI");
+    const both = household({
+      settings: [region("DE-NI"), locale("de")],
+      school_holidays: [synced, { family_id: OURS, name: "Unsere Ferien", starts_on: "2026-12-24", ends_on: "2026-12-31" }],
+    });
+    expect((await schoolOn(OURS, "2026-12-25", TZ, {}, both.db)).holiday).toBe("Unsere Ferien");
+  });
+
+  test("a hidden synced row is no break", async () => {
+    const { db } = household({
+      school_holidays: [{ family_id: OURS, name: "Herbstferien", starts_on: MONDAY, ends_on: TUESDAY, source: "openholidays", hidden: true }],
+    });
+    expect((await schoolOn(OURS, MONDAY, TZ, {}, db)).school_day).toBe(true);
+  });
+
+  test("breaks come in precedence order: manual, calendar, openholidays, public holiday", async () => {
+    const { db } = household({
+      settings: [region("DE-NI"), locale("en")],
+      school_holidays: [
+        { family_id: OURS, name: "synced", starts_on: "2026-12-25", ends_on: "2026-12-25", source: "openholidays", hidden: false },
+        { family_id: OURS, name: "mine", starts_on: "2026-12-25", ends_on: "2026-12-25" },
+      ],
+      events: [{ calendar_id: CAL(1), title: "calendar", all_day: true, start_at: "2026-12-25T12:00:00.000Z", end_at: "2026-12-25T12:00:00.000Z" }],
+    });
+    const sources = (await fetchSchoolBreaks(OURS, "2026-12-25", "2026-12-25", TZ, db)).map((b) => b.source);
+    expect(sources).toEqual(["manual", "calendar", "openholidays", "public_holiday"]);
   });
 });

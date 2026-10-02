@@ -142,6 +142,12 @@ RUN echo '#!/bin/sh' > /usr/local/bin/sync-caldav && \
     echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/sync-caldav' >> /usr/local/bin/sync-caldav && \
     chmod +x /usr/local/bin/sync-caldav
 
+# Syncs school holidays from OpenHolidays for families that turned it on and
+# have not synced for a week (RFC-014 §5.2).
+RUN echo '#!/bin/sh' > /usr/local/bin/sync-school-holidays && \
+    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/sync-school-holidays' >> /usr/local/bin/sync-school-holidays && \
+    chmod +x /usr/local/bin/sync-school-holidays
+
 # Add pocket-money cron scripts
 RUN echo '#!/bin/sh' > /usr/local/bin/pocket-money-accrue-interest && \
     echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/accrue-interest' >> /usr/local/bin/pocket-money-accrue-interest && \
@@ -184,6 +190,14 @@ RUN chown nextjs:nodejs .next
 # Copy standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Licences the standalone trace leaves behind (RFC-014 §8): Next copies only
+# what the server imports, and a LICENSE file is never imported. The holiday
+# data is CC BY-SA 3.0, not PolyForm, and its notice travels with it. NOTICE
+# is webapp/NOTICE, a copy of the repository's (the build context is webapp/).
+COPY --from=builder /app/NOTICE ./licenses/NOTICE
+COPY --from=builder /app/src/lib/holidays/data/LICENSE ./licenses/date-holidays-LICENSE
+RUN test -f ./licenses/NOTICE && test -f ./licenses/date-holidays-LICENSE
 
 # Bake migrations + entrypoint script into the image. The entrypoint
 # applies migrations against the db before exec'ing the Next.js

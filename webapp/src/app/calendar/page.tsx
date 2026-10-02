@@ -118,7 +118,8 @@ import {
 } from "@/hooks";
 import { matchPersonForEvent } from "@/lib/calendar-person-matcher";
 import { layoutDayEvents } from "@/lib/calendar-layout";
-import { getHolidays, type CountryCode } from "@/lib/holidays";
+import { getHolidays } from "@/lib/holidays";
+import { holidayLabel } from "@/lib/holidays/label";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import {
   DEFAULT_CALENDAR_DISPLAY,
@@ -129,6 +130,7 @@ import {
   type CalendarDisplaySettings,
 } from "@/lib/calendar-markers";
 import { toLocalDateKey } from "@/lib/local-date";
+import { useHolidayRegion } from "@/hooks/use-holiday-region";
 import { useTimeFormat } from "@/hooks/use-time-format";
 import { useWeekStart } from "@/hooks/use-week-start";
 
@@ -301,8 +303,7 @@ export default function CalendarPage() {
   const { data: people, isLoading: loadingPeople, error: peopleError, refetch: refetchPeople } = usePeople();
   const { data: calendars, isLoading: loadingCalendars, error: calendarsError, refetch: refetchCalendars } = useCalendars();
   const { data: defaultCalendarId } = useSetting<string | null>("default_calendar_id", null);
-  const { data: holidayCountry } = useSetting<CountryCode>("holiday_country", "de");
-  const country: CountryCode = holidayCountry ?? "de";
+  const { region: holidayRegion } = useHolidayRegion();
 
   // Day markers besides events, each behind its own family-wide switch in
   // Settings → Calendar. Off, they are not computed, the views get nothing,
@@ -317,10 +318,10 @@ export default function CalendarPage() {
   const { data: todos } = useTodos({ enabled: showTaskMarkers || tasksAsEvents });
   const holidayMarkers = useMemo(
     () =>
-      showHolidayMarkers
-        ? holidaysByDay(country, new Date(dateRange.start), new Date(dateRange.end))
+      showHolidayMarkers && holidayRegion
+        ? holidaysByDay(holidayRegion, new Date(dateRange.start), new Date(dateRange.end), locale)
         : undefined,
-    [showHolidayMarkers, country, dateRange.start, dateRange.end],
+    [showHolidayMarkers, holidayRegion, dateRange.start, dateRange.end, locale],
   );
 
   // Every task occurrence the calendar can show, computed once for the grid's
@@ -1161,12 +1162,12 @@ export default function CalendarPage() {
                     </div>
                   </div>
                   {(() => {
-                    const holidays = getHolidays(country, displayDate.getFullYear());
+                    const holidays = holidayRegion ? getHolidays(holidayRegion, displayDate.getFullYear(), locale) : [];
                     const holiday = holidays.find((h) => isSameDay(h.date, displayDate));
                     if (holiday) {
                       return (
                         <Badge variant="outline" className="mt-1.5 text-xs border-amber-500/40 text-amber-400">
-                          {holiday.emoji} {tHolidays(holiday.nameKey)}
+                          {holiday.emoji} {holidayLabel(holiday, tHolidays)}
                         </Badge>
                       );
                     }
@@ -1318,13 +1319,13 @@ export default function CalendarPage() {
                       >
                         {/* Holiday indicator for selected date */}
                         {(() => {
-                          const holidays = getHolidays(country, displayDate.getFullYear());
+                          const holidays = holidayRegion ? getHolidays(holidayRegion, displayDate.getFullYear(), locale) : [];
                           const holiday = holidays.find((h) => isSameDay(h.date, displayDate));
                           if (holiday) {
                             return (
                               <div className="text-center py-4 px-3 mb-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
                                 <span className="text-2xl">{holiday.emoji}</span>
-                                <p className="text-sm font-medium text-amber-400 mt-1">{tHolidays(holiday.nameKey)}</p>
+                                <p className="text-sm font-medium text-amber-400 mt-1">{holidayLabel(holiday, tHolidays)}</p>
                                 <p className="text-xs text-amber-400/60 mt-0.5">{t("holidayLabel")}</p>
                               </div>
                             );
