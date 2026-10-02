@@ -291,7 +291,7 @@
     "usMemorialDay": "Memorial Day",
     "usJuneteenth": "Juneteenth",
     "usIndependence": "Fête de l'indépendance",
-    "usLaborDay": "Fête du Travail",
+    "usLaborDay": "Labor Day",
     "usColumbus": "Columbus Day",
     "usVeterans": "Veterans Day",
     "usThanksgiving": "Thanksgiving",
@@ -325,7 +325,15 @@
     "frAssomption": "Assomption",
     "frToussaint": "Toussaint",
     "frArmistice": "Armistice",
-    "frNoel": "Noël"
+    "frNoel": "Noël",
+    "usValentinesDay": "Saint-Valentin",
+    "usStPatricksDay": "Saint-Patrick",
+    "usEaster": "Pâques",
+    "usMothersDay": "Fête des mères (USA)",
+    "usFathersDay": "Fête des pères",
+    "usHalloween": "Halloween",
+    "usChristmasEve": "Veille de Noël",
+    "usNewYearsEve": "Saint-Sylvestre"
   },
   "shoppingCategories": {
     "obst_gemuese": "Fruits & légumes",
@@ -1077,6 +1085,10 @@
       "birthdayPreview1": "🎂 Mamie — dans 3 jours",
       "birthdayPreview2": "Papa — dans 2 semaines",
       "birthdayPreview3": "Lisa — dans 24 jours",
+      "holidaysLabel": "Jours fériés",
+      "holidaysDescription": "Compte à rebours jusqu'aux prochains jours fériés, et lesquels sont chômés",
+      "holidaysPreview1": "🎄 Noël — 84 jours",
+      "holidaysPreview2": "🎆 Jour de l'an — chômé",
       "weekOverviewLabel": "Aperçu de la semaine",
       "weekOverviewDescription": "Barre calendaire sur 7 jours avec événements et tâches",
       "weekOverviewPreview1": "Lun ●● Mar ● Mer ●●● Jeu · Ven ●● Sam · Dim ·",
@@ -3771,6 +3783,15 @@
     "daysSuffix": "{count, plural, one {# jour} other {# jours}}",
     "emptyState": "Aucun anniversaire ajouté pour le moment",
     "moreCount": "+{count} autres"
+  },
+  "holidayWidget": {
+    "title": "Jours fériés",
+    "todayBadge": "Aujourd'hui",
+    "daysSuffix": "{count, plural, one {# jour} other {# jours}}",
+    "dayOff": "Chômé",
+    "dayOffOn": "Chômé le {date}",
+    "viewCalendarAria": "Ouvrir le calendrier",
+    "emptyState": "Aucun jour férié à venir"
   },
   "scheduleWidget": {
     "nextSchoolDay": "Prochain jour d’école",

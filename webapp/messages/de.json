@@ -294,7 +294,7 @@
     "usLaborDay": "Labor Day",
     "usColumbus": "Kolumbus-Tag",
     "usVeterans": "Veterans Day",
-    "usThanksgiving": "Erntedankfest",
+    "usThanksgiving": "Thanksgiving",
     "usChristmas": "1. Weihnachtstag",
     "ukNewYearsDay": "Neujahr",
     "ukGoodFriday": "Karfreitag",
@@ -325,7 +325,15 @@
     "frAssomption": "Mariä Himmelfahrt",
     "frToussaint": "Allerheiligen",
     "frArmistice": "Waffenstillstandstag",
-    "frNoel": "1. Weihnachtstag"
+    "frNoel": "1. Weihnachtstag",
+    "usValentinesDay": "Valentinstag",
+    "usStPatricksDay": "St. Patrick's Day",
+    "usEaster": "Ostern",
+    "usMothersDay": "Muttertag",
+    "usFathersDay": "Vatertag (USA)",
+    "usHalloween": "Halloween",
+    "usChristmasEve": "Heiligabend",
+    "usNewYearsEve": "Silvester"
   },
   "shoppingCategories": {
     "obst_gemuese": "Obst & Gemüse",
@@ -1077,6 +1085,10 @@
       "birthdayPreview1": "🎂 Oma — in 3 Tagen",
       "birthdayPreview2": "Papa — in 2 Wochen",
       "birthdayPreview3": "Lisa — in 24 Tagen",
+      "holidaysLabel": "Feiertage",
+      "holidaysDescription": "Countdown bis zu den nächsten Feiertagen – und welche davon frei sind",
+      "holidaysPreview1": "🎄 Heiligabend — 83 Tage",
+      "holidaysPreview2": "🎁 1. Weihnachtstag — frei",
       "weekOverviewLabel": "Wochenübersicht",
       "weekOverviewDescription": "7-Tage-Kalenderstreifen mit Terminen und Aufgaben",
       "weekOverviewPreview1": "Mo ●● Di ● Mi ●●● Do · Fr ●● Sa · So ·",
@@ -3771,6 +3783,15 @@
     "daysSuffix": "{count, plural, one {# Tag} other {# Tage}}",
     "emptyState": "Keine Geburtstage eingetragen",
     "moreCount": "+{count} weitere"
+  },
+  "holidayWidget": {
+    "title": "Feiertage",
+    "todayBadge": "Heute",
+    "daysSuffix": "{count, plural, one {# Tag} other {# Tage}}",
+    "dayOff": "Frei",
+    "dayOffOn": "Frei am {date}",
+    "viewCalendarAria": "Kalender öffnen",
+    "emptyState": "Keine Feiertage in Sicht"
   },
   "scheduleWidget": {
     "nextSchoolDay": "Nächster Schultag",
