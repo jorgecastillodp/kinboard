@@ -3,6 +3,7 @@ export interface WidgetVisibility {
   upcomingEvents: boolean;
   schedule: boolean;
   birthday: boolean;
+  holidays: boolean;
   weekOverview: boolean;
   mealPlan: boolean;
   wasteCollection: boolean;
@@ -20,7 +21,7 @@ export interface WidgetVisibility {
 }
 
 export const DEFAULT_WIDGET_ORDER: (keyof WidgetVisibility)[] = [
-  "weather", "upcomingEvents", "schedule", "birthday", "weekOverview",
+  "weather", "upcomingEvents", "schedule", "birthday", "holidays", "weekOverview",
   "mealPlan", "wasteCollection", "tasks", "shopping", "notes",
   "vehicles", "stonks", "pocketMoney", "photos", "timers", "media", "messages",
   "countdown",
@@ -41,6 +42,9 @@ export const DEFAULT_WIDGET_VISIBILITY: WidgetVisibility = {
   tasks: true,
   mealPlan: true,
   birthday: false,
+  // Opt-in like birthdays: a countdown is an extra, not something every
+  // household wants on the panel.
+  holidays: false,
   wasteCollection: false,
   notes: false,
   shopping: false,

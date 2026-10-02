@@ -325,7 +325,15 @@
     "frAssomption": "Assumption of Mary",
     "frToussaint": "All Saints' Day",
     "frArmistice": "Armistice Day",
-    "frNoel": "Christmas Day"
+    "frNoel": "Christmas Day",
+    "usValentinesDay": "Valentine's Day",
+    "usStPatricksDay": "St. Patrick's Day",
+    "usEaster": "Easter",
+    "usMothersDay": "Mother's Day",
+    "usFathersDay": "Father's Day",
+    "usHalloween": "Halloween",
+    "usChristmasEve": "Christmas Eve",
+    "usNewYearsEve": "New Year's Eve"
   },
   "shoppingCategories": {
     "obst_gemuese": "Fruits & vegetables",
@@ -1077,6 +1085,10 @@
       "birthdayPreview1": "🎂 Grandma — in 3 days",
       "birthdayPreview2": "Dad — in 2 weeks",
       "birthdayPreview3": "Lisa — in 24 days",
+      "holidaysLabel": "Holidays",
+      "holidaysDescription": "Count down to the next holidays, and see which are a day off",
+      "holidaysPreview1": "🎃 Halloween — 29 days",
+      "holidaysPreview2": "🦃 Thanksgiving — day off",
       "weekOverviewLabel": "Week overview",
       "weekOverviewDescription": "7-day calendar strip with events and tasks",
       "weekOverviewPreview1": "Mon ●● Tue ● Wed ●●● Thu · Fri ●● Sat · Sun ·",
@@ -3771,6 +3783,15 @@
     "daysSuffix": "{count, plural, one {# day} other {# days}}",
     "emptyState": "No birthdays added yet",
     "moreCount": "+{count} more"
+  },
+  "holidayWidget": {
+    "title": "Holidays",
+    "todayBadge": "Today",
+    "daysSuffix": "{count, plural, one {# day} other {# days}}",
+    "dayOff": "Day off",
+    "dayOffOn": "Day off {date}",
+    "viewCalendarAria": "Open the calendar",
+    "emptyState": "No holidays coming up"
   },
   "scheduleWidget": {
     "nextSchoolDay": "Next school day",

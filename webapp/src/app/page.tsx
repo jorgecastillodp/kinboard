@@ -8,6 +8,7 @@ import { UpcomingEvents } from "@/components/widgets/upcoming-events";
 import { FamilyMembers } from "@/components/widgets/family-members";
 import { ScheduleWidget } from "@/components/widgets/schedule-widget";
 import { BirthdayWidget } from "@/components/widgets/birthday-widget";
+import { HolidayWidget } from "@/components/widgets/holiday-widget";
 import { VehiclesWidget } from "@/components/widgets/vehicles-widget";
 import { StonksWidget } from "@/components/widgets/stonks-widget";
 import { PhotosWidget } from "@/components/widgets/photos-widget";
@@ -105,6 +106,7 @@ export default function DashboardPage() {
       ? perChildCards.map((child) => <ScheduleWidget key={child.id} personId={child.id} />)
       : <ScheduleWidget />,
     birthday: <BirthdayWidget maxItems={3} />,
+    holidays: <HolidayWidget maxItems={3} />,
     weekOverview: <WeekOverviewWidget className="sm:col-span-2" />,
     mealPlan: <MealPlanWidget />,
     wasteCollection: <WasteCollectionWidget maxItems={3} />,
