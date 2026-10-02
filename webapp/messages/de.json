@@ -333,7 +333,43 @@
     "usFathersDay": "Vatertag (USA)",
     "usHalloween": "Halloween",
     "usChristmasEve": "Heiligabend",
-    "usNewYearsEve": "Silvester"
+    "usNewYearsEve": "Silvester",
+    "heiligeDreiKoenige": "Heilige Drei Könige",
+    "frauentag": "Internationaler Frauentag",
+    "ddrVolksaufstand75": "75. Jahrestag des Volksaufstands vom 17. Juni 1953",
+    "gruendonnerstag": "Gründonnerstag",
+    "fronleichnam": "Fronleichnam",
+    "allerheiligen": "Allerheiligen",
+    "bussUndBettag": "Buß- und Bettag",
+    "mariaeHimmelfahrt": "Mariä Himmelfahrt",
+    "weltkindertag": "Weltkindertag",
+    "mariaeEmpfaengnis": "Mariä Empfängnis",
+    "atStaatsfeiertag": "Staatsfeiertag",
+    "atNationalfeiertag": "Nationalfeiertag",
+    "atChristtag": "Christtag",
+    "atStefanitag": "Stefanitag",
+    "atJosefitag": "Josefitag",
+    "atLeopolditag": "Leopolditag",
+    "chBerchtoldstag": "Berchtoldstag",
+    "chJosefstag": "Josefstag",
+    "chAuffahrt": "Auffahrt",
+    "chPeterUndPaul": "Peter und Paul",
+    "chBundesfeiertag": "Bundesfeiertag",
+    "chKnabenschiessen": "Knabenschiessen",
+    "chBettag": "Eidg. Dank-, Buss- und Bettag",
+    "chBettagsmontag": "Bettagsmontag",
+    "chBruderklausenfest": "Bruderklausenfest",
+    "chNaefelserFahrt": "Näfelser Fahrt",
+    "chMauritiustag": "Mauritiustag",
+    "chWeihnachtstag": "Weihnachtstag",
+    "chStephanstag": "Stephanstag",
+    "chInstaurationRepublique": "Jahrestag der Ausrufung der Republik",
+    "chJeuneGenevois": "Genfer Bettag",
+    "chRestaurationRepublique": "Wiederherstellung der Republik",
+    "chPlebisciteJurassien": "Fest der Unabhängigkeit",
+    "ukPlatinumJubilee": "Platin-Jubiläum der Queen",
+    "ukStateFuneral": "Staatsbegräbnis von Queen Elizabeth II.",
+    "ukCoronation": "Krönung von König Charles III."
   },
   "shoppingCategories": {
     "obst_gemuese": "Obst & Gemüse",
@@ -955,6 +991,8 @@
     "itemCatalogueDescription": "Lichter, Schlösser und Geräte",
     "itemScheduleLabel": "Stundenplan",
     "itemScheduleDescription": "Schulstunden der Kinder",
+    "itemHolidaysLabel": "Feiertage",
+    "itemHolidaysDescription": "Feiertage und Schulferien",
     "itemGoogleLabel": "Google Kalender",
     "itemGoogleDescription": "Kalender synchronisieren",
     "itemIcsLabel": "iCalendar-Feeds",
@@ -2151,7 +2189,57 @@
       "holidayRangeInvalid": "Der letzte Tag kann nicht vor dem ersten liegen.",
       "holidayInclusiveHint": "Beide Tage zählen dazu. Für einen einzelnen freien Tag zweimal dasselbe Datum wählen.",
       "toastHolidaySaveFailed": "Ferienzeitraum konnte nicht gespeichert werden",
-      "toastHolidayDeleteFailed": "Ferienzeitraum konnte nicht gelöscht werden"
+      "toastHolidayDeleteFailed": "Ferienzeitraum konnte nicht gelöscht werden",
+      "holidaysMovedLink": "Die Schulferien findest du unter <link>Einstellungen → Feiertage</link>."
+    },
+    "holidays": {
+      "title": "Feiertage",
+      "subtitle": "Gesetzliche Feiertage und Schulferien",
+      "regionLabel": "Wo ihr wohnt",
+      "regionDescription": "Die Feiertage im Kalender und im Feiertage-Widget und die schulfreien Tage richten sich nach diesem Land und Bundesland.",
+      "countryLabel": "Land",
+      "countryPlaceholder": "Land wählen",
+      "stateLabel": "Bundesland, Kanton oder Region",
+      "stateWholeCountry": "Ganzes Land (nur landesweite Feiertage)",
+      "notChosenNotice": "Das hat noch niemand in der Familie ausgewählt: Es ist die Einstellung, die Kinboard verwendet hat, bevor es Bundesländer kannte.",
+      "keepButton": "Beibehalten",
+      "saveError": "Die Region konnte nicht gespeichert werden. Versuch es noch einmal.",
+      "previewHeading": "Nächste freie Tage",
+      "subRegionNote": "Feiertage, die nur in einem Teil eines Bundeslands oder Kantons gelten, sind nicht enthalten: das Augsburger Friedensfest, Mariä Himmelfahrt in Bayerns katholischen Gemeinden, Feiertage einzelner Schweizer Gemeinden. Trag die, die für euch zählen, unten als Schulferien ein oder markiere einen Kalender, der sie enthält, als Feiertagskalender.",
+      "attribution": "Feiertagsdaten: <dh>date-holidays</dh> (<lic>CC BY-SA 3.0</lic>)",
+      "sync": {
+        "title": "Schulferien von OpenHolidays",
+        "description": "Die Schulferien für euren Wohnort automatisch abrufen, etwa einmal pro Woche. Eure eigenen Einträge und Ferienkalender bleiben immer erhalten.",
+        "pickRegionFirst": "Wähle oben euer Bundesland, um die Schulferien automatisch zu bekommen.",
+        "regionLabel": "Schulregion",
+        "regionPlaceholder": "Region wählen",
+        "childLabel": "Gebiet",
+        "childPlaceholder": "Gebiet wählen",
+        "groupLabel": "Schulart",
+        "groupPlaceholder": "Schulart wählen",
+        "holidayRegionLabel": "Ferienregion",
+        "holidayRegionPlaceholder": "Ferienregion wählen",
+        "pendingRegion": "Wähle das Gebiet eurer Schule, um zu starten.",
+        "pendingGroup": "Wähle die Schulart, um zu starten.",
+        "pendingHolidayRegion": "Wähle eure Ferienregion, um zu starten.",
+        "lastUpdated": "Zuletzt aktualisiert am {date}",
+        "lastError": "OpenHolidays war am {date} nicht erreichbar",
+        "lastErrorOnly": "OpenHolidays war am {date} nicht erreichbar",
+        "neverUpdated": "Noch nicht abgerufen",
+        "refresh": "Jetzt aktualisieren",
+        "rateLimited": "Gerade aktualisiert. Versuch es in einer Minute noch einmal.",
+        "rateLimitedAfterPick": "Gespeichert. OpenHolidays wurde gerade erst abgefragt – tippe in einer Minute auf „Jetzt aktualisieren“, um die Schulferien abzurufen.",
+        "syncFailed": "Die Schulferien konnten nicht abgerufen werden. Die vorhandenen bleiben unverändert.",
+        "saveError": "Speichern fehlgeschlagen. Versuch es noch einmal.",
+        "optionsError": "Die Schulregionen konnten nicht von OpenHolidays geladen werden. Versuch es später noch einmal.",
+        "installOff": "Dieses Kinboard ruft keine Schulferien mehr von OpenHolidays ab. Die bereits abgerufenen zählen weiter als Schulferien.",
+        "removeSynced": "Abgerufene Ferien entfernen",
+        "removedSynced": "Die abgerufenen Schulferien sind entfernt. Eure eigenen Einträge bleiben.",
+        "sourceBadge": "OpenHolidays",
+        "sentNote": "Kinboard schickt OpenHolidays euer Land, eure Region und die Schulart, nie etwas über eure Familie.",
+        "odbl": "Enthält Informationen der <oh>OpenHolidays API</oh>, die hier unter der <odbl>Open Database License (ODbL)</odbl> bereitgestellt werden.",
+        "odblTitle": "Enthält Informationen der OpenHolidays API, die hier unter der Open Database License (ODbL) bereitgestellt werden."
+      }
     },
     "itemLanguageLabel": "Sprache",
     "itemLanguageDescription": "Oberfläche zwischen Englisch und Deutsch wechseln",
@@ -2159,14 +2247,7 @@
       "title": "Sprache",
       "subtitle": "Sprache der Oberfläche auswählen",
       "current": "aktiv",
-      "countryLabel": "Land",
-      "countryDescription": "Die im Kalender angezeigten gesetzlichen Feiertage richten sich nach diesem Land.",
-      "countryError": "Ländereinstellung konnte nicht gespeichert werden",
-      "country_de": "Deutschland",
-      "country_us": "Vereinigte Staaten",
-      "country_uk": "Vereinigtes Königreich",
-      "country_nl": "Niederlande",
-      "country_fr": "Frankreich",
+      "holidaysMoved": "Feiertage und Schulferien stellst du unter <link>Einstellungen → Feiertage</link> ein.",
       "weekStartLabel": "Woche beginnt am",
       "weekStartDescription": "Mit welchem Tag die Wochen- und Monatsansicht des Kalenders anfängt. „Der Sprache folgen“ heißt Sonntag für Englisch, Montag für Deutsch und Französisch.",
       "weekStart_locale": "Der Sprache folgen",
@@ -2594,6 +2675,10 @@
         "nothing-planned-for-dinner": {
           "title": "Kein Essen geplant",
           "description": "Abends: meldet, wenn für morgen nichts geplant ist."
+        },
+        "holiday-region": {
+          "title": "In welchem Bundesland wohnt ihr?",
+          "description": "Einmal, wenn noch niemand den Wohnort gewählt hat, und noch einmal, wenn nur das Land gewählt wurde: fragt nach dem Bundesland, damit Feiertage und schulfreie Tage stimmen."
         }
       }
     },
@@ -3791,7 +3876,8 @@
     "dayOff": "Frei",
     "dayOffOn": "Frei am {date}",
     "viewCalendarAria": "Kalender öffnen",
-    "emptyState": "Keine Feiertage in Sicht"
+    "emptyState": "Keine Feiertage in Sicht",
+    "noRegion": "Wähle unter Einstellungen → Feiertage dein Land, um die nächsten Feiertage zu sehen."
   },
   "scheduleWidget": {
     "nextSchoolDay": "Nächster Schultag",
@@ -3844,12 +3930,19 @@
     "checklist": {
       "title": "Kinboard-Einrichtung abschließen",
       "progress": "{done} von {total} erledigt",
+      "item_region": "Wohnort wählen (für Feiertage)",
       "item_people": "Familienmitglieder hinzufügen",
       "item_calendar": "Kalender verbinden",
       "item_weather": "Wetter-Standort festlegen",
       "item_homeassistant": "Home Assistant verbinden (optional)",
       "resume": "Einrichtung fortsetzen",
       "finish": "Abschließen"
+    },
+    "region": {
+      "title": "Wo wohnt ihr?",
+      "description": "Feiertage und schulfreie Tage hängen von Land und Bundesland ab. Kinboard zeigt die, die bei euch gelten.",
+      "preselectedHint": "Aus deiner Zeitzone vorgeschlagen. Ändere es, wenn es nicht stimmt.",
+      "saveError": "Der Wohnort konnte nicht gespeichert werden. Versuch es noch einmal."
     },
     "people": {
       "title": "Wer gehört zur Familie?",
@@ -4120,6 +4213,7 @@
     "rule": "Regel",
     "disableRule": "Diesen Hinweis nicht mehr zeigen",
     "snoozed": "Später heute",
+    "choose": "Auswählen",
     "hints": {
       "leave-soon": {
         "title": "{what}",
@@ -4170,6 +4264,20 @@
       "lock-up-before-bed": {
         "title": "{count, plural, one {# noch offen} other {# noch offen}}",
         "detail": "{entities}"
+      },
+      "holiday-region": {
+        "unset": {
+          "title": "In welchem Bundesland wohnt ihr?",
+          "detail": "Es werden noch keine Feiertage angezeigt. Wähle unter Einstellungen → Feiertage euer Land und Bundesland."
+        },
+        "migrated": {
+          "title": "In welchem Bundesland wohnt ihr?",
+          "detail": "Feiertage und schulfreie Tage hängen davon ab, wo ihr wohnt. Wähle unter Einstellungen → Feiertage euer Land und Bundesland."
+        },
+        "country": {
+          "title": "In welchem Bundesland wohnt ihr?",
+          "detail": "Es werden nur die Feiertage des ganzen Landes angezeigt. Wähle unter Einstellungen → Feiertage euer Bundesland, damit auch dessen Feiertage und Schulferien dazukommen."
+        }
       }
     }
   },

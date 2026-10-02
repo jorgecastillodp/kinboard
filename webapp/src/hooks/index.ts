@@ -44,7 +44,6 @@ export { useRealtime, useRealtimeTable, useRealtimeSync } from "./use-realtime";
 export {
   queryKeys,
   useFamilyByJoinCode,
-  useCreateFamily,
   useRegisterDevice,
   useRestoreDeviceSession,
   useFindDeviceByFingerprint,
@@ -395,6 +394,11 @@ export type {
 // Setup Wizard Hooks
 export { useSetupState, useMarkSetupCompleted } from "./use-setup-state";
 export type { SetupState } from "./use-setup-state";
+export { useHolidayRegion } from "./use-holiday-region";
+export { useSaveHolidayRegion } from "./use-holiday-region";
+export type { HolidayRegionState } from "./use-holiday-region";
+export { useSchoolHolidaySync, useUpdateSchoolHolidaySync, useSchoolRegionOptions, schoolSyncKeys } from "./use-school-holiday-sync";
+export type { SchoolSyncStatus, SchoolSyncResult } from "./use-school-holiday-sync";
 
 // Vehicle Hooks
 export {

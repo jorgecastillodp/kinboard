@@ -3,6 +3,8 @@ import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/server";
 import { SECRET_FIELDS, splitSecrets } from "@/lib/integration-secrets";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { restoredSyncSetting } from "@/lib/school-sync/reconcile";
+import { withHolidayRegion } from "@/lib/holidays/region";
 import { clientIp, hitLimit } from "@/lib/rate-limit";
 
 // POST /api/import — restore a family from a Kinboard backup file
@@ -263,6 +265,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: validated.error }, { status: validated.status });
   }
   const { payload } = validated;
+  // RFC-014 §4.2: a backup from before holiday_region existed carries only
+  // holiday_country (or nothing, meaning Germany). Give the restored family
+  // the region it effectively had, as the migration does for live ones.
+  // Added before the id map below, so the row is remapped like any other.
+  payload.data.settings = withHolidayRegion(payload.data.settings ?? [], () => crypto.randomUUID());
 
   const supabase = createAdminClient();
   const db = supabase as any;
@@ -298,6 +305,14 @@ export async function POST(request: NextRequest) {
   for (const row of payload.data.settings ?? []) {
     if (!isRecord(row) || typeof row.key !== "string") continue;
     if (row.key === SETTINGS_KEYS.settingsPin) continue;
+    // RFC-014 §5: the family's sync choice comes back, its status does not --
+    // the restored family has none of the backup's synced rows' history and
+    // is due at once. A value that is not a sync setting is dropped.
+    if (row.key === SETTINGS_KEYS.schoolHolidaySync) {
+      const restored = restoredSyncSetting(row.value);
+      if (restored) settingsRows.push({ ...row, value: restored });
+      continue;
+    }
     if (secretKeys.has(row.key)) {
       const { publicValue, secretValue } = splitSecrets(row.key, row.value);
       if (secretValue && Object.keys(secretValue).length > 0) {
@@ -313,9 +328,9 @@ export async function POST(request: NextRequest) {
 
   // ---- Create the new family row FIRST — every child table's family_id
   // (or transitive parent) FK requires it to exist before any child insert.
-  // Join code: same generation pattern as useCreateFamily/useRegenerateJoinCode
-  // (src/hooks/use-supabase-queries.ts) — 6-char A-Z0-9 alphabet, retry on
-  // Postgres unique-violation (23505).
+  // Join code: same generation pattern as /api/session/create and
+  // useRegenerateJoinCode (src/hooks/use-supabase-queries.ts) — 6-char
+  // A-Z0-9 alphabet, retry on Postgres unique-violation (23505).
   let joinCode = generateJoinCode();
   let attempts = 0;
   for (;;) {

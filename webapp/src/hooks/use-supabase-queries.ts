@@ -134,33 +134,6 @@ export function useValidateStoredFamily(familyId: string | undefined) {
   });
 }
 
-export function useCreateFamily() {
-  const supabase = createClient();
-  const queryClient = useQueryClient();
-  const { setFamily } = useFamilyStore();
-
-  return useMutation({
-    mutationFn: async (name: string) => {
-      // Generate join code
-      const joinCode = generateJoinCode();
-
-       
-      const { data, error } = await (supabase as any)
-        .from("families")
-        .insert({ name, join_code: joinCode })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data as Family;
-    },
-    onSuccess: (family) => {
-      setFamily(family);
-      queryClient.invalidateQueries({ queryKey: ["family"] });
-    },
-  });
-}
-
 export function useRegisterDevice() {
   const supabase = createClient();
   const { setDevice } = useFamilyStore();
@@ -1768,6 +1741,11 @@ export interface SchoolHoliday {
   ends_on: string;
   created_at: string;
   updated_at: string;
+  /** RFC-014 §5.1. Absent on rows read before the migration ran. */
+  source?: "manual" | "openholidays";
+  external_id?: string | null;
+  hidden?: boolean;
+  synced_at?: string | null;
 }
 
 export function useSchoolHolidays() {
