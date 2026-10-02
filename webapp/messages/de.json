@@ -214,6 +214,8 @@
     "birthdayToday": "Geburtstag ist heute!",
     "birthdaysMany": "{count} anstehende Geburtstage",
     "mealPrepTitle": "Morgen auf dem Plan",
+    "cameraLiveTitle": "🔔 {camera}",
+    "cameraLiveBody": "Jetzt live auf den Bildschirmen. Zum Ansehen tippen.",
     "timerReadyTitle": "{label} ist fertig",
     "timerFinishedTitle": "Timer abgelaufen",
     "timerBody": "Der Küchentimer ist fertig",

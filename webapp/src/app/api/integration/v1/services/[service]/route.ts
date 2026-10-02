@@ -9,6 +9,15 @@ import {
   storeResult,
   validateIdempotencyKey,
 } from "@/lib/integration-idempotency";
+import { hitLimit } from "@/lib/rate-limit";
+import {
+  SHOW_CAMERA_RATE_LIMIT,
+  SHOW_CAMERA_RATE_WINDOW_MS,
+  parseTakeoverDuration,
+  readCameraRefs,
+  resolveCamera,
+  resolveTargetDevices,
+} from "@/lib/camera-takeover";
 import { addShoppingItemFromText } from "@/lib/shopping-enrich";
 import { createServiceTask } from "@/lib/integration-tasks";
 import { addPocketMoneyService } from "@/lib/pocket-money/service";
@@ -42,6 +51,13 @@ type Handler = (args: {
 interface ServiceDef {
   scope: IntegrationScope;
   handle: Handler;
+  /**
+   * A budget of its own on top of the per-token write limit, for a service
+   * that interrupts the house rather than adding a row to a list. Only a call
+   * that will actually run spends it: a replay is the original call's budget
+   * again, the same rule as on messages.
+   */
+  rateLimit?: { limit: number; windowMs: number };
 }
 
 /** Trim, reject empty, and bound — free text reaching a database column. */
@@ -173,6 +189,84 @@ export const SERVICES: Record<string, ServiceDef> = {
    * reasons about — added a task, moved an appointment — and the family is
    * standing in front of the display.
    */
+  /**
+   * Put a camera on the wall displays for a minute (#335): the doorbell rang,
+   * and whoever walks up to a screen sees who is there without tapping
+   * through to Cameras. Under `announcements:write` rather than a scope of
+   * its own — it is the same kind of power as a message to the screens, and
+   * every new scope means every token has to be reconnected.
+   *
+   * Two writes, like a message. The family's one `camera_takeovers` row,
+   * which the screens pick up over realtime and show until `ends_at`; a
+   * second call replaces it, restarting the time or switching the camera. And
+   * a push for the phones through the notification queue rather than inline,
+   * so quiet hours and each device's push settings apply to it. The queue
+   * runs every 30 seconds, so a phone can hear about the doorbell up to that
+   * much after the screens.
+   */
+  show_camera: {
+    scope: "announcements:write",
+    rateLimit: { limit: SHOW_CAMERA_RATE_LIMIT, windowMs: SHOW_CAMERA_RATE_WINDOW_MS },
+    handle: async ({ familyId, body, db }) => {
+      const duration = parseTakeoverDuration(body.duration);
+      if (!duration.ok) {
+        return { status: 400, response: { error: duration.error, code: "invalid_request" } };
+      }
+      const camera = resolveCamera(await readCameraRefs(db, familyId), body.camera);
+      if (!camera.ok) {
+        return { status: 400, response: { error: camera.error, code: "invalid_request" } };
+      }
+      const { data: devices, error: devicesError } = await db
+        .from("devices")
+        .select("id, name, is_kiosk")
+        .eq("family_id", familyId);
+      if (devicesError) throw devicesError;
+      const targets = resolveTargetDevices(devices ?? [], body.target_devices);
+      if (!targets.ok) {
+        return { status: 400, response: { error: targets.error, code: "invalid_request" } };
+      }
+
+      const startedAt = new Date();
+      const endsAt = new Date(startedAt.getTime() + duration.seconds * 1000);
+      const { error: takeoverError } = await db.from("camera_takeovers").upsert(
+        {
+          family_id: familyId,
+          camera_id: camera.camera.id,
+          device_ids: targets.deviceIds,
+          started_at: startedAt.toISOString(),
+          ends_at: endsAt.toISOString(),
+        },
+        { onConflict: "family_id" },
+      );
+      if (takeoverError) throw takeoverError;
+
+      // The title is a fallback for a NOT NULL column; the processor renders
+      // the real, locale-aware push from `data`, as it does for timers. A
+      // failed push must not fail the call: the screens already have it.
+      const { error: notifyError } = await db.from("scheduled_notifications").insert({
+        family_id: familyId,
+        notification_type: "camera_live",
+        scheduled_for: startedAt.toISOString(),
+        title: camera.camera.name,
+        body: null,
+        data: { camera_id: camera.camera.id, camera_name: camera.camera.name },
+        related_entity_type: "camera",
+        related_entity_id: null,
+      });
+      if (notifyError) {
+        console.error("[show_camera] could not queue the push:", notifyError);
+      }
+
+      return {
+        status: 200,
+        response: {
+          camera: camera.camera,
+          screens: targets.deviceIds.length,
+          ends_at: endsAt.toISOString(),
+        },
+      };
+    },
+  },
   refresh_integration: {
     scope: "family:read",
     handle: async ({ familyId }) => {
@@ -279,6 +373,24 @@ export async function POST(
         status: previous.status,
         headers: { "idempotent-replay": "true" },
       });
+    }
+
+    if (def.rateLimit) {
+      const limit = hitLimit(
+        `integration:${context.tokenId}:service:${service}`,
+        def.rateLimit.limit,
+        def.rateLimit.windowMs,
+      );
+      if (limit.limited) {
+        return NextResponse.json(
+          { error: `too many \`${service}\` calls — slow down`, code: "rate_limited" },
+          {
+            status: 429,
+            // At least 1: a Retry-After of 0 invites the immediate retry being throttled.
+            headers: { "retry-after": String(Math.max(1, Math.ceil(limit.retryAfterMs / 1000))) },
+          },
+        );
+      }
     }
 
     try {

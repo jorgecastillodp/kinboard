@@ -531,6 +531,23 @@ function buildNotificationPayload(
       };
     }
 
+    case "camera_live": {
+      // Enqueued by show_camera (#335), one row per call. When two calls land
+      // in one tick — two rings — the newest is the camera the screens show
+      // now. The title at insert time is a fallback for a NOT NULL column.
+      const n = notifications[notifications.length - 1];
+      const camera = (n.data?.camera_name as string | undefined) || n.title;
+      const cameraId = n.data?.camera_id as string | undefined;
+      return {
+        title: t("cameraLiveTitle", { camera }),
+        body: t("cameraLiveBody"),
+        // One tag for all of them: a second ring replaces the first push
+        // rather than stacking another under it.
+        tag: "camera-live",
+        url: cameraId ? `/cameras?live=${encodeURIComponent(cameraId)}` : "/cameras",
+      };
+    }
+
     case "timer": {
       // Enqueued by /api/timers' POST, one row per timer. `data.label` is only
       // present when the timer has one (see that route) — the title written

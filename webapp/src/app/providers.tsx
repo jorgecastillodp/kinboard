@@ -12,6 +12,8 @@ import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
 import { usePresence } from "@/hooks/use-presence";
 import { useRingingTimer } from "@/hooks/use-timers";
 import { useTakeoverMessage } from "@/hooks/use-messages";
+import { useCameraTakeover } from "@/hooks/use-camera-takeover";
+import { CameraTakeover } from "@/components/camera-takeover";
 import { useFamilyStore } from "@/stores/family-store";
 import { Screensaver } from "@/components/screensaver";
 import { AuthGuard } from "@/components/auth-guard";
@@ -170,6 +172,15 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
   // underneath a photo slideshow — which is how the timer alarm shipped until
   // the whole-branch review caught it.
   const takeoverMessage = useTakeoverMessage();
+  // A camera put on the wall because the doorbell rang (#335). Like a
+  // message, it arrives precisely when nobody is at the board, so it holds
+  // the screensaver off; and it sits above the page, wherever the screen is.
+  // Closing it is this screen's business: the next call (a new start) shows
+  // again.
+  const cameraTakeover = useCameraTakeover();
+  const [closedCameraStart, setClosedCameraStart] = useState<string | null>(null);
+  const shownCamera =
+    cameraTakeover && cameraTakeover.started_at !== closedCameraStart ? cameraTakeover : null;
 
   // Hide nav bars during screensaver to save GPU (backdrop-blur is expensive on ARM)
   // And an assistant request waiting for a person must not sit under it either.
@@ -181,6 +192,7 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
     takeoverMessage: !!takeoverMessage,
     pendingAssistantActions,
     assistantActionNotices,
+    cameraTakeover: !!shownCamera,
   });
   useEffect(() => {
     if (showScreensaver) {
@@ -195,6 +207,12 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
     <>
       {children}
       {promptShownOn(pathname, !!device) && <AssistantActionPrompt />}
+      {shownCamera && (
+        <CameraTakeover
+          takeover={shownCamera}
+          onClose={() => setClosedCameraStart(shownCamera.started_at)}
+        />
+      )}
       <AnimatePresence>
         {showScreensaver && <Screensaver key="screensaver" />}
       </AnimatePresence>
