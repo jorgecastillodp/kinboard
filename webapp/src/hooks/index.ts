@@ -101,6 +101,7 @@ export {
   useDeleteNote,
   useSetting,
   useUpdateSetting,
+  useDeleteSetting,
   useRegenerateJoinCode,
   useRenameFamily,
 } from "./use-supabase-queries";

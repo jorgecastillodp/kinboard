@@ -2287,7 +2287,13 @@
       "weekStartDescription": "Mit welchem Tag die Wochen- und Monatsansicht des Kalenders anfängt. „Der Sprache folgen“ heißt Sonntag für Englisch, Montag für Deutsch und Französisch.",
       "weekStart_locale": "Der Sprache folgen",
       "weekStart_monday": "Montag",
-      "weekStart_sunday": "Sonntag"
+      "weekStart_sunday": "Sonntag",
+      "timeZoneLabel": "Zeitzone",
+      "timeZoneDescription": "Wann der Tag der Familie beginnt und endet: an welchem Tag eine Aufgabe erledigt wurde, wer an der Reihe ist und was Home Assistant „heute“ nennt. „Automatisch“ nimmt die Zeitzone des Servers.",
+      "timeZoneAutomatic": "Automatisch ({zone})",
+      "timeZoneAutomaticLoading": "Automatisch",
+      "timeZoneSearch": "Suchen, z. B. Berlin, New York oder UTC+1",
+      "timeZoneNone": "Keine Zeitzone passt zu „{query}“"
     },
     "ics": {
       "title": "iCalendar-Feeds",
