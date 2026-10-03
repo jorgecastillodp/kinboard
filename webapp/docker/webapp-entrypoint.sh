@@ -150,6 +150,23 @@ if [ -d "$MIGRATIONS_DIR" ]; then
   # become queryable without a separate restart.
   psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
        -c "NOTIFY pgrst, 'reload schema';" >/dev/null 2>&1 || true
+
+  # The server's own time zone, for the database's "today" when a family has
+  # not picked one (#341) -- the zone the rest of the server already falls
+  # back to. Passed as a psql variable, never pasted into the SQL; kept only
+  # when Postgres knows the zone, and cleared when TZ is unset or unknown, so
+  # the database falls back exactly where lib/family-time.ts does.
+  if ! psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -v ON_ERROR_STOP=1 -v tz="${TZ:-}" -q >/dev/null <<'SQL'
+DELETE FROM public.instance_settings
+ WHERE key = 'server_timezone' AND NOT EXISTS (SELECT 1 FROM pg_timezone_names WHERE name = :'tz');
+INSERT INTO public.instance_settings (key, value)
+SELECT 'server_timezone', :'tz' WHERE EXISTS (SELECT 1 FROM pg_timezone_names WHERE name = :'tz')
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
+SQL
+  then
+    echo "[entrypoint] could not record the server's time zone; the database falls back to Europe/Berlin" >&2
+  fi
 else
   echo "[entrypoint] no migrations directory at $MIGRATIONS_DIR; skipping."
 fi
