@@ -6,6 +6,7 @@ import {
   dbContainer,
   SKIP_WITHOUT_DATABASE,
 } from "./whole-database";
+import { dueIndex, isDueDay, monthDay, prevDueDay } from "../src/lib/todo-turns";
 
 /**
  * migration_zzzzzy_todo_turns.sql against a real database (#341): turns,
@@ -56,7 +57,14 @@ function makeFamily(): Family {
 test.afterAll(async () => {
   await acquireWholeDatabase();
   try {
-    for (const id of families) psql(`DELETE FROM families WHERE id = '${id}';`);
+    // With hard_delete, as a purge runs: a plain DELETE's cascades are each
+    // soft-deleted by their own trigger and left behind, and a task whose
+    // person was already in the bin fails the delete outright -- its row is
+    // updated twice in one transaction (person_id set null, then deleted_at),
+    // and the second update re-checks its family.
+    for (const id of families) {
+      psql(`BEGIN; SELECT set_config('kinboard.hard_delete', 'on', true); DELETE FROM families WHERE id = '${id}'; COMMIT;`);
+    }
   } finally {
     releaseWholeDatabase();
   }
@@ -65,7 +73,8 @@ test.afterAll(async () => {
 /** Moves a task's schedule `days` back, as if that many days had passed. */
 function ageTask(todo: string, days: number): void {
   psql(`BEGIN; SELECT set_config('kinboard.todo_system', 'on', true);
-    UPDATE todos SET schedule_start_day = schedule_start_day - ${days}, tracking_started_day = tracking_started_day - ${days}
+    UPDATE todos SET schedule_start_day = schedule_start_day - ${days}, tracking_started_day = tracking_started_day - ${days},
+           schedule_anchor_day = schedule_anchor_day - ${days}
      WHERE id = '${todo}'; COMMIT;`);
 }
 
@@ -79,6 +88,7 @@ function ageTask(todo: string, days: number): void {
 function passDays(todo: string, days: number): void {
   psql(`BEGIN; SELECT set_config('kinboard.todo_system', 'on', true);
     UPDATE todos SET schedule_start_day = schedule_start_day - ${days}, tracking_started_day = tracking_started_day - ${days},
+           schedule_anchor_day = schedule_anchor_day - ${days},
            carry_day = carry_day - ${days}, last_completed = last_completed - make_interval(days => ${days}),
            last_completed_day = last_completed_day - ${days} WHERE id = '${todo}';
     UPDATE todo_occurrences SET day = day - (${days} + 20000) WHERE todo_id = '${todo}';
@@ -93,6 +103,11 @@ function passDays(todo: string, days: number): void {
 const awards = (todo: string) =>
   psql(`SELECT string_agg((completion_key::date - (now() AT TIME ZONE 'UTC')::date) || ':' || (SELECT name FROM people WHERE id = a.person_id), ' ' ORDER BY completion_key)
           FROM todo_point_awards a WHERE todo_id = '${todo}';`);
+
+/** Whose turns the next `n` days are, from tomorrow. */
+const turns = (todo: string, n: number) =>
+  psql(`SELECT string_agg((SELECT name FROM people WHERE id = todo_turn_person(t, (now() AT TIME ZONE 'UTC')::date + d)), ' ' ORDER BY d)
+          FROM todos t, generate_series(1, ${n}) AS d WHERE t.id = '${todo}';`);
 
 const history = (todo: string) =>
   psql(`SELECT string_agg((day - (now() AT TIME ZONE 'UTC')::date) || ':' || status || ':' || (SELECT name FROM people WHERE id = o.person_id), ' ' ORDER BY day)
@@ -134,8 +149,9 @@ test("an edit applies from the next due day: the open day keeps its person, the 
   expect(history(todo)).toBe("-2:missed:A -1:missed:B 0:open:A");
   expect(psql(`SELECT (carry_day - (now() AT TIME ZONE 'UTC')::date) || ',' || (schedule_start_day - (now() AT TIME ZONE 'UTC')::date) FROM todos WHERE id = '${todo}';`))
     .toBe("0,1");
-  // Tomorrow the new order starts counting again, at C.
-  expect(psql(`SELECT todo_turn_person(t, (now() AT TIME ZONE 'UTC')::date + 1) FROM todos t WHERE id = '${todo}';`)).toBe(f.c);
+  // Tomorrow the turns carry on: B came after A and is still in the list,
+  // then C, who took A's place.
+  expect(turns(todo, 3)).toBe("B C B");
   // And today can still be ticked, as A's.
   psql(`UPDATE todos SET last_completed = now() WHERE id = '${todo}';`);
   expect(history(todo)).toContain("0:done:A");
@@ -245,3 +261,95 @@ test("today is the family's zone, else the server's, and only then Berlin", () =
       : `DELETE FROM instance_settings WHERE key = 'server_timezone';`);
   }
 });
+
+test("after an edit the turns carry on after the open day's person, in the new order", () => {
+  const f = makeFamily();
+  const todo = psql(`INSERT INTO todos (family_id, title, recurrence, rotation_person_ids, track_completion)
+    VALUES ('${f.id}', 'Table', 'daily', ARRAY['${f.a}', '${f.b}', '${f.c}']::uuid[], true) RETURNING id;`);
+  ageTask(todo, 1);
+  psql(`SELECT close_todo_days('UTC');`);
+  expect(history(todo)).toBe("-1:missed:A");
+  // Today is B's. Reordered to C, B, A: after B comes A, then C -- not C,
+  // which would restart the list and could hand anyone two turns in a row.
+  psql(`UPDATE todos SET rotation_person_ids = ARRAY['${f.c}', '${f.b}', '${f.a}']::uuid[] WHERE id = '${todo}';`);
+  expect(history(todo)).toBe("-1:missed:A 0:open:B");
+  expect(turns(todo, 3)).toBe("A C B");
+  expect(psql(`SELECT rotation_offset FROM todos WHERE id = '${todo}';`)).toBe("2");
+  // An edit that leaves the order alone carries on just the same.
+  psql(`UPDATE todos SET title = 'Table (after dinner)', recurrence = 'daily' WHERE id = '${todo}';`);
+  expect(turns(todo, 3)).toBe("A C B");
+});
+
+test("when today's person leaves the family, the turns carry on with whoever came after them", () => {
+  const f = makeFamily();
+  const todo = psql(`INSERT INTO todos (family_id, title, recurrence, rotation_person_ids, track_completion)
+    VALUES ('${f.id}', 'Laundry', 'daily', ARRAY['${f.a}', '${f.b}', '${f.c}']::uuid[], true) RETURNING id;`);
+  ageTask(todo, 1);
+  psql(`SELECT close_todo_days('UTC');`);
+  // Today is B's. B leaves: today stays hers, and C -- next after her -- follows.
+  psql(`UPDATE people SET deleted_at = now() WHERE id = '${f.b}';`);
+  expect(psql(`SELECT rotation_person_ids::text FROM todos WHERE id = '${todo}';`)).toBe(`{${f.a},${f.c}}`);
+  expect(history(todo)).toBe("-1:missed:A 0:open:B");
+  expect(turns(todo, 3)).toBe("C A C");
+});
+
+test("monthly keeps the same date each month, and its anchor outlives an edit", () => {
+  // The month's last day when it is shorter, always counted from the anchor.
+  expect(psql(`SELECT string_agg(todo_month_day('2026-01-31', k)::text, ' ' ORDER BY k) FROM generate_series(0, 4) AS k;`))
+    .toBe("2026-01-31 2026-02-28 2026-03-31 2026-04-30 2026-05-31");
+  expect(psql(`SELECT todo_month_day('2028-01-31', 1);`)).toBe("2028-02-29");
+  expect(psql(`SELECT todo_first_due_day('monthly', '2026-01-31', '2026-02-01');`)).toBe("2026-02-28");
+  // A set-up that starts on 28 February, its dates counted from 31 January.
+  expect(psql(`SELECT todo_is_due_day('monthly', '2026-02-28', '2026-03-31', '2026-01-31');`)).toBe("t");
+  expect(psql(`SELECT todo_prev_due_day('monthly', '2026-02-28', '2026-04-29', '2026-01-31');`)).toBe("2026-03-31");
+  expect(psql(`SELECT todo_due_index('monthly', '2026-02-28', '2026-04-30', '2026-01-31');`)).toBe("2");
+
+  // The trigger keeps the anchor when an edit moves the start on.
+  const f = makeFamily();
+  const todo = psql(`INSERT INTO todos (family_id, title, recurrence, rotation_person_ids)
+    VALUES ('${f.id}', 'Rent', 'monthly', ARRAY['${f.a}', '${f.b}']::uuid[]) RETURNING id;`);
+  const today = "(now() AT TIME ZONE 'UTC')::date";
+  expect(psql(`SELECT (schedule_anchor_day = ${today}) || ',' || (schedule_start_day = ${today}) FROM todos WHERE id = '${todo}';`)).toBe("true,true");
+  psql(`UPDATE todos SET rotation_person_ids = ARRAY['${f.b}', '${f.a}']::uuid[] WHERE id = '${todo}';`);
+  expect(psql(`SELECT (schedule_anchor_day = ${today}) || ',' || (carry_day = ${today}) || ',' || (schedule_start_day = todo_month_day(${today}, 1))
+    FROM todos WHERE id = '${todo}';`)).toBe("true,true,true");
+  // Today stays A's; next month carries on after her, with B.
+  expect(psql(`SELECT (SELECT name FROM people WHERE id = todo_turn_person(t, todo_month_day(${today}, 1))) || ' '
+    || (SELECT name FROM people WHERE id = todo_turn_person(t, todo_month_day(${today}, 2))) FROM todos t WHERE id = '${todo}';`)).toBe("B A");
+});
+
+test("the schedule functions give what lib/todo-turns.ts gives, day by day", () => {
+  // Monthly anchors on the month's last days, leap years and the year's end,
+  // each with set-ups starting on its first three due days; and the other
+  // recurrences with an anchor that is not their start, which they ignore.
+  const schedules: { recurrence: string; anchor: string; start: string }[] = [];
+  for (const anchor of ["2026-01-28", "2026-01-29", "2026-01-30", "2026-01-31", "2027-01-31", "2028-01-29",
+    "2028-01-31", "2026-03-31", "2026-05-30", "2026-08-31", "2026-12-31"]) {
+    for (const k of [0, 1, 2]) schedules.push({ recurrence: "monthly", anchor, start: monthDay(anchor, k) });
+  }
+  for (const recurrence of ["daily", "weekly", "biweekly", "days:MO,WE"]) {
+    schedules.push({ recurrence, anchor: "2026-09-28", start: "2026-10-05" });
+  }
+  const values = schedules.map((x) => `('${x.recurrence}', '${x.start}'::date, '${x.anchor}'::date)`).join(", ");
+  // Several anchors share a start -- 28 February is the second due day of
+  // the 28th to the 31st of January -- so each row carries its anchor.
+  const rows = psql(`SELECT s.recurrence || '|' || s.anchor || '|' || s.start || '|' || d::date
+      || '|' || CASE WHEN todo_is_due_day(s.recurrence, s.start, d::date, s.anchor) THEN 't' ELSE 'f' END
+      || '|' || coalesce(todo_prev_due_day(s.recurrence, s.start, d::date, s.anchor)::text, '-')
+      || '|' || todo_due_index(s.recurrence, s.start, d::date, s.anchor)
+    FROM (VALUES ${values}) AS s(recurrence, start, anchor),
+         generate_series(s.start - 5, s.start + 400, INTERVAL '1 day') AS d
+    ORDER BY s.recurrence, s.anchor, s.start, d;`).split("\n");
+  let compared = 0;
+  const differ: string[] = [];
+  for (const row of rows) {
+    const [recurrence, anchor, start, day, due, prev, index] = row.split("|");
+    const ts = [isDueDay(recurrence, start, day, anchor) ? "t" : "f", prevDueDay(recurrence, start, day, anchor) ?? "-",
+      String(dueIndex(recurrence, start, day, anchor))].join("|");
+    if (ts !== [due, prev, index].join("|")) differ.push(`${row} | ts ${ts}`);
+    compared++;
+  }
+  expect(compared).toBe(schedules.length * 406);
+  expect(differ.slice(0, 5)).toEqual([]);
+});
+

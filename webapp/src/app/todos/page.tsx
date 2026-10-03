@@ -837,7 +837,8 @@ export default function TodosPage() {
                     <Button
                       className="w-full"
                       onClick={handleAddTask}
-                      disabled={!newTaskTitle.trim() || createTodo.isPending || (newTaskRecurrence === "custom" && newTaskDays.length === 0)}
+                      // Take turns ticked with nobody picked would quietly save a plain task.
+                      disabled={!newTaskTitle.trim() || createTodo.isPending || (newTaskRecurrence === "custom" && newTaskDays.length === 0) || (newTaskRecurrence !== "once" && newTaskTurns?.length === 0)}
                     >
                       {createTodo.isPending ? (
                         <>
@@ -1438,7 +1439,7 @@ export default function TodosPage() {
               <Button
                 className="w-full"
                 onClick={handleEditTask}
-                disabled={!editTitle.trim() || updateTodo.isPending || (editRecurrence === "custom" && editDays.length === 0)}
+                disabled={!editTitle.trim() || updateTodo.isPending || (editRecurrence === "custom" && editDays.length === 0) || (editRecurrence !== "once" && editTurns?.length === 0)}
               >
                 {updateTodo.isPending ? (
                   <>
