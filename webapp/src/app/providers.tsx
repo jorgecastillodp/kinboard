@@ -14,6 +14,8 @@ import { useRingingTimer } from "@/hooks/use-timers";
 import { useTakeoverMessage } from "@/hooks/use-messages";
 import { useCameraTakeover } from "@/hooks/use-camera-takeover";
 import { CameraTakeover } from "@/components/camera-takeover";
+import { useCameras } from "@/hooks/use-cameras";
+import { takeoverCamera } from "@/lib/camera-takeover";
 import { useFamilyStore } from "@/stores/family-store";
 import { Screensaver } from "@/components/screensaver";
 import { AuthGuard } from "@/components/auth-guard";
@@ -179,8 +181,14 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
   // again.
   const cameraTakeover = useCameraTakeover();
   const [closedCameraStart, setClosedCameraStart] = useState<string | null>(null);
-  const shownCamera =
+  const shownTakeover =
     cameraTakeover && cameraTakeover.started_at !== closedCameraStart ? cameraTakeover : null;
+  // The camera it names, if it is still set up and enabled. Only that holds
+  // the screensaver: a takeover for a camera removed since the call puts
+  // nothing on screen, so it must not keep the screen awake either. The
+  // camera list is only fetched while there is a takeover to resolve.
+  const { cameras } = useCameras({ enabled: !!shownTakeover });
+  const shownCamera = takeoverCamera(shownTakeover, cameras);
 
   // Hide nav bars during screensaver to save GPU (backdrop-blur is expensive on ARM)
   // And an assistant request waiting for a person must not sit under it either.
@@ -207,10 +215,10 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
     <>
       {children}
       {promptShownOn(pathname, !!device) && <AssistantActionPrompt />}
-      {shownCamera && (
+      {shownTakeover && shownCamera && (
         <CameraTakeover
-          takeover={shownCamera}
-          onClose={() => setClosedCameraStart(shownCamera.started_at)}
+          camera={shownCamera}
+          onClose={() => setClosedCameraStart(shownTakeover.started_at)}
         />
       )}
       <AnimatePresence>

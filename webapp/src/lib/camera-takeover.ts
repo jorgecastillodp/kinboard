@@ -187,8 +187,63 @@ export function activeTakeover(
   return row;
 }
 
+/**
+ * The camera a takeover names, from the cameras this screen can show (the
+ * enabled ones), or null when it has been removed or disabled since the call.
+ * Both the overlay and the screensaver gate go by this, so a takeover whose
+ * camera is gone neither shows an empty overlay nor holds the screensaver off
+ * with nothing on screen.
+ */
+export function takeoverCamera<C extends { id: string; enabled?: boolean }>(
+  takeover: Pick<CameraTakeoverRow, "camera_id"> | null | undefined,
+  cameras: readonly C[],
+): C | null {
+  if (!takeover) return null;
+  return cameras.find((c) => c.id === takeover.camera_id && c.enabled !== false) ?? null;
+}
+
 /** Milliseconds left by the server's clock; 0 once it has ended. */
 export function takeoverRemainingMs(row: Pick<CameraTakeoverRow, "ends_at">, serverNow: Date): number {
   const ends = Date.parse(row.ends_at);
   return Number.isFinite(ends) ? Math.max(0, ends - serverNow.getTime()) : 0;
+}
+
+/**
+ * Whether a queued `camera_live` push has outlived its camera. The push says
+ * "live on the screens now", so once the takeover it announces has ended it
+ * would be false — a processor that runs late, or was down for a while, must
+ * drop it rather than send it. `ends_at` is written into the row's data when
+ * show_camera queues it; a row without one (or with one that doesn't parse)
+ * is given the longest takeover there can be from when it was scheduled, so
+ * it can't linger forever either.
+ */
+export function cameraPushEnded(
+  n: { scheduled_for: string; data?: Record<string, unknown> | null },
+  now: Date,
+): boolean {
+  const recorded = typeof n.data?.ends_at === "string" ? Date.parse(n.data.ends_at) : NaN;
+  const ends = Number.isFinite(recorded)
+    ? recorded
+    : Date.parse(n.scheduled_for) + MAX_TAKEOVER_SECONDS * 1000;
+  return !Number.isFinite(ends) || now.getTime() >= ends;
+}
+
+/**
+ * The queued `camera_live` pushes to drop rather than send, by id. A family's
+ * newest call is the takeover the screens show — a later call replaces the
+ * row, even with a shorter time — so when the newest has ended, every one of
+ * that family's camera pushes still queued is out of date with it.
+ */
+export function endedCameraPushes<
+  T extends { id: string; family_id: string; notification_type: string; scheduled_for: string; data?: Record<string, unknown> | null },
+>(pending: readonly T[], now: Date): string[] {
+  const newest = new Map<string, T>();
+  for (const n of pending) {
+    if (n.notification_type !== "camera_live") continue;
+    const seen = newest.get(n.family_id);
+    if (!seen || Date.parse(n.scheduled_for) >= Date.parse(seen.scheduled_for)) newest.set(n.family_id, n);
+  }
+  return pending
+    .filter((n) => n.notification_type === "camera_live" && cameraPushEnded(newest.get(n.family_id)!, now))
+    .map((n) => n.id);
 }

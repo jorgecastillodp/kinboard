@@ -37,6 +37,8 @@ export const dynamic = "force-dynamic";
  * the Home Assistant component's const.py.
  */
 
+type HandlerResult = { status: number; response: Record<string, unknown>; headers?: Record<string, string> };
+
 type Handler = (args: {
   familyId: string;
   body: Record<string, unknown>;
@@ -46,7 +48,16 @@ type Handler = (args: {
   // a spec can hand the real handler a recording stand-in and send it exactly
   // what Home Assistant sends. Untyped, like the admin client everywhere else.
   db: any;
-}) => Promise<{ status: number; response: Record<string, unknown> }>;
+  /**
+   * Spends one call of the service's own budget (`ServiceDef.rateLimit`) and
+   * returns the 429 to answer with when it is used up, or null to go ahead.
+   * A service with a budget calls it once it has validated the call and
+   * before it writes anything, so a call that was going to be refused anyway
+   * — a misspelt camera — doesn't use up the household's allowance. Absent
+   * means no budget applies (a spec calling a handler directly).
+   */
+  admit?: () => HandlerResult | null;
+}) => Promise<HandlerResult>;
 
 interface ServiceDef {
   scope: IntegrationScope;
@@ -54,10 +65,31 @@ interface ServiceDef {
   /**
    * A budget of its own on top of the per-token write limit, for a service
    * that interrupts the house rather than adding a row to a list. Only a call
-   * that will actually run spends it: a replay is the original call's budget
-   * again, the same rule as on messages.
+   * that will actually run spends it: the handler spends it through `admit`
+   * after validating, so a 400 doesn't, and a replay never reaches the
+   * handler at all — the same rule as on messages.
    */
   rateLimit?: { limit: number; windowMs: number };
+}
+
+/**
+ * The `admit` a handler is given: spends one call of `def.rateLimit` for this
+ * token and service, or does nothing for a service without one. Exported for
+ * the spec.
+ */
+export function serviceAdmission(def: ServiceDef, tokenId: string, service: string): () => HandlerResult | null {
+  const budget = def.rateLimit;
+  if (!budget) return () => null;
+  return () => {
+    const limit = hitLimit(`integration:${tokenId}:service:${service}`, budget.limit, budget.windowMs);
+    if (!limit.limited) return null;
+    return {
+      status: 429,
+      response: { error: `too many \`${service}\` calls — slow down`, code: "rate_limited" },
+      // At least 1: a Retry-After of 0 invites the immediate retry being throttled.
+      headers: { "retry-after": String(Math.max(1, Math.ceil(limit.retryAfterMs / 1000))) },
+    };
+  };
 }
 
 /** Trim, reject empty, and bound — free text reaching a database column. */
@@ -183,13 +215,6 @@ export const SERVICES: Record<string, ServiceDef> = {
   },
 
   /**
-   * Re-evaluate now instead of waiting for the next five-minute tick.
-   *
-   * For the case where an automation has just changed something the board
-   * reasons about — added a task, moved an appointment — and the family is
-   * standing in front of the display.
-   */
-  /**
    * Put a camera on the wall displays for a minute (#335): the doorbell rang,
    * and whoever walks up to a screen sees who is there without tapping
    * through to Cameras. Under `announcements:write` rather than a scope of
@@ -200,14 +225,17 @@ export const SERVICES: Record<string, ServiceDef> = {
    * which the screens pick up over realtime and show until `ends_at`; a
    * second call replaces it, restarting the time or switching the camera. And
    * a push for the phones through the notification queue rather than inline,
-   * so quiet hours and each device's push settings apply to it. The queue
-   * runs every 30 seconds, so a phone can hear about the doorbell up to that
-   * much after the screens.
+   * so each device's quiet hours apply to it. Only quiet hours: there is no
+   * per-type switch for camera pushes in the notification settings, so a
+   * device that gets pushes at all gets this one. The queue runs every 30
+   * seconds, so a phone can hear about the doorbell up to that much after
+   * the screens — and if the camera has already gone back by the time the
+   * queue gets to it, the push is dropped rather than sent late.
    */
   show_camera: {
     scope: "announcements:write",
     rateLimit: { limit: SHOW_CAMERA_RATE_LIMIT, windowMs: SHOW_CAMERA_RATE_WINDOW_MS },
-    handle: async ({ familyId, body, db }) => {
+    handle: async ({ familyId, body, db, admit }) => {
       const duration = parseTakeoverDuration(body.duration);
       if (!duration.ok) {
         return { status: 400, response: { error: duration.error, code: "invalid_request" } };
@@ -225,6 +253,10 @@ export const SERVICES: Record<string, ServiceDef> = {
       if (!targets.ok) {
         return { status: 400, response: { error: targets.error, code: "invalid_request" } };
       }
+
+      // Valid, so it will run: only now does it spend the budget.
+      const refused = admit?.() ?? null;
+      if (refused) return refused;
 
       const startedAt = new Date();
       const endsAt = new Date(startedAt.getTime() + duration.seconds * 1000);
@@ -249,7 +281,8 @@ export const SERVICES: Record<string, ServiceDef> = {
         scheduled_for: startedAt.toISOString(),
         title: camera.camera.name,
         body: null,
-        data: { camera_id: camera.camera.id, camera_name: camera.camera.name },
+        // ends_at lets the processor drop a push that would arrive after the camera has gone.
+        data: { camera_id: camera.camera.id, camera_name: camera.camera.name, ends_at: endsAt.toISOString() },
         related_entity_type: "camera",
         related_entity_id: null,
       });
@@ -267,6 +300,14 @@ export const SERVICES: Record<string, ServiceDef> = {
       };
     },
   },
+
+  /**
+   * Re-evaluate now instead of waiting for the next five-minute tick.
+   *
+   * For the case where an automation has just changed something the board
+   * reasons about — added a task, moved an appointment — and the family is
+   * standing in front of the display.
+   */
   refresh_integration: {
     scope: "family:read",
     handle: async ({ familyId }) => {
@@ -375,30 +416,13 @@ export async function POST(
       });
     }
 
-    if (def.rateLimit) {
-      const limit = hitLimit(
-        `integration:${context.tokenId}:service:${service}`,
-        def.rateLimit.limit,
-        def.rateLimit.windowMs,
-      );
-      if (limit.limited) {
-        return NextResponse.json(
-          { error: `too many \`${service}\` calls — slow down`, code: "rate_limited" },
-          {
-            status: 429,
-            // At least 1: a Retry-After of 0 invites the immediate retry being throttled.
-            headers: { "retry-after": String(Math.max(1, Math.ceil(limit.retryAfterMs / 1000))) },
-          },
-        );
-      }
-    }
-
     try {
       const result = await def.handle({
         familyId: context.familyId,
         body,
         assistant: context.assistant,
         db: createAdminClient(),
+        admit: serviceAdmission(def, context.tokenId, service),
       });
 
       // Only successful work is remembered. A 400 is a client mistake, and
@@ -415,7 +439,7 @@ export async function POST(
         });
       }
 
-      return NextResponse.json(result.response, { status: result.status });
+      return NextResponse.json(result.response, { status: result.status, headers: result.headers });
     } catch (err) {
       await logApiError(`integration/services/${service}`, err);
       return NextResponse.json(

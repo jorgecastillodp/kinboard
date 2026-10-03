@@ -17,7 +17,7 @@ export function screensaverAllowed(state: {
   pendingAssistantActions: number;
   /** Outcomes and errors of assistant requests still on screen, unread. */
   assistantActionNotices?: number;
-  /** A camera `show_camera` put on this screen, not closed yet. */
+  /** A camera `show_camera` put on this screen and showing: not closed here, and the camera still set up. */
   cameraTakeover?: boolean;
 }): boolean {
   return state.isIdle

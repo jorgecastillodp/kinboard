@@ -2173,8 +2173,8 @@ paths:
         `show_camera` puts a camera on the wall displays and pushes it to
         every phone. It needs `announcements:write`, like a message to the
         screens, and has a budget of its own on top of the per-token write
-        limit: 5 calls in 10 minutes per token, `429` past that. A replay
-        does not count against it.
+        limit: 5 calls in 10 minutes per token, `429` past that. Neither a
+        replay nor a call answered `400` counts against it.
       parameters:
         - name: service
           in: path

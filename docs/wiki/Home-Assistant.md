@@ -208,7 +208,11 @@ Then add `action: rest_command.kinboard_show_camera` to the doorbell automation.
   way; quiet hours apply to it.
 - A second ring while it is up starts the time again.
 - Five calls in ten minutes per token, then `429`, so an automation stuck in a
-  loop cannot keep taking over the walls.
+  loop cannot keep taking over the walls. A call answered `400` (a camera name
+  with a typo, say) does not count, and neither does a retry with the same
+  `Idempotency-Key`.
+- If the push is still waiting to go out when the camera goes back, it is
+  dropped rather than arriving late.
 
 ## For other clients
 
