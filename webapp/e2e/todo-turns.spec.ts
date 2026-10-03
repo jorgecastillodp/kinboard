@@ -7,6 +7,7 @@ import {
   isScheduled,
   isTurnOpen,
   keepsSchedule,
+  monthDay,
   nextTurnDay,
   prevDueDay,
   recentDays,
@@ -19,6 +20,9 @@ import { isRecurringTaskDue, isTodoOpen } from "../src/lib/todo-recurrence";
 import { taskDayKeys, taskDotsByDay, taskOccurrences } from "../src/lib/calendar-markers";
 import { completionUpdate } from "../src/lib/task-completion";
 import { toListItem, LISTS } from "../src/lib/integration-lists";
+import { readFileSync } from "fs";
+import { join } from "path";
+import { codeOnly } from "./source-helpers";
 
 /**
  * lib/todo-turns.ts is the screens' mirror of the schedule functions in
@@ -69,7 +73,9 @@ test.describe("the schedule", () => {
     expect(prevDueDay("weekly", "2026-10-05", "2026-10-04")).toBeNull();
     expect(isDueDay("biweekly", "2026-10-05", "2026-10-19")).toBe(true);
     expect(isDueDay("biweekly", "2026-10-05", "2026-10-12")).toBe(false);
-    expect(isDueDay("monthly", "2026-10-05", "2026-11-04")).toBe(true);
+    // Monthly is the same date each month, not every 30 days.
+    expect(isDueDay("monthly", "2026-10-05", "2026-11-05")).toBe(true);
+    expect(isDueDay("monthly", "2026-10-05", "2026-11-04")).toBe(false);
     expect(scheduledDueDays({ recurrence: "days:MO,WE,FR", schedule_start_day: "2026-10-05" }, "2026-10-01", "2026-10-11"))
       .toEqual(["2026-10-05", "2026-10-07", "2026-10-09"]);
   });
@@ -82,6 +88,54 @@ test.describe("the schedule", () => {
     const walk = { ...dishes, recurrence: "days:MO,WE,FR", rotation_person_ids: [A, B] };
     expect(["2026-10-05", "2026-10-07", "2026-10-09", "2026-10-12"].map((d) => turnPerson(walk, d)))
       .toEqual([A, B, A, B]);
+  });
+
+  test("monthly falls on the same date each month, or the month's last day when it is shorter", () => {
+    expect([0, 1, 2, 3, 4].map((k) => monthDay("2026-01-31", k)))
+      .toEqual(["2026-01-31", "2026-02-28", "2026-03-31", "2026-04-30", "2026-05-31"]);
+    expect(monthDay("2028-01-31", 1)).toBe("2028-02-29");
+    expect([1, 2].map((k) => monthDay("2026-01-30", k))).toEqual(["2026-02-28", "2026-03-30"]);
+    expect(monthDay("2026-12-15", 1)).toBe("2027-01-15");
+    expect(monthDay("2026-01-31", -1)).toBe("2025-12-31");
+    const rent = { recurrence: "monthly", schedule_start_day: "2026-01-31" };
+    expect(scheduledDueDays(rent, "2026-01-01", "2026-06-30"))
+      .toEqual(["2026-01-31", "2026-02-28", "2026-03-31", "2026-04-30", "2026-05-31", "2026-06-30"]);
+    // 2 March was the 30-day step's.
+    expect(isDueDay("monthly", "2026-01-31", "2026-03-31")).toBe(true);
+    expect(isDueDay("monthly", "2026-01-31", "2026-03-02")).toBe(false);
+    expect(prevDueDay("monthly", "2026-01-31", "2026-03-30")).toBe("2026-02-28");
+    expect(prevDueDay("monthly", "2026-01-31", "2026-01-30")).toBeNull();
+    expect(dueIndex("monthly", "2026-01-31", "2026-04-29")).toBe(3);
+    expect(dueIndex("monthly", "2026-01-31", "2026-04-30")).toBe(3);
+    expect(dueIndex("monthly", "2026-01-31", "2026-05-01")).toBe(4);
+  });
+
+  test("an edit that moves a monthly start onto a short month's end keeps the anchor's date after it", () => {
+    // Begun on 31 January, edited in February: the new set-up starts on the
+    // 28th, and the months after it are still the 31st, or the 30th.
+    const moved = { recurrence: "monthly", schedule_start_day: "2026-02-28", schedule_anchor_day: "2026-01-31" };
+    expect(scheduledDueDays(moved, "2026-02-01", "2026-05-31")).toEqual(["2026-02-28", "2026-03-31", "2026-04-30", "2026-05-31"]);
+    expect(isDueDay("monthly", "2026-02-28", "2026-03-31", "2026-01-31")).toBe(true);
+    expect(isDueDay("monthly", "2026-02-28", "2026-03-28", "2026-01-31")).toBe(false);
+    expect(prevDueDay("monthly", "2026-02-28", "2026-03-30", "2026-01-31")).toBe("2026-02-28");
+    expect(dueIndex("monthly", "2026-02-28", "2026-04-30", "2026-01-31")).toBe(2);
+    expect(currentDay(moved, "2026-04-15")).toBe("2026-03-31");
+    expect(nextTurnDay({ ...moved, track_completion: true }, "2026-04-15")).toBe("2026-03-31");
+  });
+
+  test("after an edit the turns carry on from rotation_offset, the person the new set-up starts with", () => {
+    expect(["2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08"].map((d) => turnPerson({ ...dishes, rotation_offset: 1 }, d)))
+      .toEqual([B, C, A, B]);
+    // An offset past the end of a list that has since shrunk still lands in it.
+    expect(turnPerson({ ...dishes, rotation_person_ids: [A, B], rotation_offset: 2 }, "2026-10-06")).toBe(B);
+    const monthly = { ...dishes, recurrence: "monthly", schedule_start_day: "2026-02-28", schedule_anchor_day: "2026-01-31", rotation_offset: 2 };
+    expect(["2026-02-28", "2026-03-31", "2026-04-30"].map((d) => turnPerson(monthly, d))).toEqual([C, A, B]);
+  });
+
+  test("Create and Save stay disabled while Take turns has nobody picked", () => {
+    const page = codeOnly(readFileSync(join(process.cwd(), "src/app/todos/page.tsx"), "utf8"));
+    expect(page).toContain(`(newTaskRecurrence !== "once" && newTaskTurns?.length === 0)}`);
+    expect(page).toContain(`(editRecurrence !== "once" && editTurns?.length === 0)}`);
   });
 
   test("a written-down day keeps the person it was written with", () => {
