@@ -28,9 +28,12 @@ function psql(sql: string): string {
 }
 
 function applyMigration(): void {
-  execFileSync("bash", ["-c",
-    `docker exec -i ${dbContainer()} psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 < webapp/docker/migration_zzzzzy_todo_turns.sql`],
-    { cwd: process.cwd().replace(/\/webapp$/, ""), encoding: "utf8" });
+  // instance_settings first: family_time_zone() reads it.
+  for (const file of ["migration_zzzzzx_instance_settings.sql", "migration_zzzzzy_todo_turns.sql"]) {
+    execFileSync("bash", ["-c",
+      `docker exec -i ${dbContainer()} psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 < webapp/docker/${file}`],
+      { cwd: process.cwd().replace(/\/webapp$/, ""), encoding: "utf8" });
+  }
 }
 
 test.skip(SKIP_WITHOUT_DATABASE, "no database container reachable, and no FAMILY_CODE promising a stack");
@@ -65,6 +68,31 @@ function ageTask(todo: string, days: number): void {
     UPDATE todos SET schedule_start_day = schedule_start_day - ${days}, tracking_started_day = tracking_started_day - ${days}
      WHERE id = '${todo}'; COMMIT;`);
 }
+
+/**
+ * `days` pass for a task that has already written days down: its schedule,
+ * what it was last ticked for, its written days and the keys of its points
+ * all move back together. (ageTask moves the schedule alone, which is right
+ * before anything is written.) The days move in two steps so no two rows
+ * share a day on the way.
+ */
+function passDays(todo: string, days: number): void {
+  psql(`BEGIN; SELECT set_config('kinboard.todo_system', 'on', true);
+    UPDATE todos SET schedule_start_day = schedule_start_day - ${days}, tracking_started_day = tracking_started_day - ${days},
+           carry_day = carry_day - ${days}, last_completed = last_completed - make_interval(days => ${days}),
+           last_completed_day = last_completed_day - ${days} WHERE id = '${todo}';
+    UPDATE todo_occurrences SET day = day - (${days} + 20000) WHERE todo_id = '${todo}';
+    UPDATE todo_occurrences SET day = day + 20000 WHERE todo_id = '${todo}';
+    UPDATE todo_point_awards SET completion_key = 'moving:' || (completion_key::date - ${days})::text
+     WHERE todo_id = '${todo}' AND completion_key ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$';
+    UPDATE todo_point_awards SET completion_key = substr(completion_key, 8) WHERE todo_id = '${todo}' AND completion_key LIKE 'moving:%';
+    COMMIT;`);
+}
+
+/** The task's points as "day from today:person". */
+const awards = (todo: string) =>
+  psql(`SELECT string_agg((completion_key::date - (now() AT TIME ZONE 'UTC')::date) || ':' || (SELECT name FROM people WHERE id = a.person_id), ' ' ORDER BY completion_key)
+          FROM todo_point_awards a WHERE todo_id = '${todo}';`);
 
 const history = (todo: string) =>
   psql(`SELECT string_agg((day - (now() AT TIME ZONE 'UTC')::date) || ':' || status || ':' || (SELECT name FROM people WHERE id = o.person_id), ' ' ORDER BY day)
@@ -139,4 +167,81 @@ test("the browser may read the history and the log, and write neither", () => {
   expect(psql(`SELECT has_table_privilege('authenticated', 'public.todo_occurrences', 'INSERT')`)).toBe("f");
   expect(psql(`SELECT has_table_privilege('authenticated', 'public.todo_events', 'UPDATE')`)).toBe("f");
   expect(psql(`SELECT has_function_privilege('authenticated', 'public.close_todo_days(text)', 'EXECUTE')`)).toBe("f");
+});
+
+// A day sent with a tick is not believed. A tablet whose clock is a day off
+// sends exactly these, from the board, with nothing hand-made about them.
+const yesterday = "(now() AT TIME ZONE 'UTC')::date - 1";
+const tomorrow = "(now() AT TIME ZONE 'UTC')::date + 1";
+
+test("a tick sent with yesterday's date lands on today: a missed turn cannot be turned in", () => {
+  const f = makeFamily();
+  const todo = psql(`INSERT INTO todos (family_id, title, recurrence, rotation_person_ids, track_completion, points)
+    VALUES ('${f.id}', 'Trash', 'daily', ARRAY['${f.a}', '${f.b}', '${f.c}']::uuid[], true, 5) RETURNING id;`);
+  ageTask(todo, 1);
+  psql(`SELECT close_todo_days('UTC');`);
+  expect(history(todo)).toBe("-1:missed:A");
+
+  psql(`UPDATE todos SET last_completed = now(), last_completed_day = ${yesterday} WHERE id = '${todo}';`);
+  // Yesterday stays missed and unpaid; the tick went to today, B's.
+  expect(history(todo)).toBe("-1:missed:A 0:done:B");
+  expect(awards(todo)).toBe("0:B");
+});
+
+test("a tick sent with tomorrow's date lands on today: tomorrow's turn cannot be ticked early", () => {
+  const f = makeFamily();
+  const todo = psql(`INSERT INTO todos (family_id, title, recurrence, rotation_person_ids, track_completion, points)
+    VALUES ('${f.id}', 'Dishes', 'daily', ARRAY['${f.a}', '${f.b}', '${f.c}']::uuid[], true, 5) RETURNING id;`);
+  psql(`UPDATE todos SET last_completed = now(), last_completed_day = ${tomorrow} WHERE id = '${todo}';`);
+  expect(history(todo)).toBe("0:done:A");
+  expect(awards(todo)).toBe("0:A");
+  expect(psql(`SELECT last_completed_day - (now() AT TIME ZONE 'UTC')::date FROM todos WHERE id = '${todo}';`)).toBe("0");
+});
+
+test("an un-tick sent with yesterday's date cannot reopen a closed day", () => {
+  const f = makeFamily();
+  const todo = psql(`INSERT INTO todos (family_id, title, recurrence, rotation_person_ids, track_completion, points)
+    VALUES ('${f.id}', 'Plants', 'daily', ARRAY['${f.a}', '${f.b}', '${f.c}']::uuid[], true, 5) RETURNING id;`);
+  psql(`UPDATE todos SET last_completed = now() WHERE id = '${todo}';`);
+  passDays(todo, 1);
+  psql(`SELECT close_todo_days('UTC');`);
+  psql(`UPDATE todos SET last_completed = now() WHERE id = '${todo}';`);
+  expect(history(todo)).toBe("-1:done:A 0:done:B");
+  expect(awards(todo)).toBe("-1:A 0:B");
+
+  psql(`UPDATE todos SET last_completed = NULL, last_completed_day = ${yesterday} WHERE id = '${todo}';`);
+  // It reached today, the open day: yesterday is closed, and stays done and paid.
+  expect(history(todo)).toBe("-1:done:A 0:open:B");
+  expect(awards(todo)).toBe("-1:A");
+  // And what the screens read back still says yesterday was the last one done.
+  expect(psql(`SELECT last_completed_day - (now() AT TIME ZONE 'UTC')::date FROM todos WHERE id = '${todo}';`)).toBe("-1");
+});
+
+test("today is the family's zone, else the server's, and only then Berlin", () => {
+  const f = makeFamily();
+  const bare = psql(`INSERT INTO families (name, join_code) VALUES ('turns-test-tz', 'TZ' || upper(substr(md5(random()::text), 1, 8))) RETURNING id;`);
+  families.push(bare);
+  const recorded = psql(`SELECT coalesce((SELECT value FROM instance_settings WHERE key = 'server_timezone'), '')`);
+  try {
+    psql(`INSERT INTO instance_settings (key, value) VALUES ('server_timezone', 'Pacific/Kiritimati')
+          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;`);
+    expect(psql(`SELECT family_time_zone('${f.id}')`)).toBe("UTC");
+    // A family with no zone of its own gets the server's -- what a trigger, passing nothing, sees.
+    expect(psql(`SELECT family_time_zone('${bare}')`)).toBe("Pacific/Kiritimati");
+    expect(psql(`SELECT family_today('${bare}') = (now() AT TIME ZONE 'Pacific/Kiritimati')::date`)).toBe("t");
+    // The cron passes the server's TZ itself; that comes before the recorded one.
+    expect(psql(`SELECT family_time_zone('${bare}', 'Pacific/Pago_Pago')`)).toBe("Pacific/Pago_Pago");
+    // A zone Postgres does not know is passed over, not trusted.
+    psql(`INSERT INTO settings (family_id, key, value) VALUES ('${bare}', 'timezone', '"Mars/Olympus_Mons"');`);
+    expect(psql(`SELECT family_time_zone('${bare}')`)).toBe("Pacific/Kiritimati");
+    psql(`DELETE FROM instance_settings WHERE key = 'server_timezone';`);
+    expect(psql(`SELECT family_time_zone('${bare}')`)).toBe("Europe/Berlin");
+    expect(psql(`SELECT has_function_privilege('authenticated', 'public.family_time_zone(uuid, text)', 'EXECUTE')`)).toBe("f");
+    expect(psql(`SELECT has_table_privilege('authenticated', 'public.instance_settings', 'SELECT')`)).toBe("f");
+  } finally {
+    psql(recorded
+      ? `INSERT INTO instance_settings (key, value) VALUES ('server_timezone', '${recorded.replace(/'/g, "''")}')
+           ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;`
+      : `DELETE FROM instance_settings WHERE key = 'server_timezone';`);
+  }
 });

@@ -45,10 +45,12 @@
 -- (/api/cron/close-task-days) and by every edit, not worked out on read:
 -- history must not change under an edit.
 --
--- Days are the family's days: the `timezone` setting, as last_completed_day
--- has always been. A tick may carry the caller's own day in
--- last_completed_day, as the screens and the Integration API already send it;
--- within a day of the server's it is believed.
+-- Days are the family's days: its `timezone` setting, else the server's own
+-- zone (instance_settings, which the webapp's entrypoint writes from TZ), and
+-- only then Europe/Berlin. A tick lands on the family's today and nowhere
+-- else. The day a screen sends in last_completed_day is not believed: a
+-- tablet whose clock is a day off would otherwise turn in a missed turn,
+-- reopen a closed day or tick tomorrow's turn early.
 --
 -- THE LOG
 --
@@ -279,25 +281,39 @@ BEGIN
   RETURN t.person_id;
 END $$;
 
--- The family's today, in its `timezone` setting; else p_fallback (the
--- server's TZ, which the cron passes); else Europe/Berlin, the stack's
--- default.
-CREATE OR REPLACE FUNCTION public.family_today(p_family UUID, p_fallback TEXT DEFAULT NULL)
-RETURNS DATE LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+-- The family's time zone: its `timezone` setting; else p_fallback, the
+-- server's TZ as the cron passes it; else the server's TZ as the webapp's
+-- entrypoint recorded it in instance_settings -- which is what a trigger,
+-- with nothing passed, gets; else Europe/Berlin, the stack's default. A name
+-- Postgres does not know is passed over rather than trusted.
+CREATE OR REPLACE FUNCTION public.family_time_zone(p_family UUID, p_fallback TEXT DEFAULT NULL)
+RETURNS TEXT LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
+  own TEXT;
+  server TEXT;
   zone TEXT;
 BEGIN
-  SELECT s.value #>> '{}' INTO zone FROM public.settings s WHERE s.family_id = p_family AND s.key = 'timezone';
-  FOREACH zone IN ARRAY ARRAY[zone, p_fallback, 'Europe/Berlin'] LOOP
+  SELECT s.value #>> '{}' INTO own FROM public.settings s WHERE s.family_id = p_family AND s.key = 'timezone';
+  IF to_regclass('public.instance_settings') IS NOT NULL THEN
+    SELECT i.value INTO server FROM public.instance_settings i WHERE i.key = 'server_timezone';
+  END IF;
+  FOREACH zone IN ARRAY ARRAY[own, p_fallback, server, 'Europe/Berlin'] LOOP
     CONTINUE WHEN zone IS NULL OR zone = '';
     BEGIN
-      RETURN (now() AT TIME ZONE zone)::DATE;
+      PERFORM now() AT TIME ZONE zone;
+      RETURN zone;
     EXCEPTION WHEN OTHERS THEN
       -- An unknown zone name: try the next.
     END;
   END LOOP;
-  RETURN now()::DATE;
+  RETURN 'UTC';
 END $$;
+
+-- The family's today, in its time zone (family_time_zone).
+CREATE OR REPLACE FUNCTION public.family_today(p_family UUID, p_fallback TEXT DEFAULT NULL)
+RETURNS DATE LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  SELECT (now() AT TIME ZONE public.family_time_zone(p_family, p_fallback))::DATE;
+$$;
 
 -- ---------------------------------------------------------------------------
 -- 3. Writing closed days down
@@ -472,7 +488,6 @@ CREATE OR REPLACE FUNCTION public.todo_schedule_update()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
   today DATE;
-  utc_today DATE := (now() AT TIME ZONE 'UTC')::DATE;
   was_scheduled BOOLEAN;
   is_scheduled BOOLEAN;
   rotates BOOLEAN;
@@ -512,15 +527,12 @@ BEGIN
   ticking := NEW.last_completed IS NOT NULL AND NEW.last_completed IS DISTINCT FROM OLD.last_completed;
   unticking := NEW.last_completed IS NULL AND OLD.last_completed IS NOT NULL;
 
-  -- Today: the caller's own day when it sent one within a day of ours (the
-  -- screens send their local day with a tick), else the family's.
-  IF (ticking OR unticking) AND NEW.last_completed_day IS NOT NULL
-     AND NEW.last_completed_day IS DISTINCT FROM OLD.last_completed_day
-     AND NEW.last_completed_day BETWEEN utc_today - 1 AND utc_today + 1 THEN
-    today := NEW.last_completed_day;
-  ELSE
-    today := public.family_today(NEW.family_id);
-  END IF;
+  -- Today is the family's, whatever day the caller sent with a tick: a tick
+  -- or an un-tick lands on the family's open day and nowhere else. A screen
+  -- whose clock is a day behind sent yesterday's date, and was believed, so
+  -- yesterday's missed turn could be turned in -- and with tomorrow's, the
+  -- next turn ticked early.
+  today := public.family_today(NEW.family_id);
 
   -- What changed, for the log and to know whether the schedule did.
   IF NEW.title IS DISTINCT FROM OLD.title THEN changed := array_append(changed, 'title'); END IF;
@@ -784,7 +796,8 @@ BEGIN
     'public.todo_turn_person(public.todos, date)',
     'public.todo_actor(uuid)',
     'public.todo_clean_rotation(uuid, uuid[])',
-    'public.family_today(uuid, text)'
+    'public.family_today(uuid, text)',
+    'public.family_time_zone(uuid, text)'
   ] LOOP
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', fn);
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
