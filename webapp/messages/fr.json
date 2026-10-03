@@ -2287,7 +2287,13 @@
       "weekStartDescription": "Le jour par lequel commencent les vues semaine et mois du calendrier. « Suivre la langue » signifie dimanche pour l'anglais, lundi pour l'allemand et le français.",
       "weekStart_locale": "Suivre la langue",
       "weekStart_monday": "Lundi",
-      "weekStart_sunday": "Dimanche"
+      "weekStart_sunday": "Dimanche",
+      "timeZoneLabel": "Fuseau horaire",
+      "timeZoneDescription": "Quand la journée de la famille commence et finit : le jour où une tâche a été faite, à qui c'est le tour, et ce que Home Assistant appelle « aujourd'hui ». « Automatique » prend le fuseau du serveur.",
+      "timeZoneAutomatic": "Automatique ({zone})",
+      "timeZoneAutomaticLoading": "Automatique",
+      "timeZoneSearch": "Rechercher, p. ex. Berlin, New York ou UTC+1",
+      "timeZoneNone": "Aucun fuseau ne correspond à « {query} »"
     },
     "ics": {
       "title": "Flux iCalendar",

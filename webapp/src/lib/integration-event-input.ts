@@ -51,7 +51,7 @@ function dateFromDayNumber(day: number): string {
 }
 
 /** Offset of `timeZone` from UTC at `instantMs`, in milliseconds. */
-function zoneOffsetMs(instantMs: number, timeZone: string): number {
+export function zoneOffsetMs(instantMs: number, timeZone: string): number {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone, hourCycle: "h23",
     year: "numeric", month: "2-digit", day: "2-digit",
