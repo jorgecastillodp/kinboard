@@ -14,8 +14,10 @@
 -- behaviour it always had: it comes round again N days after it was last
 -- done, wherever that lands. A task with either one *keeps a schedule*
 -- instead: its due days are fixed by the calendar and counted from
--- schedule_start_day, which is what lets every screen say whose turn any day
--- is, and what makes "Monday was not done" a fact rather than a guess.
+-- schedule_start_day -- a monthly one on the same date each month, its
+-- schedule_anchor_day's, or the month's last day when the month is shorter --
+-- which is what lets every screen say whose turn any day is, and what makes
+-- "Monday was not done" a fact rather than a guess.
 --
 -- WHY THIS LIVES IN THE DATABASE
 --
@@ -39,7 +41,10 @@
 -- due day. The days already over are written down first (todo_close_days),
 -- so an edit can never rewrite them. The day still open when the edit is made
 -- keeps its person: it is written as an 'open' row and remembered in
--- carry_day, and stays open until the new schedule's first day.
+-- carry_day, and stays open until the new schedule's first day. The turns
+-- then carry on after that person, in the new order (rotation_offset), so an
+-- edit never hands anyone two turns in a row; if they are no longer in the
+-- list, whoever came after them in the old order is next.
 --
 -- Missed days are written by a pass that runs every quarter of an hour
 -- (/api/cron/close-task-days) and by every edit, not worked out on read:
@@ -75,6 +80,21 @@ ALTER TABLE public.todos ADD COLUMN IF NOT EXISTS track_completion BOOLEAN NOT N
 ALTER TABLE public.todos ADD COLUMN IF NOT EXISTS tracking_started_day DATE;
 ALTER TABLE public.todos ADD COLUMN IF NOT EXISTS schedule_start_day DATE;
 ALTER TABLE public.todos ADD COLUMN IF NOT EXISTS carry_day DATE;
+-- Also the trigger's: the day the schedule's dates are counted from -- the
+-- start picked in the form, or the day the schedule began -- kept across
+-- edits, so a monthly task begun on the 31st stays on each month's last day
+-- rather than moving to the 28th after an edit in February; and whose turn
+-- schedule_start_day is, as an index into rotation_person_ids, which an edit
+-- sets so the turns carry on after the open day's person.
+ALTER TABLE public.todos ADD COLUMN IF NOT EXISTS schedule_anchor_day DATE;
+ALTER TABLE public.todos ADD COLUMN IF NOT EXISTS rotation_offset INTEGER NOT NULL DEFAULT 0;
+-- A schedule started before the anchor existed counts from its start.
+DO $$
+BEGIN
+  PERFORM set_config('kinboard.todo_system', 'on', true);
+  UPDATE public.todos SET schedule_anchor_day = schedule_start_day
+   WHERE schedule_anchor_day IS NULL AND schedule_start_day IS NOT NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.todo_occurrences (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -185,8 +205,29 @@ RETURNS BOOLEAN LANGUAGE sql IMMUTABLE AS $$
           OR coalesce(cardinality(public.todo_weekdays(p_recurrence)), 0) > 0);
 $$;
 
+-- Monthly keeps its anchor's date: month k's due day is the anchor's day of
+-- the month, or that month's last day when the month is shorter -- 31 January,
+-- 28 February, 31 March. Always counted from the anchor, so a short month
+-- never moves the months after it.
+CREATE OR REPLACE FUNCTION public.todo_month_day(p_anchor DATE, p_k INTEGER)
+RETURNS DATE LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE
+  m INTEGER := extract(year FROM p_anchor)::INTEGER * 12 + extract(month FROM p_anchor)::INTEGER - 1 + p_k;
+  first DATE := make_date(m / 12, m % 12 + 1, 1);
+BEGIN
+  RETURN first + least(extract(day FROM p_anchor)::INTEGER, (first + INTERVAL '1 month')::DATE - first) - 1;
+END $$;
+
+-- Whole months from p_anchor's month to p_day's.
+CREATE OR REPLACE FUNCTION public.todo_months_from(p_anchor DATE, p_day DATE)
+RETURNS INTEGER LANGUAGE sql IMMUTABLE AS $$
+  SELECT (extract(year FROM p_day)::INTEGER - extract(year FROM p_anchor)::INTEGER) * 12
+       + extract(month FROM p_day)::INTEGER - extract(month FROM p_anchor)::INTEGER;
+$$;
+
 -- The first due day on or after p_from: for an interval, counted in steps
--- from p_phase; for picked weekdays, the first picked one.
+-- from p_phase; monthly, on p_phase's date; for picked weekdays, the first
+-- picked one.
 CREATE OR REPLACE FUNCTION public.todo_first_due_day(p_recurrence TEXT, p_phase DATE, p_from DATE)
 RETURNS DATE LANGUAGE plpgsql IMMUTABLE AS $$
 DECLARE
@@ -194,6 +235,12 @@ DECLARE
   days INTEGER[] := public.todo_weekdays(p_recurrence);
   d DATE;
 BEGIN
+  IF p_recurrence = 'monthly' THEN
+    IF p_from <= p_phase THEN RETURN p_phase; END IF;
+    d := public.todo_month_day(p_phase, public.todo_months_from(p_phase, p_from));
+    IF d < p_from THEN d := public.todo_month_day(p_phase, public.todo_months_from(p_phase, p_from) + 1); END IF;
+    RETURN d;
+  END IF;
   IF step IS NOT NULL THEN
     IF p_from <= p_phase THEN RETURN p_phase; END IF;
     RETURN p_phase + ((p_from - p_phase + step - 1) / step) * step;
@@ -206,10 +253,19 @@ BEGIN
   RETURN NULL;
 END $$;
 
--- True when p_day is a due day of a schedule starting at p_start (itself a due day).
-CREATE OR REPLACE FUNCTION public.todo_is_due_day(p_recurrence TEXT, p_start DATE, p_day DATE)
+-- The anchor came in for monthly, a fourth argument: the three-argument
+-- versions an earlier run created go, or a call with three would be ambiguous.
+DROP FUNCTION IF EXISTS public.todo_is_due_day(TEXT, DATE, DATE);
+DROP FUNCTION IF EXISTS public.todo_prev_due_day(TEXT, DATE, DATE);
+DROP FUNCTION IF EXISTS public.todo_due_index(TEXT, DATE, DATE);
+
+-- True when p_day is a due day of a schedule starting at p_start (itself a
+-- due day) whose dates count from p_anchor (p_start when not given).
+CREATE OR REPLACE FUNCTION public.todo_is_due_day(p_recurrence TEXT, p_start DATE, p_day DATE, p_anchor DATE DEFAULT NULL)
 RETURNS BOOLEAN LANGUAGE sql IMMUTABLE AS $$
   SELECT p_day >= p_start AND CASE
+    WHEN p_recurrence = 'monthly' THEN p_day = public.todo_month_day(
+      coalesce(p_anchor, p_start), public.todo_months_from(coalesce(p_anchor, p_start), p_day))
     WHEN public.todo_interval_days(p_recurrence) IS NOT NULL
       THEN (p_day - p_start) % public.todo_interval_days(p_recurrence) = 0
     ELSE extract(dow FROM p_day)::INTEGER = ANY (coalesce(public.todo_weekdays(p_recurrence), '{}'))
@@ -217,34 +273,47 @@ RETURNS BOOLEAN LANGUAGE sql IMMUTABLE AS $$
 $$;
 
 -- The last due day on or before p_day, or NULL before the schedule starts.
-CREATE OR REPLACE FUNCTION public.todo_prev_due_day(p_recurrence TEXT, p_start DATE, p_day DATE)
+CREATE OR REPLACE FUNCTION public.todo_prev_due_day(p_recurrence TEXT, p_start DATE, p_day DATE, p_anchor DATE DEFAULT NULL)
 RETURNS DATE LANGUAGE plpgsql IMMUTABLE AS $$
 DECLARE
   step INTEGER := public.todo_interval_days(p_recurrence);
+  a DATE := coalesce(p_anchor, p_start);
   d DATE;
 BEGIN
   IF p_start IS NULL OR p_day < p_start THEN RETURN NULL; END IF;
+  IF p_recurrence = 'monthly' THEN
+    d := public.todo_month_day(a, public.todo_months_from(a, p_day));
+    IF d > p_day THEN d := public.todo_month_day(a, public.todo_months_from(a, p_day) - 1); END IF;
+    RETURN CASE WHEN d < p_start THEN NULL ELSE d END;
+  END IF;
   IF step IS NOT NULL THEN
     RETURN p_start + ((p_day - p_start) / step) * step;
   END IF;
   FOR i IN 0..6 LOOP
     d := p_day - i;
     IF d < p_start THEN RETURN NULL; END IF;
-    IF public.todo_is_due_day(p_recurrence, p_start, d) THEN RETURN d; END IF;
+    IF public.todo_is_due_day(p_recurrence, p_start, d, a) THEN RETURN d; END IF;
   END LOOP;
   RETURN NULL;
 END $$;
 
--- How many due days lie in [p_start, p_day): day k of the rotation.
-CREATE OR REPLACE FUNCTION public.todo_due_index(p_recurrence TEXT, p_start DATE, p_day DATE)
+-- How many due days lie in [p_start, p_day): day k of the set-up.
+CREATE OR REPLACE FUNCTION public.todo_due_index(p_recurrence TEXT, p_start DATE, p_day DATE, p_anchor DATE DEFAULT NULL)
 RETURNS INTEGER LANGUAGE plpgsql IMMUTABLE AS $$
 DECLARE
   step INTEGER := public.todo_interval_days(p_recurrence);
   days INTEGER[] := public.todo_weekdays(p_recurrence);
   span INTEGER := p_day - p_start;
+  a DATE := coalesce(p_anchor, p_start);
   n INTEGER;
 BEGIN
   IF span <= 0 THEN RETURN 0; END IF;
+  IF p_recurrence = 'monthly' THEN
+    -- p_start is a due day, month months_from(a, p_start) of the anchor's.
+    n := public.todo_months_from(a, p_day);
+    IF public.todo_month_day(a, n) < p_day THEN n := n + 1; END IF;
+    RETURN n - public.todo_months_from(a, p_start);
+  END IF;
   IF step IS NOT NULL THEN RETURN (span + step - 1) / step; END IF;
   n := (span / 7) * coalesce(cardinality(days), 0);
   FOR i IN 0..(span % 7) - 1 LOOP
@@ -259,13 +328,14 @@ CREATE OR REPLACE FUNCTION public.todo_current_day(t public.todos, p_today DATE)
 RETURNS DATE LANGUAGE sql IMMUTABLE AS $$
   SELECT CASE
     WHEN t.schedule_start_day IS NOT NULL AND p_today >= t.schedule_start_day
-      THEN public.todo_prev_due_day(t.recurrence, t.schedule_start_day, p_today)
+      THEN public.todo_prev_due_day(t.recurrence, t.schedule_start_day, p_today, t.schedule_anchor_day)
     WHEN t.carry_day IS NOT NULL AND t.carry_day <= p_today THEN t.carry_day
   END;
 $$;
 
 -- Whose turn p_day is: a written-down day keeps the person it was written
--- with; otherwise the rotation's, or the task's own person.
+-- with; otherwise the rotation's -- counted on from rotation_offset, the
+-- person schedule_start_day belongs to -- or the task's own person.
 CREATE OR REPLACE FUNCTION public.todo_turn_person(t public.todos, p_day DATE)
 RETURNS UUID LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
@@ -276,7 +346,8 @@ BEGIN
   SELECT person_id INTO written FROM public.todo_occurrences WHERE todo_id = t.id AND day = p_day;
   IF FOUND THEN RETURN written.person_id; END IF;
   IF n > 0 AND t.schedule_start_day IS NOT NULL AND p_day >= t.schedule_start_day THEN
-    RETURN t.rotation_person_ids[public.todo_due_index(t.recurrence, t.schedule_start_day, p_day) % n + 1];
+    RETURN t.rotation_person_ids[(t.rotation_offset
+      + public.todo_due_index(t.recurrence, t.schedule_start_day, p_day, t.schedule_anchor_day)) % n + 1];
   END IF;
   RETURN t.person_id;
 END $$;
@@ -357,7 +428,7 @@ BEGIN
   INSERT INTO public.todo_occurrences (family_id, todo_id, day, person_id, status)
   SELECT t.family_id, t.id, d::DATE, public.todo_turn_person(t, d::DATE), 'missed'
     FROM generate_series(lower_day, bound - 1, INTERVAL '1 day') AS d
-   WHERE public.todo_is_due_day(t.recurrence, t.schedule_start_day, d::DATE)
+   WHERE public.todo_is_due_day(t.recurrence, t.schedule_start_day, d::DATE, t.schedule_anchor_day)
   ON CONFLICT (todo_id, day) DO NOTHING;
   GET DIAGNOSTICS n = ROW_COUNT;
   RETURN written + n;
@@ -459,6 +530,30 @@ RETURNS UUID[] LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg
   ), '{}');
 $$;
 
+-- After an edit, whose turn the new set-up starts with, as an index into
+-- p_new: the person after p_last, the open day's, so nobody gets two turns
+-- in a row. If p_last is no longer in the list -- they left the family, or
+-- were taken out -- the next one after them in the old order who still is;
+-- if nobody had a turn yet, or none of them is left, the first.
+CREATE OR REPLACE FUNCTION public.todo_next_turn_index(p_old UUID[], p_new UUID[], p_last UUID)
+RETURNS INTEGER LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE
+  n INTEGER := coalesce(cardinality(p_new), 0);
+  i INTEGER;
+  j INTEGER;
+BEGIN
+  IF n = 0 OR p_last IS NULL THEN RETURN 0; END IF;
+  i := array_position(p_new, p_last);
+  IF i IS NOT NULL THEN RETURN i % n; END IF;
+  i := array_position(p_old, p_last);
+  IF i IS NULL THEN RETURN 0; END IF;
+  FOR k IN 1..cardinality(p_old) - 1 LOOP
+    j := array_position(p_new, p_old[(i - 1 + k) % cardinality(p_old) + 1]);
+    IF j IS NOT NULL THEN RETURN j - 1; END IF;
+  END LOOP;
+  RETURN 0;
+END $$;
+
 CREATE OR REPLACE FUNCTION public.todo_schedule_insert()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
@@ -467,16 +562,19 @@ BEGIN
   NEW.rotation_person_ids := CASE WHEN public.todo_keeps_schedule(NEW.recurrence, '{}', true)
     THEN public.todo_clean_rotation(NEW.family_id, NEW.rotation_person_ids) END;
   NEW.carry_day := NULL;
+  NEW.rotation_offset := 0;
   IF NOT public.todo_keeps_schedule(NEW.recurrence, NEW.rotation_person_ids, NEW.track_completion) THEN
     NEW.schedule_start_day := NULL;
+    NEW.schedule_anchor_day := NULL;
     NEW.tracking_started_day := CASE WHEN NEW.track_completion THEN public.family_today(NEW.family_id) END;
     RETURN NEW;
   END IF;
   today := public.family_today(NEW.family_id);
   -- From the start date picked in the form, or today; never in the past,
   -- which would back-fill missed days nobody could have done.
+  NEW.schedule_anchor_day := coalesce(NEW.due_date, today);
   NEW.schedule_start_day := public.todo_first_due_day(
-    NEW.recurrence, coalesce(NEW.due_date, today), greatest(coalesce(NEW.due_date, today), today));
+    NEW.recurrence, NEW.schedule_anchor_day, greatest(NEW.schedule_anchor_day, today));
   NEW.tracking_started_day := CASE WHEN NEW.track_completion THEN today END;
   IF NEW.rotation_person_ids IS NOT NULL THEN
     NEW.person_id := NEW.rotation_person_ids[1];
@@ -513,6 +611,8 @@ BEGIN
 
   -- The columns only this trigger writes.
   NEW.schedule_start_day := OLD.schedule_start_day;
+  NEW.schedule_anchor_day := OLD.schedule_anchor_day;
+  NEW.rotation_offset := OLD.rotation_offset;
   NEW.carry_day := OLD.carry_day;
   NEW.tracking_started_day := OLD.tracking_started_day;
   -- Only a repeating task can take turns.
@@ -567,31 +667,43 @@ BEGIN
   IF NOT is_scheduled THEN
     IF was_scheduled THEN PERFORM public.todo_close_days(OLD, today); END IF;
     NEW.schedule_start_day := NULL;
+    NEW.schedule_anchor_day := NULL;
+    NEW.rotation_offset := 0;
     NEW.carry_day := NULL;
   ELSIF NOT was_scheduled THEN
     -- Starting to keep a schedule: as a new task would.
     NEW.carry_day := NULL;
+    NEW.rotation_offset := 0;
+    NEW.schedule_anchor_day := coalesce(NEW.due_date, today);
     NEW.schedule_start_day := public.todo_first_due_day(
-      NEW.recurrence, coalesce(NEW.due_date, today), greatest(coalesce(NEW.due_date, today), today));
+      NEW.recurrence, NEW.schedule_anchor_day, greatest(NEW.schedule_anchor_day, today));
   ELSIF schedule_changed THEN
     -- Applies from the next due day. The days already over are written
     -- down under the schedule they had; the day still open keeps its person
     -- and stays open until the new schedule's first day.
     PERFORM public.todo_close_days(OLD, today);
     open_day := public.todo_current_day(OLD, today);
+    turn := NULL;
     IF open_day IS NOT NULL THEN
+      turn := public.todo_turn_person(OLD, open_day);
       INSERT INTO public.todo_occurrences (family_id, todo_id, day, person_id, status)
-      VALUES (NEW.family_id, NEW.id, open_day, public.todo_turn_person(OLD, open_day), 'open')
+      VALUES (NEW.family_id, NEW.id, open_day, turn, 'open')
       ON CONFLICT (todo_id, day) DO NOTHING;
       from_day := today + 1;
     ELSE
       from_day := today;
     END IF;
     NEW.carry_day := open_day;
-    -- Keep the weekday a weekly task falls on unless a new start was picked.
-    phase := coalesce(NEW.due_date, OLD.schedule_start_day, from_day);
+    -- Keep the weekday a weekly task falls on, and the date a monthly one
+    -- does, unless a new start was picked.
+    phase := coalesce(NEW.due_date, OLD.schedule_anchor_day, OLD.schedule_start_day, from_day);
+    NEW.schedule_anchor_day := phase;
     NEW.schedule_start_day := public.todo_first_due_day(
       NEW.recurrence, phase, greatest(from_day, coalesce(NEW.due_date, from_day)));
+    -- The turns carry on after the open day's person, in the new order.
+    NEW.rotation_offset := CASE WHEN rotates
+      THEN public.todo_next_turn_index(OLD.rotation_person_ids, NEW.rotation_person_ids, turn) ELSE 0 END;
+    turn := NULL;
   END IF;
 
   IF array_length(changed, 1) > 0 AND (OLD.deleted_at IS NULL) THEN
