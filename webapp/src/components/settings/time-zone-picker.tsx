@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, ChevronDown, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,12 +37,19 @@ export function TimeZonePicker({ value, serverZone, onPick, disabled }: TimeZone
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [now, setNow] = useState(() => new Date());
+  const panel = useRef<HTMLDivElement>(null);
 
   // The clock on the current choice moves on while the page is open.
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(id);
   }, []);
+
+  // The list opens below the button, often under the fold of the tablet's
+  // screen: bring it into view, clear of the bottom navigation.
+  useEffect(() => {
+    if (open) panel.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [open]);
 
   // Made when the list opens — an offset is a formatter per zone — not on
   // every keystroke.
@@ -98,15 +105,20 @@ export function TimeZonePicker({ value, serverZone, onPick, disabled }: TimeZone
         data-testid="time-zone-current"
         className="w-full justify-between h-auto py-3 px-4"
       >
-        <span className="min-w-0 truncate text-left">{value ? zoneLabel(value) : automaticLabel}</span>
-        <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground tabular-nums">
-          {currentOption && `${currentOption.offset} · ${timeIn(currentOption.zone, locale, now)}`}
-          <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} aria-hidden />
+        {/* Two lines, so a phone shows the zone's whole name rather than its offset. */}
+        <span className="flex min-w-0 flex-col items-start gap-0.5 text-left">
+          <span className="max-w-full truncate">{value ? zoneLabel(value) : automaticLabel}</span>
+          {currentOption && (
+            <span className="text-xs font-normal text-muted-foreground tabular-nums">
+              {`${currentOption.offset} · ${timeIn(currentOption.zone, locale, now)}`}
+            </span>
+          )}
         </span>
+        <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform", open && "rotate-180")} aria-hidden />
       </Button>
 
       {open && (
-        <div className="mt-3 space-y-2">
+        <div ref={panel} className="mt-3 space-y-2 scroll-mb-[calc(var(--nav-spacing)_+_1rem)]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
             <Input
