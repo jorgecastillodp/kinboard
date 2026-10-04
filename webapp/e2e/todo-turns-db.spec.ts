@@ -27,13 +27,28 @@ function psql(sql: string): string {
   ).trim();
 }
 
+// Applied once per worker, for a database that predates these migrations. A
+// stack has already applied them at boot, and re-applying them while other
+// specs run takes locks on `todos` against the app's own queries: in CI that
+// deadlocked once. A deadlock is retried -- both files are idempotent.
+let migrated = false;
 function applyMigration(): void {
+  if (migrated) return;
   // instance_settings first: family_time_zone() reads it.
   for (const file of ["migration_zzzzzx_instance_settings.sql", "migration_zzzzzy_todo_turns.sql"]) {
-    execFileSync("bash", ["-c",
-      `docker exec -i ${dbContainer()} psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 < webapp/docker/${file}`],
-      { cwd: process.cwd().replace(/\/webapp$/, ""), encoding: "utf8" });
+    for (let attempt = 1; ; attempt++) {
+      try {
+        execFileSync("bash", ["-c",
+          `docker exec -i ${dbContainer()} psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 < webapp/docker/${file}`],
+          { cwd: process.cwd().replace(/\/webapp$/, ""), encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+        break;
+      } catch (err) {
+        if (attempt >= 3 || !String((err as Error).message).includes("deadlock detected")) throw err;
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2000);
+      }
+    }
   }
+  migrated = true;
 }
 
 test.skip(SKIP_WITHOUT_DATABASE, "no database container reachable, and no FAMILY_CODE promising a stack");
