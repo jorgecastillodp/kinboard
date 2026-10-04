@@ -35,6 +35,10 @@ export const SETTINGS_KEYS = {
   unsplash: "unsplash",
   locale: "locale",
   weekStart: "week_start",
+  // The family's IANA time zone (Settings → Language). Absent means automatic,
+  // the server's own: serverTimeZone() in lib/family-time.ts, family_time_zone()
+  // in the database. Decides the family's "today" for tasks and Home Assistant.
+  timezone: "timezone",
   currency: "currency",
   // Per family, JSON boolean. Off (absent) by default: while no family has
   // switched it on, the OAuth and MCP routes answer 404 (RFC-010, lib/oauth/enabled.ts).

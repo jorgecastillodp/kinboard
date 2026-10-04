@@ -2287,7 +2287,13 @@
       "weekStartDescription": "Which day the calendar's week and month grids begin with. Following the language means Sunday for English, Monday for German and French.",
       "weekStart_locale": "Follow the language",
       "weekStart_monday": "Monday",
-      "weekStart_sunday": "Sunday"
+      "weekStart_sunday": "Sunday",
+      "timeZoneLabel": "Time zone",
+      "timeZoneDescription": "When the family's day starts and ends: which day a task was done on, whose turn it is, and what Home Assistant calls today. Automatic uses the server's time zone.",
+      "timeZoneAutomatic": "Automatic ({zone})",
+      "timeZoneAutomaticLoading": "Automatic",
+      "timeZoneSearch": "Search, e.g. Berlin, New York or UTC+1",
+      "timeZoneNone": "No time zone matches “{query}”"
     },
     "ics": {
       "title": "iCalendar feeds",
