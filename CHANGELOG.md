@@ -44,6 +44,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **On a phone, the meals on the last day of the week can be edited and deleted again.** The meal planner's add button floated over the bottom of the list, and the last day of the week -- Sunday for a family whose week starts on Monday, Saturday for one whose week starts on Sunday -- ended right under it, so the menu on that day's meals could not be tapped. The page now leaves room below the last day, as the dashboard already did.
 - **A tick lands on the family's today, whatever day the screen sends.** A tablet whose clock was a day off could turn in a turn that had already been missed, reopen a day already closed, or tick tomorrow's turn early — and be paid for it. A task with turns or tracking now always ticks the family's open day.
 - **Tasks with turns or tracking keep the server's time zone when the family has not set one, not Berlin's.** On a server west of Berlin, a task made or edited in the evening started on the wrong day, or closed the family's open day early and wrote it down as missed.
 - **A monthly task that takes turns or is tracked falls on the same date each month.** It came round every 30 days, so one begun on 1 January fell on 31 January, 2 March and 1 April. A task begun on the 31st now falls on the last day of each shorter month, and is back on the 31st after it — an edit in February does not move it to the 28th.
