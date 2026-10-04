@@ -114,7 +114,7 @@ test("Settings → Language sets the family's time zone, and the database's toda
 
 test("the settings route refuses a zone nothing knows, and Automatic is a delete", async ({ page }) => {
   await establishSession(page, familyCode!, DEVICE);
-  for (const value of ["Mars/Olympus_Mons", "", 42, null]) {
+  for (const value of ["Mars/Olympus_Mons", "", 42, null, "+05:00", "+0530"]) {
     const res = await page.request.put("/api/settings", { data: { family_id: familyId, key: "timezone", value } });
     expect(res.status(), JSON.stringify(value)).toBe(400);
   }

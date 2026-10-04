@@ -95,6 +95,19 @@ export function isValidTimeZone(timeZone: unknown): timeZone is string {
   }
 }
 
+/**
+ * A zone the family can keep in its `timezone` setting: a zone name, not a
+ * bare UTC offset. Intl takes "+05:00" and "+0530" as zones too, and the
+ * database does not agree about them: Postgres reads "+05:00" as a POSIX zone,
+ * five hours west rather than east, and refuses "+0530" -- so
+ * family_time_zone() would put the family's day ten hours away from the one
+ * lib/family-time.ts uses, or fall back to the server's zone. A name starts
+ * with a letter; an offset never does.
+ */
+export function isFamilyTimeZone(timeZone: unknown): timeZone is string {
+  return isValidTimeZone(timeZone) && /^[A-Za-z]/.test(timeZone);
+}
+
 /** The same words `familyPersonId` uses for a malformed id. */
 const PERSON_ID_ERROR = "`person_id` must be a uuid or null";
 function isPersonIdShape(value: unknown): value is string | null {

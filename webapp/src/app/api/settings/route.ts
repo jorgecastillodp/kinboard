@@ -12,7 +12,7 @@ import {
 } from "@/lib/integration-secrets";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
-import { isValidTimeZone } from "@/lib/integration-event-input";
+import { isFamilyTimeZone } from "@/lib/integration-event-input";
 import { checkCameraDoorbells } from "@/lib/camera-takeover";
 
 // Every verb here reads or writes one family's settings row, and the family
@@ -138,9 +138,11 @@ export async function PUT(request: NextRequest) {
 
   // The family's time zone decides when its day starts and ends, in the
   // database as on the server. A name nothing knows would be passed over
-  // there — silently, as if it were unset — so it is refused here instead.
+  // there — silently, as if it were unset — so it is refused here instead,
+  // and so is a bare offset such as "+05:00", which the database reads with
+  // the opposite sign (isFamilyTimeZone).
   // Automatic, the server's own zone, is no value: delete the setting.
-  if (key === SETTINGS_KEYS.timezone && !isValidTimeZone(value)) {
+  if (key === SETTINGS_KEYS.timezone && !isFamilyTimeZone(value)) {
     return NextResponse.json(
       { error: "timezone must be an IANA zone name such as Europe/Berlin; delete the setting for the server's own" },
       { status: 400 }

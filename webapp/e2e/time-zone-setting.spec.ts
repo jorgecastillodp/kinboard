@@ -12,6 +12,7 @@ import {
   timeZoneOption,
   timeZoneOptions,
 } from "../src/lib/time-zones";
+import { isFamilyTimeZone } from "../src/lib/integration-event-input";
 import { codeOnly } from "./source-helpers";
 
 /**
@@ -118,10 +119,27 @@ test("a search matches every word, in current and former names and in offsets", 
 test("the settings route stores a zone only if it is real, before anything is written", () => {
   const route = codeOnly(read("src/app/api/settings/route.ts"));
   const put = route.slice(route.indexOf("export async function PUT"), route.indexOf("export async function DELETE"));
-  const check = put.indexOf("key === SETTINGS_KEYS.timezone && !isValidTimeZone(value)");
+  const check = put.indexOf("key === SETTINGS_KEYS.timezone && !isFamilyTimeZone(value)");
   expect(check, "PUT checks the zone").toBeGreaterThan(-1);
   expect(check, "before the admin client is made").toBeLessThan(put.indexOf("createAdminClient()"));
   expect(put.slice(check, check + 300)).toContain("status: 400");
+});
+
+test("a family's zone is a name, never a bare offset the database would read the other way round", () => {
+  // Node 22's Intl accepts these as zones. Postgres reads "+05:00" as POSIX,
+  // five hours WEST, and does not know "+0530" at all, so family_time_zone()
+  // and lib/family-time.ts would disagree about the family's day.
+  for (const offset of ["+05:00", "-03:00", "+0530", "+05"]) {
+    expect(isFamilyTimeZone(offset), offset).toBe(false);
+  }
+  for (const bad of ["", "Mars/Olympus_Mons", "Europe/Berlin ", null, 5]) {
+    expect(isFamilyTimeZone(bad), String(bad)).toBe(false);
+  }
+  for (const zone of ["Europe/Berlin", "UTC", "Etc/GMT+5", "US/Pacific", "America/Argentina/Buenos_Aires"]) {
+    expect(isFamilyTimeZone(zone), zone).toBe(true);
+  }
+  // Everything the picker offers can be stored.
+  for (const option of timeZoneOptions(winter)) expect(isFamilyTimeZone(option.zone), option.zone).toBe(true);
 });
 
 test("the server names its own zone to a joined screen, and the page deletes the setting for Automatic", () => {
