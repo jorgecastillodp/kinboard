@@ -10,6 +10,11 @@ import { acquireWholeDatabase, dbContainer, releaseWholeDatabase } from "./whole
  */
 const familyCode = process.env.FAMILY_CODE;
 test.skip(!familyCode, "Set FAMILY_CODE for the local stack");
+// One device for the file, joined once: joining is limited to 10 a minute per
+// IP and the smoke run already comes close (see session.ts), so the tests run
+// in one worker, share it, and it is removed after the last of them.
+test.describe.configure({ mode: "serial" });
+const DEVICE = "todo-turns-ui";
 
 function psql(sql: string): string {
   return execFileSync(
@@ -42,8 +47,15 @@ test.afterEach(() => {
             DELETE FROM todo_events WHERE todo_id = '${todoId}'; DELETE FROM todos WHERE id = '${todoId}';`);
     }
     todoId = "";
-    // Only this spec's devices: other specs keep their sessions.
-    psql(`DELETE FROM devices WHERE hardware_id LIKE 'e2e-todo-turns-ui%'`);
+  } finally {
+    releaseWholeDatabase();
+  }
+});
+test.afterAll(async () => {
+  await acquireWholeDatabase();
+  try {
+    // Only this spec's device: other specs keep their sessions.
+    psql(`DELETE FROM devices WHERE hardware_id LIKE 'e2e-${DEVICE}%'`);
   } finally {
     releaseWholeDatabase();
   }
@@ -65,7 +77,7 @@ async function openDialog(page: Page, opener: Locator): Promise<Locator> {
 }
 
 test("Create task stays disabled while Take turns has nobody picked", async ({ page }) => {
-  await establishSession(page, familyCode!, "todo-turns-ui");
+  await establishSession(page, familyCode!, DEVICE);
   await page.goto("/todos", { waitUntil: "domcontentloaded" });
   const dialog = await openDialog(page, page.getByRole("button", { name: NEW_TASK }).first());
   await dialog.getByPlaceholder(TITLE).fill("Turns check");
@@ -96,7 +108,7 @@ test("Save stays disabled when everyone is taken out of a task's turns", async (
   expect(person, "the demo family has people").toMatch(/^[0-9a-f-]{36}$/);
   todoId = psql(`INSERT INTO todos (family_id, title, recurrence, rotation_person_ids)
     VALUES ('${familyId}', 'Turns check (edit)', 'daily', ARRAY['${person}']::uuid[]) RETURNING id`);
-  await establishSession(page, familyCode!, "todo-turns-ui-edit");
+  await establishSession(page, familyCode!, DEVICE);
   await page.goto("/todos", { waitUntil: "domcontentloaded" });
   const dialog = await openDialog(page, page.getByText("Turns check (edit)", { exact: true }).first());
   const save = dialog.getByRole("button", { name: SAVE });
