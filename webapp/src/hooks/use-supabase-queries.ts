@@ -2371,6 +2371,30 @@ export function useUpdateSetting<T>() {
   });
 }
 
+// Removes a setting, for one whose absence means something: the family's
+// time zone, absent, is the server's own.
+export function useDeleteSetting() {
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
+
+  return useMutation({
+    mutationFn: async (key: string) => {
+      const res = await fetch("/api/settings", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ family_id: requireFamilyId(family), key }),
+      });
+      if (!res.ok) throw new Error("Failed to delete setting");
+      return res.json();
+    },
+    onSuccess: (_, key) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.settings(requireFamilyId(family), key),
+      });
+    },
+  });
+}
+
 // ===================
 // JOIN CODE REGENERATION
 // ===================

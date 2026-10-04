@@ -51,7 +51,7 @@ function dateFromDayNumber(day: number): string {
 }
 
 /** Offset of `timeZone` from UTC at `instantMs`, in milliseconds. */
-function zoneOffsetMs(instantMs: number, timeZone: string): number {
+export function zoneOffsetMs(instantMs: number, timeZone: string): number {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone, hourCycle: "h23",
     year: "numeric", month: "2-digit", day: "2-digit",
@@ -93,6 +93,19 @@ export function isValidTimeZone(timeZone: unknown): timeZone is string {
   } catch {
     return false;
   }
+}
+
+/**
+ * A zone the family can keep in its `timezone` setting: a zone name, not a
+ * bare UTC offset. Intl takes "+05:00" and "+0530" as zones too, and the
+ * database does not agree about them: Postgres reads "+05:00" as a POSIX zone,
+ * five hours west rather than east, and refuses "+0530" -- so
+ * family_time_zone() would put the family's day ten hours away from the one
+ * lib/family-time.ts uses, or fall back to the server's zone. A name starts
+ * with a letter; an offset never does.
+ */
+export function isFamilyTimeZone(timeZone: unknown): timeZone is string {
+  return isValidTimeZone(timeZone) && /^[A-Za-z]/.test(timeZone);
 }
 
 /** The same words `familyPersonId` uses for a malformed id. */

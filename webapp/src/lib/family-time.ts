@@ -23,9 +23,18 @@ export async function familyTimeZone(
     .from("settings")
     .select("value")
     .eq("family_id", familyId)
-    .eq("key", "timezone")
+    .eq("key", SETTINGS_KEYS.timezone)
     .maybeSingle();
   if (isValidTimeZone(data?.value)) return data.value;
+  return serverTimeZone();
+}
+
+/**
+ * The server's own zone — the container's `TZ`, else Europe/Berlin, the
+ * stack's default: what a family gets until it picks one in Settings →
+ * Language, which shows it on the Automatic choice (/api/time-zone).
+ */
+export function serverTimeZone(): string {
   return isValidTimeZone(process.env.TZ) ? process.env.TZ : "Europe/Berlin";
 }
 
