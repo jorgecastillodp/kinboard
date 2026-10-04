@@ -12,6 +12,11 @@ import { acquireWholeDatabase, dbContainer, releaseWholeDatabase } from "./whole
  */
 const familyCode = process.env.FAMILY_CODE;
 test.skip(!familyCode, "Set FAMILY_CODE for the local stack");
+// One device for the file, joined once: joining is limited to 10 a minute per
+// IP and the smoke run already comes close (see session.ts), so the tests run
+// in one worker, share it, and it is removed after the last of them.
+test.describe.configure({ mode: "serial" });
+const DEVICE = "time-zone-ui";
 
 function psql(sql: string): string {
   return execFileSync(
@@ -40,8 +45,15 @@ test.afterEach(() => {
            ON CONFLICT (family_id, key) DO UPDATE SET value = EXCLUDED.value`
         : `DELETE FROM settings WHERE family_id = '${familyId}' AND key = 'timezone'`,
     );
-    // Only this spec's devices: other specs keep their sessions.
-    psql(`DELETE FROM devices WHERE hardware_id LIKE 'e2e-time-zone-ui%'`);
+  } finally {
+    releaseWholeDatabase();
+  }
+});
+test.afterAll(async () => {
+  await acquireWholeDatabase();
+  try {
+    // Only this spec's device: other specs keep their sessions.
+    psql(`DELETE FROM devices WHERE hardware_id LIKE 'e2e-${DEVICE}%'`);
   } finally {
     releaseWholeDatabase();
   }
@@ -51,7 +63,7 @@ const overflow = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 
 test("Settings → Language sets the family's time zone, and the database's today follows it", async ({ page }) => {
-  await establishSession(page, familyCode!, "time-zone-ui");
+  await establishSession(page, familyCode!, DEVICE);
   // No realtime: its settings broadcast would refresh the zone on this device
   // too, and hide a save that forgot to invalidate the query.
   await page.routeWebSocket(/\/realtime\/v1\//, (ws) => ws.close());
@@ -101,7 +113,7 @@ test("Settings → Language sets the family's time zone, and the database's toda
 });
 
 test("the settings route refuses a zone nothing knows, and Automatic is a delete", async ({ page }) => {
-  await establishSession(page, familyCode!, "time-zone-ui-route");
+  await establishSession(page, familyCode!, DEVICE);
   for (const value of ["Mars/Olympus_Mons", "", 42, null]) {
     const res = await page.request.put("/api/settings", { data: { family_id: familyId, key: "timezone", value } });
     expect(res.status(), JSON.stringify(value)).toBe(400);
