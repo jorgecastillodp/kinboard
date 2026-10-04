@@ -371,6 +371,8 @@ export interface Database {
           track_completion: boolean;
           tracking_started_day: string | null;
           schedule_start_day: string | null;
+          schedule_anchor_day: string | null;
+          rotation_offset: number;
           carry_day: string | null;
           deleted_at?: string | null;
           created_at: string;
