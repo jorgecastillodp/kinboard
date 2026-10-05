@@ -274,6 +274,7 @@
     "restoreWarnings": "Mit {count} übersprungenen Einträgen wiederhergestellt"
   },
   "holidays": {
+    "federalHoliday": "{name} (Bundesfeiertag)",
     "neujahr": "Neujahr",
     "karfreitag": "Karfreitag",
     "ostersonntag": "Ostersonntag",
@@ -2531,9 +2532,11 @@
       "title": "Im Kalender anzeigen",
       "description": "Markierungen an jedem Tag, zusätzlich zu Terminen. Gilt für alle Geräte der Familie.",
       "holidaysLabel": "Feiertage und Ferien",
-      "holidaysHint": "Im Kalender ein bernsteinfarbener Punkt an Feiertagen und ein bernsteinfarbenes Band über den Schulferien, jeweils mit Namen, wo Platz ist. Das Widget Termine, die Wochenübersicht und der Bildschirmschoner zeigen auch Feiertage und Schulferien. Region und Schulferien kommen aus Einstellungen → Feiertage.",
+      "holidaysHint": "Im Kalender ein bernsteinfarbener Punkt an Feiertagen und Tagen wie Halloween und ein bernsteinfarbenes Band über den Schulferien, jeweils mit Namen, wo Platz ist. Region und Schulferien kommen aus Einstellungen → Feiertage.",
       "tasksLabel": "Aufgaben",
       "tasksHint": "Ein Punkt in der Farbe der Person an jedem Tag, an dem eine Aufgabe fällig ist. Wiederkehrende Aufgaben werden an jedem Tag markiert, an dem sie wieder anstehen.",
+      "holidaysAsEventsLabel": "Feiertage zwischen den Terminen zeigen",
+      "holidaysAsEventsHint": "Feiertage erscheinen auch zwischen den Terminen: im Widget Termine, in der Wochenübersicht und im Bildschirmschoner. Der Kalender und das Widget Feiertage zeigen sie so oder so.",
       "tasksAsEventsLabel": "Aufgaben wie Termine behandeln",
       "tasksAsEventsHint": "Aufgaben erscheinen auch zwischen den Terminen: im Widget Termine, in der Wochenübersicht und in der Tagesliste des Kalenders. In Vorschau-Listen zeigt eine wiederkehrende Aufgabe nur ihr nächstes Mal."
     },

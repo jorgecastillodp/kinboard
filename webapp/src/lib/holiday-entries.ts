@@ -1,4 +1,4 @@
-import { getHolidays, type Holiday } from "@/lib/holidays";
+import { getHolidays, getObservances, type Holiday } from "@/lib/holidays";
 import { toLocalDateKey } from "@/lib/local-date";
 
 /**
@@ -72,7 +72,11 @@ export function normalizeHolidayName(name: string): string {
     .replace(/[^\p{L}\p{N}]+/gu, "");
 }
 
-/** The region's public holidays that are days off, between two keys inclusive. */
+/**
+ * The region's holidays between two keys inclusive, one a day: its public
+ * holidays, then the observances the countdown lists -- Halloween, Mother's
+ * Day -- which the calendar shows as well.
+ */
 export function publicHolidayEntries(
   region: string,
   fromKey: string,
@@ -83,8 +87,7 @@ export function publicHolidayEntries(
   const out: HolidayEntry[] = [];
   const seen = new Set<string>();
   for (let year = Number(fromKey.slice(0, 4)); year <= Number(toKey.slice(0, 4)); year++) {
-    for (const holiday of getHolidays(region, year, locale)) {
-      if (!holiday.dayOff) continue;
+    for (const holiday of [...getHolidays(region, year, locale), ...getObservances(region, year, locale)]) {
       const key = toLocalDateKey(holiday.date);
       if (key < fromKey || key > toKey || seen.has(key)) continue;
       seen.add(key);
@@ -98,7 +101,8 @@ export function publicHolidayEntries(
       });
     }
   }
-  return out;
+  // Holidays first, then observances, per year: sorted, so either can come first.
+  return out.sort((a, b) => a.startKey.localeCompare(b.startKey));
 }
 
 /**

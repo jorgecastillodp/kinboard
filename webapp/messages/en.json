@@ -274,6 +274,7 @@
     "restoreWarnings": "Restored with {count} skipped items"
   },
   "holidays": {
+    "federalHoliday": "{name} (federal)",
     "neujahr": "New Year's Day",
     "karfreitag": "Good Friday",
     "ostersonntag": "Easter Sunday",
@@ -2531,9 +2532,11 @@
       "title": "Show on the calendar",
       "description": "Marks on each day besides events. Applies to every device in the family.",
       "holidaysLabel": "Holidays",
-      "holidaysHint": "On the calendar, an amber dot on public holidays and an amber band along school holidays, each named where there is room. The Events widget, the Week overview and the screensaver also list public and school holidays. The region and the school holidays come from Settings → Holidays.",
+      "holidaysHint": "On the calendar, an amber dot on holidays — public holidays and days such as Halloween — and an amber band along school holidays, each named where there is room. The region and the school holidays come from Settings → Holidays.",
       "tasksLabel": "Tasks",
       "tasksHint": "A dot in the person's color on each day a task is due. Repeating tasks are marked on every day they come round.",
+      "holidaysAsEventsLabel": "Show holidays among events",
+      "holidaysAsEventsHint": "Holidays also appear among events: in the Events widget, the Week overview and the screensaver. The calendar and the Holidays widget show them either way.",
       "tasksAsEventsLabel": "Treat tasks as events",
       "tasksAsEventsHint": "Tasks also appear among events: in the Events widget, the Week overview and the calendar's day list. In lists of what is coming up, a repeating task shows only its next time."
     },

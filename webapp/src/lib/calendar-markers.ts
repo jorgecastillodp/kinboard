@@ -1,4 +1,4 @@
-import { getHolidays, type Holiday } from "@/lib/holidays";
+import { getHolidays, getObservances, type Holiday } from "@/lib/holidays";
 import { toLocalDateKey } from "@/lib/local-date";
 import {
   isRecurring,
@@ -26,12 +26,19 @@ export interface CalendarDisplaySettings {
   showTasks: boolean;
   /** Tasks also listed among events: the Events widget, the week overview, the calendar's day lists. */
   tasksAsEvents: boolean;
+  /**
+   * Holidays also listed among events: the Events widget, the week overview,
+   * the screensaver. On unless switched off -- a family with the Holidays
+   * widget may not want them twice. The calendar shows them either way.
+   */
+  holidaysAsEvents: boolean;
 }
 
 export const DEFAULT_CALENDAR_DISPLAY: CalendarDisplaySettings = {
   showHolidays: false,
   showTasks: false,
   tasksAsEvents: false,
+  holidaysAsEvents: true,
 };
 
 export interface MarkerTodo extends RecurringFields {
@@ -190,7 +197,9 @@ export function holidaysByDay(region: string, from: Date, to: Date, locale: stri
   const toKey = toLocalDateKey(to);
   const out = new Map<string, Holiday>();
   for (let year = from.getFullYear(); year <= to.getFullYear(); year++) {
-    for (const holiday of getHolidays(region, year, locale)) {
+    // The observances the countdown lists -- Halloween, Mother's Day -- too,
+    // after the holidays: a holiday wins a day it shares with one.
+    for (const holiday of [...getHolidays(region, year, locale), ...getObservances(region, year, locale)]) {
       const key = toLocalDateKey(holiday.date);
       if (key >= fromKey && key <= toKey && !out.has(key)) out.set(key, holiday);
     }

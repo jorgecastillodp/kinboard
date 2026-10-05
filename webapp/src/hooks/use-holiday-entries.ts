@@ -23,7 +23,7 @@ import {
 const SCHOOL_HOLIDAY_REFRESH_MS = 30 * 60 * 1000;
 
 export interface HolidayEntriesState {
-  /** The family's `calendar_display.showHolidays`; off, `entries` is always empty. */
+  /** Whether holidays are listed here: `calendar_display.showHolidays`, and for a list of events `holidaysAsEvents` too. Off, `entries` is empty. */
   enabled: boolean;
   entries: HolidayEntry[];
 }
@@ -38,12 +38,16 @@ export interface HolidayEntriesState {
  * or nowhere. Off, the school holidays are not even fetched.
  *
  * Pass the events shown beside them and an entry a calendar already lists is
- * dropped (withoutDuplicateHolidays).
+ * dropped (withoutDuplicateHolidays). A list of events -- the Events widget,
+ * the week overview, the screensaver -- passes `eventList`, and gets nothing
+ * when Settings → Calendar → "Show holidays among events" is off; the
+ * calendar does not, and keeps its holidays.
  */
 export function useHolidayEntries(
   fromKey: string,
   toKey: string,
   events?: readonly EventLike[] | null,
+  options: { eventList?: boolean } = {},
 ): HolidayEntriesState {
   const locale = useLocale();
   const tHolidays = useTranslations("holidays");
@@ -52,6 +56,8 @@ export function useHolidayEntries(
     DEFAULT_CALENDAR_DISPLAY,
   );
   const showHolidays = calendarDisplay?.showHolidays ?? false;
+  const inLists = calendarDisplay?.holidaysAsEvents ?? true;
+  const listed = options.eventList ? showHolidays && inLists : showHolidays;
   const { region } = useHolidayRegion();
   const { data: schoolRows } = useSchoolHolidays({
     enabled: showHolidays,
@@ -61,7 +67,7 @@ export function useHolidayEntries(
   const all = useMemo(
     () =>
       holidayEntries({
-        showHolidays,
+        showHolidays: listed,
         region,
         schoolRows,
         fromKey,
@@ -69,9 +75,9 @@ export function useHolidayEntries(
         locale,
         label: (holiday) => holidayLabel(holiday, tHolidays),
       }),
-    [showHolidays, region, schoolRows, fromKey, toKey, locale, tHolidays],
+    [listed, region, schoolRows, fromKey, toKey, locale, tHolidays],
   );
   const entries = useMemo(() => withoutDuplicateHolidays(all, events), [all, events]);
 
-  return { enabled: showHolidays, entries };
+  return { enabled: listed, entries };
 }

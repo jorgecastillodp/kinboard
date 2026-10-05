@@ -19,4 +19,11 @@ export interface Holiday {
    * for one that is only ever a Sunday.
    */
   dayOff: boolean;
+  /**
+   * A US federal holiday the family's state does not observe -- Columbus Day
+   * in California. Federal offices, banks and the post office close; the
+   * state's own do not. Shown with "(federal)" after its name (holidayLabel).
+   * Absent on every other holiday, the state's own included.
+   */
+  federal?: boolean;
 }

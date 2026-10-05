@@ -274,6 +274,7 @@
     "restoreWarnings": "Restauré avec {count} éléments ignorés"
   },
   "holidays": {
+    "federalHoliday": "{name} (fédéral)",
     "neujahr": "Jour de l'an",
     "karfreitag": "Vendredi saint",
     "ostersonntag": "Dimanche de Pâques",
@@ -2531,9 +2532,11 @@
       "title": "Afficher dans le calendrier",
       "description": "Des repères sur chaque jour, en plus des événements. S'applique à tous les appareils de la famille.",
       "holidaysLabel": "Jours fériés et vacances",
-      "holidaysHint": "Dans le calendrier, un point ambré sur les jours fériés et une bande ambrée le long des vacances scolaires, avec leur nom quand la place le permet. Le widget Événements, l'Aperçu de la semaine et l'économiseur d'écran affichent aussi les jours fériés et les vacances scolaires. La région et les vacances scolaires viennent de Paramètres → Jours fériés.",
+      "holidaysHint": "Dans le calendrier, un point ambré sur les jours fériés et les fêtes comme Halloween, et une bande ambrée le long des vacances scolaires, avec leur nom quand la place le permet. La région et les vacances scolaires viennent de Paramètres → Jours fériés.",
       "tasksLabel": "Tâches",
       "tasksHint": "Un point de la couleur de la personne chaque jour où une tâche est due. Les tâches récurrentes sont marquées chaque jour où elles reviennent.",
+      "holidaysAsEventsLabel": "Afficher les jours fériés parmi les événements",
+      "holidaysAsEventsHint": "Les jours fériés apparaissent aussi parmi les événements : dans le widget Événements, l'Aperçu de la semaine et l'économiseur d'écran. Le calendrier et le widget Jours fériés les affichent de toute façon.",
       "tasksAsEventsLabel": "Traiter les tâches comme des événements",
       "tasksAsEventsHint": "Les tâches apparaissent aussi parmi les événements : dans le widget Événements, l'Aperçu de la semaine et la liste du jour du calendrier. Dans les listes à venir, une tâche récurrente n'apparaît qu'à sa prochaine occurrence."
     },

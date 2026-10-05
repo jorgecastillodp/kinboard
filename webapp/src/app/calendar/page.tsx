@@ -119,7 +119,7 @@ import {
 } from "@/hooks";
 import { matchPersonForEvent } from "@/lib/calendar-person-matcher";
 import { layoutDayEvents } from "@/lib/calendar-layout";
-import { getHolidays } from "@/lib/holidays";
+import { getHolidays, getObservances } from "@/lib/holidays";
 import { holidayLabel } from "@/lib/holidays/label";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import {
@@ -1200,7 +1200,11 @@ export default function CalendarPage() {
                     </div>
                   </div>
                   {(() => {
-                    const holidays = holidayRegion ? getHolidays(holidayRegion, displayDate.getFullYear(), locale) : [];
+                    // As the grid shows them: the day's holiday, else an observance (Halloween).
+                    const year = displayDate.getFullYear();
+                    const holidays = holidayRegion
+                      ? [...getHolidays(holidayRegion, year, locale), ...getObservances(holidayRegion, year, locale)]
+                      : [];
                     const holiday = holidays.find((h) => isSameDay(h.date, displayDate));
                     // The school break the day falls in, with its days, next
                     // to the public holiday: a dashed amber outline where the

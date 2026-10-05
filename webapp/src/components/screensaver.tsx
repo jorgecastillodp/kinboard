@@ -256,7 +256,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
   // Public and school holidays in the same window, behind the calendar's
   // holiday switch; one a holiday calendar already lists is not listed twice.
   const todayKey = toLocalDateKey(new Date(today));
-  const { entries: holidays } = useHolidayEntries(todayKey, toLocalDateKey(new Date(endDate)), events);
+  const { entries: holidays } = useHolidayEntries(todayKey, toLocalDateKey(new Date(endDate)), events, { eventList: true });
 
   // Fetch photos from configured source (Immich or Unsplash)
   const { photos: sourcePhotos } = usePhotoSource();

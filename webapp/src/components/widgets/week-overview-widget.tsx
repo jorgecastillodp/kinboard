@@ -95,7 +95,7 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
   const tasksAsEvents = calendarDisplay?.tasksAsEvents ?? false;
   // The seven days shown, today first. One a holiday calendar already marks
   // is not marked twice.
-  const { entries: holidays } = useHolidayEntries(startStr, format(addDays(today, 6), "yyyy-MM-dd"), events);
+  const { entries: holidays } = useHolidayEntries(startStr, format(addDays(today, 6), "yyyy-MM-dd"), events, { eventList: true });
 
   const isLoading = loadingEvents || loadingTodos || loadingBirthdays;
 
