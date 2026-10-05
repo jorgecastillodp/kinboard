@@ -34,7 +34,10 @@ test("the widget asks for a region only when the region is known to be unset, no
 test("the calendar asks for holidays in the UI language, and for none without a region", () => {
   const page = read("src/app/calendar/page.tsx");
   expect(page).toContain("holidaysByDay(holidayRegion, new Date(dateRange.start), new Date(dateRange.end), locale)");
-  expect(page.match(/holidayRegion \? getHolidays\(holidayRegion, displayDate\.getFullYear\(\), locale\) : \[\]/g)).toHaveLength(2);
+  // The day panel's card: public holidays only.
+  expect(page.match(/holidayRegion \? getHolidays\(holidayRegion, displayDate\.getFullYear\(\), locale\) : \[\]/g)).toHaveLength(1);
+  // The day panel's badge: the holiday, else the observance, as the grid shows them.
+  expect(page).toContain("? [...getHolidays(holidayRegion, year, locale), ...getObservances(holidayRegion, year, locale)]\n                      : []");
 });
 
 test("holidaysByDay takes a region and a locale", () => {

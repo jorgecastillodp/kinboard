@@ -44,18 +44,21 @@ const base: HolidayEntryInput = {
   label,
 };
 
-test("public holidays in the range, days off only, named in the locale", () => {
+test("public holidays and the days the calendar marks, in the range, named in the locale", () => {
   const entries = publicHolidayEntries("DE-NI", "2026-10-01", "2026-12-31", "de", label);
   expect(entries.map((e) => [e.startKey, e.title])).toEqual([
     ["2026-10-03", "Tag der Deutschen Einheit"],
     ["2026-10-31", "Reformationstag"],
+    ["2026-12-24", "Heiliger Abend"],
     ["2026-12-25", "1. Weihnachtstag"],
     ["2026-12-26", "2. Weihnachtstag"],
+    ["2026-12-31", "Silvester"],
   ]);
-  // The calendar dots Christmas Eve and New Year's Eve; nobody has them off.
+  // Christmas Eve and New Year's Eve are listed although nobody has them off,
+  // as the calendar dots them.
   const marked = getHolidays("DE-NI", 2026, "de").filter((h) => !h.dayOff).map((h) => toLocalDateKey(h.date));
   expect(marked).toContain("2026-12-24");
-  for (const key of marked) expect(entries.map((e) => e.startKey)).not.toContain(key);
+  for (const key of marked.filter((k) => k >= "2026-10-01")) expect(entries.map((e) => e.startKey)).toContain(key);
   for (const e of entries) {
     expect(e.kind).toBe("public");
     expect(e.endKey).toBe(e.startKey);
@@ -72,19 +75,20 @@ test("the same holidays in French for a French family, and none outside the rang
   expect(publicHolidayEntries("FR", "2026-11-02", "2026-11-10", "fr", label)).toEqual([]);
 });
 
-test("observances are not listed", () => {
+test("observances are listed too, after the holidays", () => {
   const observances = getObservances("US-CA", 2026, "en");
   // Guard the guard: a region without observances would make this vacuous.
   expect(observances.length).toBeGreaterThan(0);
   const keys = new Set(
     publicHolidayEntries("US-CA", "2026-01-01", "2026-12-31", "en", label).map((e) => `${e.startKey}|${e.title}`),
   );
-  for (const o of observances) expect(keys.has(`${toLocalDateKey(o.date)}|${label(o)}`)).toBe(false);
+  for (const o of observances) expect(keys.has(`${toLocalDateKey(o.date)}|${label(o)}`)).toBe(true);
+  expect(keys.has("2026-10-31|Halloween")).toBe(true);
 });
 
 test("a range across New Year reads both years", () => {
   const entries = publicHolidayEntries("DE-NI", "2026-12-30", "2027-01-02", "de", label);
-  expect(entries.map((e) => e.startKey)).toEqual(["2027-01-01"]);
+  expect(entries.map((e) => e.startKey)).toEqual(["2026-12-31", "2027-01-01"]);
 });
 
 test("a school break is one entry over all its days, overlapping the range at either end", () => {

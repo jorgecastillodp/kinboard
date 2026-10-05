@@ -274,6 +274,7 @@
     "restoreWarnings": "Restored with {count} skipped items"
   },
   "holidays": {
+    "federalHoliday": "{name} (federal)",
     "neujahr": "New Year's Day",
     "karfreitag": "Good Friday",
     "ostersonntag": "Easter Sunday",

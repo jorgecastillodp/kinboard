@@ -274,6 +274,7 @@
     "restoreWarnings": "Restauré avec {count} éléments ignorés"
   },
   "holidays": {
+    "federalHoliday": "{name} (fédéral)",
     "neujahr": "Jour de l'an",
     "karfreitag": "Vendredi saint",
     "ostersonntag": "Dimanche de Pâques",

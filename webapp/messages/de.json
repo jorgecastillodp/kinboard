@@ -274,6 +274,7 @@
     "restoreWarnings": "Mit {count} übersprungenen Einträgen wiederhergestellt"
   },
   "holidays": {
+    "federalHoliday": "{name} (Bundesfeiertag)",
     "neujahr": "Neujahr",
     "karfreitag": "Karfreitag",
     "ostersonntag": "Ostersonntag",

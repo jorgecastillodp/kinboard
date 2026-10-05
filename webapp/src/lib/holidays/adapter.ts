@@ -57,6 +57,18 @@ export function cachedSizes(): { years: number; parsers: number } {
   return { years: years.size, parsers: parsers.size };
 }
 
+/**
+ * Countries whose national holidays apply in every state by law, so a state
+ * that does not observe one still lives with it: a US federal holiday closes
+ * federal offices, banks and the post office in all fifty. Only the US:
+ * elsewhere date-holidays' country list is not one every state observes --
+ * Swiss cantons drop Good Friday, for one.
+ */
+const FEDERAL_HOLIDAY_COUNTRIES: ReadonlySet<string> = new Set(["US"]);
+
+/** A local date as a number, for comparing days: 20261012. */
+const dayNumber = (date: Date): number => date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate();
+
 const parsers = new Map<string, Holidays>();
 
 function parser(country: string, state: string | null, languages: string[]): Holidays {
@@ -169,6 +181,24 @@ export function regionYear(region: string, year: number, locale: string = "en"):
         dayOff,
       },
     });
+  }
+
+  // A US state's list, plus the federal holidays it does not observe, marked
+  // `federal`. A state holiday on the same date stands for the federal one --
+  // Indigenous Peoples' Day for Columbus Day -- and stays as it is.
+  if (state && FEDERAL_HOLIDAY_COUNTRIES.has(country)) {
+    const federal = regionYear(country, year, locale);
+    if (federal) {
+      const stateDays = new Set(days.filter((d) => d.inCalendar).map((d) => dayNumber(d.holiday.date)));
+      const added = new Set<string>();
+      for (const d of federal.days) {
+        if (!d.inCalendar || stateDays.has(dayNumber(d.holiday.date))) continue;
+        days.push({ ...d, holiday: { ...d.holiday, federal: true } });
+        added.add(d.englishName);
+      }
+      substitutes.push(...federal.substitutes.filter((s) => added.has(s.englishName)));
+      days.sort((a, b) => a.holiday.date.getTime() - b.holiday.date.getTime());
+    }
   }
 
   const result: RegionYear = { days, substitutes };
