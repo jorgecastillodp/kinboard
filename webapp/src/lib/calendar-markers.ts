@@ -26,12 +26,19 @@ export interface CalendarDisplaySettings {
   showTasks: boolean;
   /** Tasks also listed among events: the Events widget, the week overview, the calendar's day lists. */
   tasksAsEvents: boolean;
+  /**
+   * Holidays also listed among events: the Events widget, the week overview,
+   * the screensaver. On unless switched off -- a family with the Holidays
+   * widget may not want them twice. The calendar shows them either way.
+   */
+  holidaysAsEvents: boolean;
 }
 
 export const DEFAULT_CALENDAR_DISPLAY: CalendarDisplaySettings = {
   showHolidays: false,
   showTasks: false,
   tasksAsEvents: false,
+  holidaysAsEvents: true,
 };
 
 export interface MarkerTodo extends RecurringFields {

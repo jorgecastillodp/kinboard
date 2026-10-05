@@ -187,7 +187,10 @@ test("the hook is behind calendar_display.showHolidays and fetches school rows o
   expect(hook).toContain("SETTINGS_KEYS.calendarDisplay");
   expect(hook).toMatch(/const showHolidays = calendarDisplay\?\.showHolidays \?\? false;/);
   expect(hook).toMatch(/useSchoolHolidays\(\{\s*enabled: showHolidays,/);
-  expect(hook).toMatch(/holidayEntries\(\{\s*showHolidays,/);
+  expect(hook).toMatch(/holidayEntries\(\{\s*showHolidays: listed,/);
+  // A list of events also needs "Show holidays among events", on unless switched off.
+  expect(hook).toContain("const inLists = calendarDisplay?.holidaysAsEvents ?? true;");
+  expect(hook).toContain("const listed = options.eventList ? showHolidays && inLists : showHolidays;");
   expect(hook).toContain("useHolidayRegion()");
   expect(hook).toContain("withoutDuplicateHolidays(");
 });
@@ -198,7 +201,23 @@ test("the Events widget, the week overview and the screensaver use the hook with
     "src/components/widgets/week-overview-widget.tsx",
     "src/components/screensaver.tsx",
   ]) {
-    expect(read(file), file).toMatch(/useHolidayEntries\([^;]*, events\);/);
+    expect(read(file), file).toMatch(/useHolidayEntries\([^;]*, events, \{ eventList: true \}\);/);
+  }
+  // The calendar is not a list of events: it keeps its holidays either way.
+  expect(read("src/app/calendar/page.tsx")).not.toContain("eventList");
+});
+
+test("Settings → Calendar has the switch, on unless switched off", () => {
+  const card = read("src/components/settings/calendar-display-card.tsx");
+  expect(card).toContain('id: "calendar-holidays-as-events"');
+  expect(card).toContain("checked: current.holidaysAsEvents");
+  expect(card).toContain("{ ...DEFAULT_CALENDAR_DISPLAY, ...(data ?? {}) }");
+  expect(read("src/lib/calendar-markers.ts")).toMatch(/holidaysAsEvents: true,/);
+  for (const locale of ["en", "de", "fr"]) {
+    // Raw: read() strips comments, and would mangle a "//" in a JSON string.
+    const strings = JSON.parse(readFileSync(join(__dirname, "..", `messages/${locale}.json`), "utf8")).settings.calendarDisplay;
+    expect(typeof strings.holidaysAsEventsLabel, locale).toBe("string");
+    expect(typeof strings.holidaysAsEventsHint, locale).toBe("string");
   }
 });
 

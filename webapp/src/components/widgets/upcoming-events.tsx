@@ -88,7 +88,7 @@ export function UpcomingEvents({
   // Public and school holidays, behind the calendar's holiday switch; one a
   // holiday calendar already lists is not listed twice.
   const todayKey = toLocalDateKey(new Date(today));
-  const { entries: holidays } = useHolidayEntries(todayKey, toLocalDateKey(new Date(endDate)), events);
+  const { entries: holidays } = useHolidayEntries(todayKey, toLocalDateKey(new Date(endDate)), events, { eventList: true });
   const { data: people } = usePeople();
   const { data: calendarDisplay } = useSetting<CalendarDisplaySettings>(
     SETTINGS_KEYS.calendarDisplay,

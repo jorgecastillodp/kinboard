@@ -34,6 +34,13 @@ export function CalendarDisplayCard() {
       onChange: (v) => set({ showHolidays: v }),
     },
     {
+      id: "calendar-holidays-as-events",
+      label: t("holidaysAsEventsLabel"),
+      hint: t("holidaysAsEventsHint"),
+      checked: current.holidaysAsEvents,
+      onChange: (v) => set({ holidaysAsEvents: v }),
+    },
+    {
       id: "calendar-show-tasks",
       label: t("tasksLabel"),
       hint: t("tasksHint"),
