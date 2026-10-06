@@ -69,12 +69,15 @@ test("a paused timer stands still everywhere, its push waits, and it resumes whe
 
   await row.getByRole("button", { name: "Resume" }).click();
   await expect(row.getByRole("button", { name: "Pause" })).toBeVisible();
+  // At once, it reads about the time it stood at. The widget's clock stood
+  // still while nothing ran, and used to show the time plus the whole pause
+  // until its first tick. A second up is the screen's clock, which it knows
+  // to the second from a Date header; a paused timer is shown from the
+  // server's own stamps.
+  const seconds = (mmss: string | null) => Number(mmss!.split(":")[0]) * 60 + Number(mmss!.split(":")[1]);
+  expect(seconds(await time.textContent())).toBeLessThanOrEqual(seconds(frozen) + 2);
   await expect.poll(() => time.textContent(), { timeout: 5_000 }).not.toBe(frozen);
-  // The pause, held for over five seconds above, is in its end. Checked on
-  // the server's numbers, not the screen's: a running countdown is read on
-  // the screen's estimate of the server's clock (to the second, from a Date
-  // header) and a paused one from the server's own stamps, so the two can
-  // differ by a second or so across a resume without anything being wrong.
+  // The pause, held for over five seconds above, is in its end.
   expect(Number(psql(`SELECT paused_seconds FROM timers WHERE id = '${id}'`))).toBeGreaterThanOrEqual(5);
   // The push is queued again, for an end later than the one it had.
   expect(pushes()).toBe("1");

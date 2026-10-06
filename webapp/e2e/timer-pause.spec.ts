@@ -43,6 +43,10 @@ test("the widget offers pause on a running timer and play on a paused one, and n
   expect(widget).toContain('{state === "paused" && (');
   expect(widget).toContain('{t("paused")}</span>');
   expect(widget).not.toContain('[timer.label, t("paused")]');
+  // The clock is read as it starts again: it stood still while nothing ran.
+  const clock = widget.slice(widget.indexOf("if (!hasRunning) return;"));
+  expect(clock.indexOf("const first = setTimeout(tick, 0);")).toBeGreaterThan(-1);
+  expect(clock.indexOf("const first = setTimeout(tick, 0);")).toBeLessThan(clock.indexOf("setInterval(tick, 1000)"));
   const hooks = codeOnly(read("src/hooks/use-timers.ts"));
   expect(hooks).toContain("fetch(`/api/timers/${id}/${action}`, {");
   // The tap's row goes into the cache, after any fetch already in flight is cancelled.
