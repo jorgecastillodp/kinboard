@@ -7,6 +7,11 @@ function endsAt(timer: Timer): number {
   return Date.parse(timer.started_at) + timer.duration_seconds * 1000;
 }
 
+/** Milliseconds since the timer ran out; negative while it is still counting. */
+export function msPastEnd(timer: Timer, now: Date): number {
+  return now.getTime() - endsAt(timer);
+}
+
 /**
  * Seconds left, clamped to the timer's own bounds.
  *

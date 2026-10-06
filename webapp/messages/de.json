@@ -4403,7 +4403,8 @@
     "finished": "Zeit abgelaufen",
     "dismiss": "Verstanden",
     "stop": "Stoppen",
-    "startFailed": "Timer konnte nicht gestartet werden"
+    "startFailed": "Timer konnte nicht gestartet werden",
+    "soundOff": "Ton aus, bis jemand diesen Bildschirm berührt"
   },
   "media": {
     "title": "Medien",
