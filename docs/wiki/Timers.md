@@ -5,7 +5,8 @@ integration or account and is enabled by default.
 
 ## Start and stop a timer
 
-Tap **3 min**, **5 min**, **10 min**, or **15 min** in the Timers widget. The
+Tap one of the preset times in the Timers widget: **3 min**, **5 min**,
+**10 min** and **15 min** until the family changes them (see below). The
 countdown appears immediately and is shared with every device in the family.
 Several timers can run at once, and any family device can stop one with its
 close button.
@@ -44,6 +45,12 @@ when the timer ended shows the finished state when it wakes.
 Use **Settings → Widgets** to show or hide Timers on the family dashboard.
 Hiding the widget does not delete timer records, but the dashboard no longer
 offers controls for them until the widget is enabled again.
+
+**Settings → Widgets → Timers → Preset times** changes the buttons. Add a time
+in whole minutes, from 1 minute to 24 hours, or remove one you don't use. There
+can be up to eight, and the last one can't be removed. The presets belong to
+the family, so every device shows the same ones. **Reset to defaults** brings
+back 3, 5, 10 and 15 minutes.
 
 | Problem | Check |
 |---|---|

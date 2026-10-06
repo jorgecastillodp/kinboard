@@ -8,13 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { WidgetCard } from "@/components/widget-card";
 import { useTimers, useStartTimer, useDismissTimer, usePauseTimer, useResumeTimer } from "@/hooks/use-timers";
+import { useTimerPresets } from "@/hooks/use-timer-presets";
 import { remainingSeconds, timerState } from "@/lib/timer-math";
 import { applyOffset } from "@/lib/server-clock";
 import { useServerClockOffset } from "@/hooks/use-server-clock";
 import { useToneReady } from "@/hooks/use-tone-ready";
 import { useFamilyStore } from "@/stores/family-store";
-
-const PRESETS = [3, 5, 10, 15];
 
 const mmss = (s: number) =>
   `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -26,6 +25,10 @@ export function TimerWidget() {
   const dismiss = useDismissTimer();
   const pause = usePauseTimer();
   const resume = useResumeTimer();
+  // The family's own (Settings → Widgets → Timers). 3, 5, 10 and 15 until
+  // they have been read, and if reading them fails: the presets are the only
+  // way a screen starts a timer, so the row is never empty.
+  const { presets } = useTimerPresets();
 
   const offsetMs = useServerClockOffset();
   const [now, setNow] = useState(() => new Date());
@@ -152,7 +155,7 @@ export function TimerWidget() {
           screen, so hiding it here would mean it could never be used.
         */}
         <div className="flex flex-wrap gap-2">
-          {PRESETS.map((minutes) => (
+          {presets.map((minutes) => (
             <Button
               key={minutes}
               variant="outline"
