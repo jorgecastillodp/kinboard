@@ -7,7 +7,7 @@ import { createAdminClient } from "../src/lib/supabase/server";
 import { mintFamilyToken } from "../src/lib/family-jwt";
 import type { RpcClient } from "../src/lib/pocket-money/booking";
 import { buyItem, refundPurchase } from "../src/lib/creatures/purchases";
-import { decideRedemption, requestRedemption } from "../src/lib/pocket-money/rewards";
+import { decideRedemption, requestRedemption, silentRewardNotifier } from "../src/lib/pocket-money/rewards";
 import { pointTotals, tierFromPoints } from "../src/lib/pocket-money/points";
 import { postJoin } from "./session";
 import { acquireWholeDatabase, dbContainer, releaseWholeDatabase } from "./whole-database";
@@ -190,10 +190,10 @@ test.describe("buying", () => {
   test("a reward request and its approval see the purchases", async () => {
     reset(100);
     expect((await buy("rainbow")).status).toBe(201);
-    expect(await requestRedemption(rpc(), { familyId: FAMILY, personId: KID, rewardId: REWARD, deviceId: null }))
+    expect(await requestRedemption(rpc(), { familyId: FAMILY, personId: KID, rewardId: REWARD, deviceId: null }, silentRewardNotifier))
       .toEqual({ status: 409, body: { error: "insufficient_points", balance: 20, pending: 0 } });
     const id = psql(`INSERT INTO point_redemptions (family_id, person_id, title, cost_points) VALUES ('${FAMILY}', '${KID}', 'claude-shop late', 30) RETURNING id`).split("\n")[0];
-    expect(await decideRedemption(rpc(), { familyId: FAMILY, redemptionId: id, decision: "approved", deviceId: null }))
+    expect(await decideRedemption(rpc(), { familyId: FAMILY, redemptionId: id, decision: "approved", deviceId: null }, silentRewardNotifier))
       .toEqual({ status: 409, body: { error: "insufficient_points", balance: 20 } });
   });
 
@@ -203,7 +203,7 @@ test.describe("buying", () => {
       // 80 + 60 > 100: whichever is served first under the child's lock wins.
       const [bought, asked] = await Promise.all([
         buy("rainbow"),
-        requestRedemption(rpc(), { familyId: FAMILY, personId: KID, rewardId: REWARD, deviceId: null }),
+        requestRedemption(rpc(), { familyId: FAMILY, personId: KID, rewardId: REWARD, deviceId: null }, silentRewardNotifier),
       ]);
       expect([bought.status, asked.status].filter((s) => s === 201), `round ${round}`).toHaveLength(1);
       const t = await totals();
