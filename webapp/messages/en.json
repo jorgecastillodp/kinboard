@@ -4084,6 +4084,7 @@
     "toastUpdateFailed": "Failed to update",
     "overdue": "Overdue",
     "today": "Today",
+    "upcoming": "Upcoming",
     "emptyState": "All done!",
     "moreCount": "+{count} more",
     "toastNoTurnOpen": "This task's turns haven't started yet"
