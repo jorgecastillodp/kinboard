@@ -63,8 +63,16 @@ export function TimerWidget() {
   const hasRunning = timers.some((x) => timerState(x, applyOffset(now, offsetMs)) === "running");
   useEffect(() => {
     if (!hasRunning) return;
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
+    // Read as it starts, not a second later: while nothing counted the clock
+    // stood still, and a timer resumed after a pause read the time it had
+    // plus the whole pause until the first tick.
+    const tick = () => setNow(new Date());
+    const first = setTimeout(tick, 0);
+    const id = setInterval(tick, 1000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(id);
+    };
   }, [hasRunning]);
 
   const serverNow = applyOffset(now, offsetMs);
