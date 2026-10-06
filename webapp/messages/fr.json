@@ -4420,7 +4420,8 @@
     "pauseFailed": "Impossible de mettre ce minuteur en pause",
     "resumeFailed": "Impossible de reprendre ce minuteur",
     "startFailed": "Impossible de lancer ce minuteur",
-    "soundOff": "Son coupé jusqu'à ce que quelqu'un touche cet écran"
+    "soundOff": "Son coupé jusqu'à ce que quelqu'un touche cet écran",
+    "soundOffShort": "Touchez pour le son"
   },
   "media": {
     "title": "Média",

@@ -57,20 +57,26 @@ test("the alarm sounds from the whole app, on a kiosk only, and any touch or key
   expect(providers).toContain("<TimerAlarm />");
   const alarm = codeOnly(read("src/components/timer-alarm.tsx"));
   expect(alarm).toContain("const isKiosk = device?.is_kiosk ?? false;");
-  expect(alarm).toContain('document.addEventListener("pointerdown", unlockTone, options);');
-  expect(alarm).toContain('document.addEventListener("keydown", unlockTone, options);');
+  // A finger's touch only counts once it lifts: pointerup, not pointerdown alone.
+  expect(alarm).toContain('const events = ["pointerdown", "pointerup", "keydown"] as const;');
+  expect(alarm).toContain("for (const event of events) document.addEventListener(event, unlockTone, options);");
   expect(alarm).toContain("const options = { capture: true, passive: true } as const;");
   expect(alarm).toContain("alarmRinging(current, applyOffset(new Date(), offset))");
   expect(alarm).toContain("Date.now() - lastRing >= RING_EVERY_MS && playTone()");
   expect(RING_EVERY_MS).toBe(3_000);
 });
 
-test("the widget no longer rings on its own, and says when the sound is off", () => {
+test("the widget no longer rings on its own, and says when the sound is off, in its header", () => {
   const widget = codeOnly(read("src/components/widgets/timer-widget.tsx"));
   expect(widget).not.toContain("playTone");
   expect(widget).not.toContain("unlockTone");
   expect(widget).toContain("const soundOff = (device?.is_kiosk ?? false) && !toneReady && visible.length > 0;");
-  expect(widget).toContain('{soundOff && <p className="text-xs text-muted-foreground">{t("soundOff")}</p>}');
+  // In the header, which keeps its height: the touch that turns the sound on
+  // hides it, and nothing may move under that finger, or its tap is lost.
+  const header = widget.slice(widget.indexOf("headerRight={"), widget.indexOf("headerRight={") + 400);
+  expect(header).toContain("soundOff ? (");
+  expect(header).toContain('aria-label={t("soundOff")}');
+  expect(widget).not.toContain('{soundOff && <p');
   const tone = codeOnly(read("src/lib/timer-tone.ts"));
   expect(tone).toContain('ctx.addEventListener("statechange", notify);');
   expect(tone).toContain('return ctx?.state === "running";');
@@ -79,7 +85,9 @@ test("the widget no longer rings on its own, and says when the sound is off", ()
 test("the sound-off note exists in every language", () => {
   for (const locale of ["en", "de", "fr"]) {
     const strings = JSON.parse(read(`messages/${locale}.json`)).timers;
-    expect(typeof strings.soundOff, locale).toBe("string");
-    expect(strings.soundOff.trim(), locale).not.toBe("");
+    for (const key of ["soundOff", "soundOffShort"]) {
+      expect(typeof strings[key], `${locale}.${key}`).toBe("string");
+      expect(strings[key].trim(), `${locale}.${key}`).not.toBe("");
+    }
   }
 });

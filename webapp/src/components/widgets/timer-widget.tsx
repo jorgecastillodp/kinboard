@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Pause, Play, Timer as TimerIcon, X } from "lucide-react";
+import { Pause, Play, Timer as TimerIcon, VolumeX, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { WidgetCard } from "@/components/widget-card";
 import { useTimers, useStartTimer, useDismissTimer, usePauseTimer, useResumeTimer } from "@/hooks/use-timers";
@@ -75,7 +76,21 @@ export function TimerWidget() {
   const soundOff = (device?.is_kiosk ?? false) && !toneReady && visible.length > 0;
 
   return (
-    <WidgetCard title={t("title")} icon={TimerIcon}>
+    <WidgetCard
+      title={t("title")}
+      icon={TimerIcon}
+      // In the header, where it takes no room of its own: the touch that turns
+      // the sound on also hides it, and anything that moved under that finger
+      // would lose the tap it started.
+      headerRight={
+        soundOff ? (
+          <Badge variant="neutral" className="gap-1" title={t("soundOff")} aria-label={t("soundOff")}>
+            <VolumeX className="size-3.5" aria-hidden="true" />
+            {t("soundOffShort")}
+          </Badge>
+        ) : undefined
+      }
+    >
       <div className="flex flex-col gap-3">
         {visible.map((timer) => {
           const state = timerState(timer, serverNow);
@@ -116,8 +131,6 @@ export function TimerWidget() {
             </div>
           );
         })}
-
-        {soundOff && <p className="text-xs text-muted-foreground">{t("soundOff")}</p>}
 
         {/*
           Present when idle, deliberately unlike the media widget. Media has

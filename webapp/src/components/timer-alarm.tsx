@@ -20,8 +20,8 @@ import { playTone, unlockTone } from "@/lib/timer-tone";
  * has dismissed it, for at most RING_FOR_MS (lib/timer-alarm.ts): one tone
  * for any number of timers, never a chord.
  *
- * Browsers only let a page start its audio from a touch or a key press, so
- * every one of them anywhere on the page unlocks it. Listening only on the
+ * Browsers only let a page start its audio from a touch, a click or a key
+ * press, so every one of them anywhere on the page unlocks it. Listening only on the
  * timer's own buttons left the alarm silent whenever the timer came from a
  * phone or an assistant, or the panel had reloaded since its last preset.
  */
@@ -31,14 +31,16 @@ export function TimerAlarm() {
   const { data: timers = [] } = useTimers();
   const offsetMs = useServerClockOffset();
 
+  // pointerdown for a mouse, pointerup for a finger: a touch only counts as
+  // the user's gesture once it lifts, so a finger's first tap would be missed
+  // on pointerdown alone. keydown for a keyboard.
   useEffect(() => {
     if (!isKiosk) return;
     const options = { capture: true, passive: true } as const;
-    document.addEventListener("pointerdown", unlockTone, options);
-    document.addEventListener("keydown", unlockTone, options);
+    const events = ["pointerdown", "pointerup", "keydown"] as const;
+    for (const event of events) document.addEventListener(event, unlockTone, options);
     return () => {
-      document.removeEventListener("pointerdown", unlockTone, options);
-      document.removeEventListener("keydown", unlockTone, options);
+      for (const event of events) document.removeEventListener(event, unlockTone, options);
     };
   }, [isKiosk]);
 

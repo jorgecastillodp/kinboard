@@ -4420,7 +4420,8 @@
     "pauseFailed": "Timer konnte nicht pausiert werden",
     "resumeFailed": "Timer konnte nicht fortgesetzt werden",
     "startFailed": "Timer konnte nicht gestartet werden",
-    "soundOff": "Ton aus, bis jemand diesen Bildschirm berührt"
+    "soundOff": "Ton aus, bis jemand diesen Bildschirm berührt",
+    "soundOffShort": "Tippen für Ton"
   },
   "media": {
     "title": "Medien",
