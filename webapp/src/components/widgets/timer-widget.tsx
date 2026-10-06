@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Timer as TimerIcon, X } from "lucide-react";
+import { Pause, Play, Timer as TimerIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { WidgetCard } from "@/components/widget-card";
-import { useTimers, useStartTimer, useDismissTimer } from "@/hooks/use-timers";
+import { useTimers, useStartTimer, useDismissTimer, usePauseTimer, useResumeTimer } from "@/hooks/use-timers";
 import { useTimerPresets } from "@/hooks/use-timer-presets";
 import { remainingSeconds, timerState } from "@/lib/timer-math";
 import { applyOffset } from "@/lib/server-clock";
@@ -22,6 +22,8 @@ export function TimerWidget() {
   const { data: timers = [] } = useTimers();
   const start = useStartTimer();
   const dismiss = useDismissTimer();
+  const pause = usePauseTimer();
+  const resume = useResumeTimer();
   // The family's own (Settings → Widgets → Timers), 3, 5, 10 and 15 until
   // then. None while they load: a tap must not start a length the family
   // has replaced.
@@ -46,6 +48,15 @@ export function TimerWidget() {
     }
   };
 
+
+  // Pause and resume answer a tap at once, or say they could not.
+  const togglePause = async (id: string, paused: boolean) => {
+    try {
+      await (paused ? resume : pause).mutateAsync(id);
+    } catch {
+      toast.error(t(paused ? "resumeFailed" : "pauseFailed"));
+    }
+  };
 
   // One clock for every ring. Only runs while something is counting.
   const hasRunning = timers.some((x) => timerState(x, applyOffset(now, offsetMs)) === "running");
@@ -76,12 +87,23 @@ export function TimerWidget() {
                 state === "finished" ? "border-destructive bg-destructive/10" : "border-border"
               }`}
             >
-              <span className="font-mono text-lg tabular-nums">
+              <span className={`font-mono text-lg tabular-nums ${state === "paused" ? "text-muted-foreground" : ""}`}>
                 {state === "finished" ? t("finished") : mmss(left)}
               </span>
               <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
-                {timer.label}
+                {state === "paused" ? [timer.label, t("paused")].filter(Boolean).join(" · ") : timer.label}
               </span>
+              {(state === "running" || state === "paused") && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="min-h-[44px] min-w-[44px]"
+                  aria-label={state === "paused" ? t("resume") : t("pause")}
+                  onClick={() => void togglePause(timer.id, state === "paused")}
+                >
+                  {state === "paused" ? <Play className="size-4" /> : <Pause className="size-4" />}
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
