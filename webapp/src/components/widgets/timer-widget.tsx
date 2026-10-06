@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Pause, Play, Timer as TimerIcon, X } from "lucide-react";
+import { Pause, Play, Timer as TimerIcon, VolumeX, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { WidgetCard } from "@/components/widget-card";
 import { useTimers, useStartTimer, useDismissTimer, usePauseTimer, useResumeTimer } from "@/hooks/use-timers";
 import { remainingSeconds, timerState } from "@/lib/timer-math";
 import { applyOffset } from "@/lib/server-clock";
 import { useServerClockOffset } from "@/hooks/use-server-clock";
-import { unlockTone, playTone } from "@/lib/timer-tone";
+import { useToneReady } from "@/hooks/use-tone-ready";
+import { useFamilyStore } from "@/stores/family-store";
 
 const PRESETS = [3, 5, 10, 15];
 
@@ -27,7 +29,10 @@ export function TimerWidget() {
 
   const offsetMs = useServerClockOffset();
   const [now, setNow] = useState(() => new Date());
-  const rung = useRef<Set<string>>(new Set());
+  // The alarm itself sounds from TimerAlarm, on every page of a wall display.
+  // This only says when it can't: a panel nobody has touched since it loaded.
+  const { device } = useFamilyStore();
+  const toneReady = useToneReady();
 
   // A preset tap that fails otherwise does nothing visible: the button just
   // sits there, no row appears, no error either. Same shape as the other
@@ -73,25 +78,24 @@ export function TimerWidget() {
     () => timers.filter((x) => timerState(x, serverNow) !== "dismissed"),
     [timers, serverNow],
   );
-  const finished = visible.filter((x) => timerState(x, serverNow) === "finished");
-
-  /*
-    Ring once per timer, and only on a kiosk. A phone in a pocket should not
-    beep from an open tab — its channel is the push, and without this rule
-    standing in the kitchen holding your phone means the timer goes off twice.
-  */
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    if (!document.documentElement.hasAttribute("data-kiosk")) return;
-    const fresh = finished.filter((x) => !rung.current.has(x.id));
-    if (fresh.length === 0) return;
-    for (const x of fresh) rung.current.add(x.id);
-    // One tone however many ended together, not a chord.
-    playTone();
-  }, [finished]);
+  const soundOff = (device?.is_kiosk ?? false) && !toneReady && visible.length > 0;
 
   return (
-    <WidgetCard title={t("title")} icon={TimerIcon}>
+    <WidgetCard
+      title={t("title")}
+      icon={TimerIcon}
+      // In the header, where it takes no room of its own: the touch that turns
+      // the sound on also hides it, and anything that moved under that finger
+      // would lose the tap it started.
+      headerRight={
+        soundOff ? (
+          <Badge variant="neutral" className="gap-1" title={t("soundOff")} aria-label={t("soundOff")}>
+            <VolumeX className="size-3.5" aria-hidden="true" />
+            {t("soundOffShort")}
+          </Badge>
+        ) : undefined
+      }
+    >
       <div className="flex flex-col gap-3">
         {visible.map((timer) => {
           const state = timerState(timer, serverNow);
@@ -147,7 +151,7 @@ export function TimerWidget() {
           hides when idle still leaves a way. A timer has no origin but this
           screen, so hiding it here would mean it could never be used.
         */}
-        <div className="flex flex-wrap gap-2" onPointerDown={unlockTone}>
+        <div className="flex flex-wrap gap-2">
           {PRESETS.map((minutes) => (
             <Button
               key={minutes}
