@@ -39,6 +39,10 @@ test("the widget offers pause on a running timer and play on a paused one, and n
   expect(widget).toContain('{(state === "running" || state === "paused") && (');
   expect(widget).toContain('aria-label={state === "paused" ? t("resume") : t("pause")}');
   expect(widget).toContain('onClick={() => void togglePause(timer.id, state === "paused")}');
+  // "Paused" sits under the time; the label stays the row's own child.
+  expect(widget).toContain('{state === "paused" && (');
+  expect(widget).toContain('{t("paused")}</span>');
+  expect(widget).not.toContain('[timer.label, t("paused")]');
   const hooks = codeOnly(read("src/hooks/use-timers.ts"));
   expect(hooks).toContain("fetch(`/api/timers/${id}/${action}`, {");
   // The tap's row goes into the cache, after any fetch already in flight is cancelled.

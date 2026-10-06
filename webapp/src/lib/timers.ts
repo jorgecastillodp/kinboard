@@ -197,7 +197,9 @@ export async function resumeTimer(db: TimerDb, familyId: string, id: string, now
   const paused = row as Timer | null;
   if (!paused || paused.dismissed_at || !paused.paused_at) return { timer: null, error: null };
 
-  const pausedFor = Math.max(0, Math.round((now.getTime() - Date.parse(paused.paused_at)) / 1000));
+  // Rounded down: a resumed timer never shows more time than it had when it
+  // was paused (rounding to nearest put a second back on half the time).
+  const pausedFor = Math.max(0, Math.floor((now.getTime() - Date.parse(paused.paused_at)) / 1000));
   const { data, error: updateError } = await db
     .from("timers")
     .update({ paused_at: null, paused_seconds: (paused.paused_seconds ?? 0) + pausedFor })

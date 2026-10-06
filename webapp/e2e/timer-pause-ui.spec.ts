@@ -51,7 +51,7 @@ test("a paused timer stands still everywhere, its push waits, and it resumes whe
 
   await row.getByRole("button", { name: "Pause" }).click();
   await expect(row.getByRole("button", { name: "Resume" })).toBeVisible();
-  await expect(row.getByText(`${label} · Paused`)).toBeVisible();
+  await expect(row.getByText("Paused", { exact: true })).toBeVisible();
   const frozen = await time.textContent();
   await page.waitForTimeout(2500);
   expect(await time.textContent()).toBe(frozen);
@@ -66,6 +66,9 @@ test("a paused timer stands still everywhere, its push waits, and it resumes whe
   await row.getByRole("button", { name: "Resume" }).click();
   await expect(row.getByRole("button", { name: "Pause" })).toBeVisible();
   await expect.poll(() => time.textContent(), { timeout: 5_000 }).not.toBe(frozen);
+  // It carried on from where it stood: never more time than it had paused.
+  const seconds = (mmss: string | null) => Number(mmss!.split(":")[0]) * 60 + Number(mmss!.split(":")[1]);
+  expect(seconds(await time.textContent())).toBeLessThan(seconds(frozen));
   // The push is queued again, for an end later than the one it had.
   expect(pushes()).toBe("1");
   expect(
