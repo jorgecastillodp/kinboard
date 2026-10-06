@@ -4,12 +4,31 @@ import type { PocketMoneyAccountUpdate } from "@/types/database";
 import avatarCatalog from "@/plugins/pocket-money/catalog/avatars.json";
 import { familyIdFrom, rowInFamily, accountInFamily } from "@/lib/family-scope";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
+import { requireSettingsUnlock } from "@/lib/settings-pin";
 
 export const dynamic = "force-dynamic";
 
 const VALID_SPECIES: ReadonlySet<string> = new Set(
   avatarCatalog.species.map((s) => s.id),
 );
+
+/**
+ * This PATCH also carries the kid-side avatar-stage tracking
+ * (last_seen_tier, best_tier), written on every visit to /pocket-money so a
+ * child's own device must reach it with no PIN. Everything else here is a
+ * parental setting — allowance, interest, currency, the avatar species picked
+ * at setup — so the PIN check is per-field, not on the route as a whole.
+ */
+const PIN_PROTECTED_FIELDS = [
+  "currency",
+  "apr_bps",
+  "weekly_allowance_cents",
+  "allowance_day_of_week",
+  "allowance_interval_days",
+  "max_balance_eligible_cents",
+  "interest_committed_day_of_week",
+  "avatar_species",
+] as const;
 
 // GET /api/pocket-money/accounts/[id]
 export async function GET(
@@ -66,6 +85,11 @@ export async function PATCH(
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
+  if (PIN_PROTECTED_FIELDS.some((field) => body[field] !== undefined)) {
+    const locked = await requireSettingsUnlock(auth.session);
+    if (locked) return locked;
+  }
+
   // Whitelist editable fields. balance_cents, lifetime_saved_cents,
   // pending_interest_cents etc. are driven by transactions/cron — not settable here.
   const update: PocketMoneyAccountUpdate = {};
@@ -85,10 +109,23 @@ export async function PATCH(
     }
     update.avatar_species = body.avatar_species;
   }
+  // What the avatar grows with (discussion #349). A parent's choice, so it
+  // takes the settings PIN even though the rest of this route does not: the
+  // child's own screen writes last_seen_tier here.
+  if (body.reward_mode !== undefined) {
+    if (body.reward_mode !== "money" && body.reward_mode !== "points") {
+      return NextResponse.json({ error: "reward_mode must be money or points" }, { status: 400 });
+    }
+    const locked = await requireSettingsUnlock(auth.session);
+    if (locked) return locked;
+    update.reward_mode = body.reward_mode;
+  }
   if (body.last_seen_tier !== undefined) update.last_seen_tier = body.last_seen_tier;
   // The avatar's high-water mark. Client-written because it's derived
-  // from the balance the client just rendered; the route clamps it to a
-  // valid stage so a bad value can't push the badge past stage 8.
+  // from the balance (or, in points mode, the points) the client just
+  // rendered; the route clamps it to a valid stage so a bad value can't push
+  // the badge past stage 8, and the database never lets it go down
+  // (pocket_money_accounts_best_tier_climbs).
   if (body.best_tier !== undefined) {
     update.best_tier = Math.min(8, Math.max(1, Math.floor(Number(body.best_tier) || 1)));
   }
@@ -129,6 +166,9 @@ export async function DELETE(
   if (!familyMatchesSession(auth.session, familyId)) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
+
+  const locked = await requireSettingsUnlock(auth.session);
+  if (locked) return locked;
 
   const supabase = createAdminClient();
 
