@@ -7,12 +7,11 @@ import { Timer as TimerIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { WidgetCard } from "@/components/widget-card";
 import { useTimers, useStartTimer, useDismissTimer } from "@/hooks/use-timers";
+import { useTimerPresets } from "@/hooks/use-timer-presets";
 import { remainingSeconds, timerState } from "@/lib/timer-math";
 import { applyOffset } from "@/lib/server-clock";
 import { useServerClockOffset } from "@/hooks/use-server-clock";
 import { unlockTone, playTone } from "@/lib/timer-tone";
-
-const PRESETS = [3, 5, 10, 15];
 
 const mmss = (s: number) =>
   `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -22,6 +21,10 @@ export function TimerWidget() {
   const { data: timers = [] } = useTimers();
   const start = useStartTimer();
   const dismiss = useDismissTimer();
+  // The family's own (Settings → Widgets → Timers), 3, 5, 10 and 15 until
+  // then. None while they load: a tap must not start a length the family
+  // has replaced.
+  const { presets, isLoading: presetsLoading } = useTimerPresets();
 
   const offsetMs = useServerClockOffset();
   const [now, setNow] = useState(() => new Date());
@@ -110,7 +113,7 @@ export function TimerWidget() {
           screen, so hiding it here would mean it could never be used.
         */}
         <div className="flex flex-wrap gap-2" onPointerDown={unlockTone}>
-          {PRESETS.map((minutes) => (
+          {(presetsLoading ? [] : presets).map((minutes) => (
             <Button
               key={minutes}
               variant="outline"

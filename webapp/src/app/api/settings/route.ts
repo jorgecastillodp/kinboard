@@ -14,6 +14,7 @@ import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { isFamilyTimeZone } from "@/lib/integration-event-input";
 import { checkCameraDoorbells } from "@/lib/camera-takeover";
+import { MAX_TIMER_PRESETS, MAX_TIMER_PRESET_MINUTES, isTimerWidgetSettings } from "@/lib/timer-presets";
 
 // Every verb here reads or writes one family's settings row, and the family
 // was picked entirely by the caller. That covered integration config — Home
@@ -145,6 +146,16 @@ export async function PUT(request: NextRequest) {
   if (key === SETTINGS_KEYS.timezone && !isFamilyTimeZone(value)) {
     return NextResponse.json(
       { error: "timezone must be an IANA zone name such as Europe/Berlin; delete the setting for the server's own" },
+      { status: 400 }
+    );
+  }
+
+  // Each preset is a button on every screen that starts a timer of that
+  // length. The widget skips what it can't start, so a bad list would lose
+  // the family's buttons without a word: it is refused here instead.
+  if (key === SETTINGS_KEYS.timerWidget && !isTimerWidgetSettings(value)) {
+    return NextResponse.json(
+      { error: `timer_widget must be { presets: [...] }: 1 to ${MAX_TIMER_PRESETS} different whole minutes, each from 1 to ${MAX_TIMER_PRESET_MINUTES}` },
       { status: 400 }
     );
   }
