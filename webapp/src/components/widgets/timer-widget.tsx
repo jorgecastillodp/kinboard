@@ -25,10 +25,10 @@ export function TimerWidget() {
   const dismiss = useDismissTimer();
   const pause = usePauseTimer();
   const resume = useResumeTimer();
-  // The family's own (Settings → Widgets → Timers), 3, 5, 10 and 15 until
-  // then. None while they load: a tap must not start a length the family
-  // has replaced.
-  const { presets, isLoading: presetsLoading } = useTimerPresets();
+  // The family's own (Settings → Widgets → Timers). 3, 5, 10 and 15 until
+  // they have been read, and if reading them fails: the presets are the only
+  // way a screen starts a timer, so the row is never empty.
+  const { presets } = useTimerPresets();
 
   const offsetMs = useServerClockOffset();
   const [now, setNow] = useState(() => new Date());
@@ -155,7 +155,7 @@ export function TimerWidget() {
           screen, so hiding it here would mean it could never be used.
         */}
         <div className="flex flex-wrap gap-2">
-          {(presetsLoading ? [] : presets).map((minutes) => (
+          {presets.map((minutes) => (
             <Button
               key={minutes}
               variant="outline"

@@ -54,6 +54,7 @@ test("the settings route takes 1 to 8 different whole minutes, and nothing else"
     { presets: [5, 5] },
     { presets: [Number.NaN] },
     { presets: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
+    { presets: [3, 5], extra: true },
   ]) {
     expect(isTimerWidgetSettings(bad), JSON.stringify(bad) ?? String(bad)).toBe(false);
   }
@@ -110,11 +111,22 @@ test("only a list other than 3, 5, 10 and 15 counts as the family's own", () => 
 test("the widget reads the family's presets, and has no list of its own", () => {
   const widget = codeOnly(read("src/components/widgets/timer-widget.tsx"));
   expect(widget).toContain("useTimerPresets()");
-  expect(widget).toContain("(presetsLoading ? [] : presets).map(");
+  expect(widget).toContain("presets.map(");
   expect(widget).not.toMatch(/\[\s*3\s*,\s*5\s*,\s*10\s*,\s*15\s*\]/);
   const hook = codeOnly(read("src/hooks/use-timer-presets.ts"));
   expect(hook).toContain("useSetting<unknown>(SETTINGS_KEYS.timerWidget, null)");
   expect(hook).toContain("timerPresets(data)");
+});
+
+test("while the family's presets load, or if reading them fails, the widget shows the defaults", () => {
+  // useSetting's data is undefined until the read succeeds, and stays so if it fails.
+  expect(timerPresets(undefined)).toEqual([...DEFAULT_TIMER_PRESETS]);
+  const hook = codeOnly(read("src/hooks/use-timer-presets.ts"));
+  expect(hook).toMatch(/const presets = timerPresets\(data\);/);
+  // The widget does not hold its buttons back on loading or on an error.
+  const widget = codeOnly(read("src/components/widgets/timer-widget.tsx"));
+  expect(widget).toContain("{presets.map((minutes) => (");
+  expect(widget).not.toMatch(/presetsLoading|isLoading|isError/);
 });
 
 test("the settings route checks the presets before anything is written", () => {

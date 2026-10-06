@@ -33,6 +33,8 @@ export function isTimerPresetMinutes(value: unknown): value is number {
 /** What PUT /api/settings accepts for `timer_widget`. */
 export function isTimerWidgetSettings(value: unknown): value is TimerWidgetSettings {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  // Nothing but `presets`: the route stores the value as it is sent.
+  if (Object.keys(value).some((key) => key !== "presets")) return false;
   const { presets } = value as { presets?: unknown };
   return (
     Array.isArray(presets) &&

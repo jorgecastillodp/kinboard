@@ -7,11 +7,15 @@ import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { isDefaultTimerPresets, timerPresets } from "@/lib/timer-presets";
 
 export interface TimerPresetsState {
-  /** The widget's buttons, in whole minutes, smallest first. */
+  /**
+   * The widget's buttons, in whole minutes, smallest first. The defaults
+   * until the setting has been read, and if the read fails: the presets are
+   * the only way a screen starts a timer, so the widget never goes without.
+   */
   presets: number[];
   /** They differ from 3, 5, 10 and 15. */
   custom: boolean;
-  /** Not read yet: the widget shows no buttons rather than buttons that may be wrong. */
+  /** Not read yet. The editor waits for it; the widget shows `presets` regardless. */
   isLoading: boolean;
 }
 

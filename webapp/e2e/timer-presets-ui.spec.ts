@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
+import { execFileSync } from "child_process";
 import { establishSession } from "./session";
+import { dbContainer } from "./whole-database";
 
 /**
  * Settings → Widgets → Timers → Preset times, against a running stack: a time
@@ -17,6 +19,14 @@ test.skip(!familyCode, "Set FAMILY_CODE for the local stack");
 // IP and the smoke run already comes close (see session.ts).
 test.describe.configure({ mode: "serial" });
 const DEVICE = "timer-presets-ui";
+
+test.afterAll(() => {
+  execFileSync(
+    "docker",
+    ["exec", "-i", dbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-tA", "-q", "-c", `DELETE FROM devices WHERE hardware_id = 'e2e-${DEVICE}'`],
+    { encoding: "utf8" },
+  );
+});
 
 let familyId = "";
 let saved: unknown = null;
@@ -87,7 +97,9 @@ test("a time added in Settings is a button on Home that starts a timer that long
   await page.getByRole("button", { name: "7 min", exact: true }).click();
   const countdown = page.getByText(/^(7:00|6:[45]\d)$/);
   await expect(countdown).toBeVisible({ timeout: 10_000 });
-  await countdown.locator("..").getByRole("button", { name: "Stop" }).click();
+  // The time sits in a column of its own, with "Paused" under it when it is
+  // paused; the row is the first div around it.
+  await countdown.locator("xpath=ancestor::div[1]").getByRole("button", { name: "Stop" }).click();
   await expect(countdown).toHaveCount(0, { timeout: 10_000 });
 });
 
@@ -148,6 +160,7 @@ test("the settings route refuses a list the widget could not use", async ({ page
     { presets: [5, 5] },
     { presets: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
     { presets: "5" },
+    { presets: [3, 5], extra: true },
   ]) {
     const res = await page.request.put("/api/settings", { data: { family_id: familyId, key: "timer_widget", value } });
     expect(res.status(), JSON.stringify(value)).toBe(400);
@@ -156,4 +169,33 @@ test("the settings route refuses a list the widget could not use", async ({ page
   const ok = await page.request.put("/api/settings", { data: { family_id: familyId, key: "timer_widget", value: { presets: [3, 8] } } });
   expect(ok.status()).toBe(200);
   expect(await stored(page)).toEqual({ presets: [3, 8] });
+});
+
+test.describe("while the presets can't be read", () => {
+  // The service worker would answer the settings read before page.route sees it.
+  test.use({ serviceWorkers: "block" });
+
+  for (const how of ["still loading", "failed"] as const) {
+    test(`the widget shows 3, 5, 10 and 15 when the read has ${how === "failed" ? "failed" : "not come back"}`, async ({ page }) => {
+      // The family's own, so the defaults on screen can only be the fallback.
+      const put = await page.request.put("/api/settings", {
+        data: { family_id: familyId, key: "timer_widget", value: { presets: [4, 7] } },
+      });
+      expect(put.ok()).toBe(true);
+      let hits = 0;
+      await page.route(/\/rest\/v1\/settings\?.*key=eq\.timer_widget/, (route) => {
+        hits++;
+        // Left unanswered, the read stays loading for the rest of the test.
+        if (how === "failed") return route.fulfill({ status: 500, contentType: "application/json", body: "{}" });
+      });
+      await page.goto("/", { waitUntil: "domcontentloaded" });
+      await page.waitForSelector(".hero-block", { timeout: 20_000 });
+      for (const name of ["3 min", "5 min", "10 min", "15 min"]) {
+        await expect(page.getByRole("button", { name, exact: true })).toBeVisible({ timeout: 15_000 });
+      }
+      await expect(page.getByRole("button", { name: "7 min", exact: true })).toHaveCount(0);
+      expect(hits).toBeGreaterThan(0);
+      await page.unrouteAll({ behavior: "ignoreErrors" });
+    });
+  }
 });
