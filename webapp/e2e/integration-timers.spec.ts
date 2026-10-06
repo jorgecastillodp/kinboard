@@ -24,7 +24,7 @@ import { codeOnly } from "./source-helpers";
 
 /**
  * RFC-012 task 2: kitchen timers for assistants — list, start (capped at 10
- * running or ringing per family) and stop, sharing lib/timers.ts with the
+ * running, paused or ringing per family) and stop, sharing lib/timers.ts with the
  * session routes.
  *
  * The fake client applies the `.eq`/`.is` filters it is given to every
@@ -203,7 +203,7 @@ test.describe("starting", () => {
     await expect(startIntegrationTimer(OURS, { label: null, duration_seconds: 60 }, ASSISTANT, fakeDbFailing().db)).rejects.toBeTruthy();
   });
 
-  test(`refused once the family has ${MAX_ACTIVE_TIMERS} running or ringing; nothing is written`, async () => {
+  test(`refused once the family has ${MAX_ACTIVE_TIMERS} running, paused or ringing; nothing is written`, async () => {
     const rows = Array.from({ length: MAX_ACTIVE_TIMERS }, (_, i) => timer(i + 1, OURS, i % 2 ? { duration_seconds: 60 } : {}));
     const f = fakeDb({ timers: rows });
     expect(await startIntegrationTimer(OURS, { label: null, duration_seconds: 60 }, ASSISTANT, f.db)).toEqual({ status: "too_many", active: MAX_ACTIVE_TIMERS });

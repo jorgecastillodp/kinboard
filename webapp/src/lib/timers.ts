@@ -23,7 +23,7 @@ export type TimerDb = ReturnType<typeof createAdminClient>;
 /** 24 hours: RFC-012's bound for an assistant's timer. */
 export const MAX_TIMER_SECONDS = 86_400;
 export const MAX_TIMER_LABEL = 60;
-/** Not dismissed (running or ringing) timers a family may have before an assistant is refused another. */
+/** Not dismissed (running, paused or ringing) timers a family may have before an assistant is refused another. A paused timer counts. */
 export const MAX_ACTIVE_TIMERS = 10;
 /**
  * A ringing timer stops counting against the cap this long after it ran out.
@@ -34,7 +34,7 @@ export const STALE_RINGING_MS = 60 * 60 * 1000;
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
-/** Timers not yet dismissed — running or ringing — newest first. */
+/** Timers not yet dismissed — running, paused or ringing — newest first. */
 export async function listActiveTimers(db: TimerDb, familyId: string) {
   return db
     .from("timers")
