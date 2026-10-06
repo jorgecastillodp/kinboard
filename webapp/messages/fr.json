@@ -4404,7 +4404,8 @@
     "dismiss": "Ignorer",
     "stop": "Arrêter",
     "startFailed": "Impossible de lancer ce minuteur",
-    "soundOff": "Son coupé jusqu'à ce que quelqu'un touche cet écran"
+    "soundOff": "Son coupé jusqu'à ce que quelqu'un touche cet écran",
+    "soundOffShort": "Touchez pour le son"
   },
   "media": {
     "title": "Média",

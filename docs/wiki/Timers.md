@@ -27,8 +27,8 @@ system clock therefore still agrees with the other devices and with the server.
 
 Browser audio rules block sound until somebody has touched the screen since the
 page loaded; any touch or key press turns it on. While a timer is running or
-ringing on a kiosk that cannot sound yet, the Timers widget says **Sound is off
-until someone touches this screen**. The persistent red **Time's up** state is
+ringing on a kiosk that cannot sound yet, the Timers widget shows **Tap for
+sound** in its header. The persistent red **Time's up** state is
 the reliable alarm; sound is a best-effort addition. Phones rely on push
 notifications and do not also beep from an open Kinboard tab.
 

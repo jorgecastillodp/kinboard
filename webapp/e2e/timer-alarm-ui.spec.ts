@@ -5,9 +5,9 @@ import { dbContainer } from "./whole-database";
 
 /**
  * A wall display's timer alarm, against a running stack: until somebody
- * touches the screen it says the sound is off; any touch turns it on; and a
- * timer that runs out while the panel shows another page rings there, again
- * and again. Every tone the page schedules is counted (two oscillators each).
+ * touches the screen it says the sound is off; the first touch turns it on
+ * and still does what it was for; and a timer that runs out while the panel
+ * shows another page rings there, again and again. Every tone the page schedules is counted (two oscillators each).
  * Needs FAMILY_CODE.
  */
 const familyCode = process.env.FAMILY_CODE;
@@ -58,7 +58,7 @@ async function startTimer(page: Page, label: string, seconds: number) {
 
 const tones = (page: Page) => page.evaluate(() => (window as unknown as { __oscillators: number }).__oscillators);
 
-test("a kiosk says its sound is off until touched, then rings on any page, again and again", async ({ page }, testInfo) => {
+test("a kiosk says its sound is off until touched, keeps the first tap, then rings on any page, again and again", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   await page.addInitScript(() => {
     const w = window as unknown as { __oscillators: number };
@@ -74,14 +74,23 @@ test("a kiosk says its sound is off until touched, then rings on any page, again
   await page.waitForSelector(".hero-block", { timeout: 20_000 });
   await expect.poll(() => page.evaluate(() => document.documentElement.hasAttribute("data-kiosk"))).toBe(true);
 
-  // A timer started elsewhere: nobody has touched this screen yet.
+  // Two timers started elsewhere: nobody has touched this screen yet.
   const label = `alarm-${testInfo.project.name}-${Date.now()}`;
+  await startTimer(page, `${label}-first`, 600);
   await startTimer(page, `${label}-long`, 600);
-  const note = page.getByText("Sound is off until someone touches this screen");
+  // Reloaded rather than waiting on realtime (see timer-widget-layout.spec.ts);
+  // nothing has been touched yet, so nothing is lost by it.
+  await page.reload();
+  await page.waitForSelector(".hero-block", { timeout: 20_000 });
+  const note = page.getByText("Tap for sound");
   await expect(note).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(`${label}-first`)).toBeVisible({ timeout: 15_000 });
 
-  // Any touch will do, not just one on the timer's own buttons.
-  await page.locator(".hero-block").click({ position: { x: 5, y: 5 } });
+  // The first touch is a tap on a timer's own button, as when somebody walks
+  // up to answer it. It turns the sound on, and it still does what it says:
+  // the note going away moves nothing under the finger.
+  await page.getByText(`${label}-first`).locator("..").getByRole("button", { name: "Stop" }).click();
+  await expect(page.getByText(`${label}-first`)).toHaveCount(0, { timeout: 10_000 });
   await expect(note).toHaveCount(0);
 
   // Off to another page, as when the kitchen panel shows a recipe.

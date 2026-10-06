@@ -4404,7 +4404,8 @@
     "dismiss": "Dismiss",
     "stop": "Stop",
     "startFailed": "Could not start that timer",
-    "soundOff": "Sound is off until someone touches this screen"
+    "soundOff": "Sound is off until someone touches this screen",
+    "soundOffShort": "Tap for sound"
   },
   "media": {
     "title": "Media",
