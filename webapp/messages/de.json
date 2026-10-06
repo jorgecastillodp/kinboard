@@ -682,6 +682,8 @@
     "turnsEmpty": "Tippe die Personen an, die sich abwechseln – die erste zuerst.",
     "trackLabel": "Festhalten, ob es erledigt wurde",
     "trackHint": "Jeder vergangene fällige Tag wird als erledigt oder nicht erledigt angezeigt, in der Liste und im Kalender.",
+    "showInEventsLabel": "Auf Home unter Termine zeigen",
+    "showInEventsHint": "Listet sie im Termine-Widget an ihrem Tag auf. Eine Aufgabe ohne Datum oder eine überfällige steht unter Heute, bis sie erledigt ist.",
     "assignTurnsNote": "Im Wechsel – siehe unten",
     "fieldStart": "Beginnt",
     "dayDone": "Erledigt",

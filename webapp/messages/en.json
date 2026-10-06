@@ -682,6 +682,8 @@
     "turnsEmpty": "Tap the people who take turns, first one first.",
     "trackLabel": "Track whether it was done",
     "trackHint": "Every past due day is shown as done or not done, in the list and the calendar.",
+    "showInEventsLabel": "Show under Events on Home",
+    "showInEventsHint": "Lists it in the Events widget on its day. A task with no date, or one that is overdue, is listed under Today until it is done.",
     "assignTurnsNote": "Taking turns — see below",
     "fieldStart": "Starts",
     "dayDone": "Done",

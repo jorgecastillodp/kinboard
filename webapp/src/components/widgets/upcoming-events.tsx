@@ -12,12 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { useEvents, useHolidayEntries, usePeople, useSetting, useTodos, useToday } from "@/hooks";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
-import {
-  DEFAULT_CALENDAR_DISPLAY,
-  nextTaskOccurrences,
-  taskOccurrences,
-  type CalendarDisplaySettings,
-} from "@/lib/calendar-markers";
+import { DEFAULT_CALENDAR_DISPLAY, type CalendarDisplaySettings } from "@/lib/calendar-markers";
+import { eventTaskOccurrences } from "@/lib/task-events";
 import { entryListDay, HOLIDAY_COLOR, holidayEndPattern, keyToDate } from "@/lib/holiday-entries";
 import { toLocalDateKey } from "@/lib/local-date";
 import { WidgetCard } from "@/components/widget-card";
@@ -95,7 +91,10 @@ export function UpcomingEvents({
     DEFAULT_CALENDAR_DISPLAY,
   );
   const tasksAsEvents = calendarDisplay?.tasksAsEvents ?? false;
-  const { data: todos } = useTodos({ enabled: tasksAsEvents });
+  // Always read: a task can be flagged for this list one by one (its dialog's
+  // "Show under Events on Home"), whether or not every task is listed. The
+  // Tasks widget reads the same query, so Home asks once.
+  const { data: todos } = useTodos();
 
   // Transform events to display format
   const calendarEvents = useMemo(() => (events || []).filter((event) => !event.calendar?.is_waste_collection).map((event) => {
@@ -134,15 +133,19 @@ export function UpcomingEvents({
     [holidays, todayKey, t, dateLocale, locale],
   );
 
-  // With tasks treated as events, each task joins the list once, at its next
-  // occurrence in the window, as an all-day item. Listing every repeat would
-  // let one daily chore fill all the slots and push the real events out.
+  // Tasks join the list once each, at their next day in the window, as all-day
+  // items: every task when tasks are treated as events, otherwise the ones
+  // flagged "Show under Events on Home" (lib/task-events.ts).
   const displayEvents = useMemo(() => {
     // Holidays first: on a tie the sort keeps them ahead of the day's events.
     const withHolidays = [...holidayEvents, ...calendarEvents].sort((a, b) => a.start.getTime() - b.start.getTime());
-    if (!tasksAsEvents) return withHolidays;
-    const tasks = nextTaskOccurrences(
-      taskOccurrences(todos ?? [], people ?? [], new Date(startDate), new Date(endDate), "hsl(var(--muted-foreground))"),
+    const tasks = eventTaskOccurrences(
+      todos ?? [],
+      people ?? [],
+      new Date(startDate),
+      new Date(endDate),
+      "hsl(var(--muted-foreground))",
+      { all: tasksAsEvents },
     ).map((o) => ({
       id: o.id,
       title: o.personName

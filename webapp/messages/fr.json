@@ -682,6 +682,8 @@
     "turnsEmpty": "Touchez les personnes qui se relaient, la première d'abord.",
     "trackLabel": "Suivre si c'est fait",
     "trackHint": "Chaque jour prévu passé est affiché comme fait ou non fait, dans la liste et le calendrier.",
+    "showInEventsLabel": "Afficher sous Événements sur l'accueil",
+    "showInEventsHint": "La place dans le widget Événements, le jour prévu. Une tâche sans date, ou en retard, figure sous Aujourd'hui jusqu'à ce qu'elle soit faite.",
     "assignTurnsNote": "À tour de rôle — voir plus bas",
     "fieldStart": "Commence",
     "dayDone": "Fait",

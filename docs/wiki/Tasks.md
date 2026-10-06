@@ -18,6 +18,7 @@ The task lands in the family's todo list, unassigned, due today. Tweak from the 
 - **Due date** — defaults to today; tap to pick another
 - **Priority** — low / normal / high / urgent (visual badge)
 - **Notes** — multi-line free text for context
+- **Show under Events on Home** — tick it to list the task in the Events widget on the Home screen, on the day it is due (a repeating task on its next day). A task with no date, or an overdue one, is listed under Today until it is done. **Settings → Calendar → Tasks as events** lists every task there instead.
 
 ## List sections
 
