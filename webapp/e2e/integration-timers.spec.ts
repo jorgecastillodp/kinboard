@@ -388,6 +388,15 @@ test.describe("pausing", () => {
     });
   });
 
+  test("a pause counts in whole seconds rounded down, so a resumed timer never gains time", async () => {
+    const f = fakeDb({ timers: [timer(1, OURS)], scheduled_notifications: [] });
+    await pauseTimer(f.db, OURS, T(1), NOW);
+    // Paused for 90.9 seconds: 90 count, so the time left can only stay or drop.
+    await resumeTimer(f.db, OURS, T(1), new Date(NOW.getTime() + 90_900));
+    expect(f.tables.timers[0]).toMatchObject({ paused_seconds: 90 });
+    expect(timerView(f.tables.timers[0] as never, new Date(NOW.getTime() + 90_900)).remaining_seconds).toBeLessThanOrEqual(300);
+  });
+
   test("only a running timer of this family pauses, and only a paused one resumes", async () => {
     const f = fakeDb({
       timers: [

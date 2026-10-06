@@ -102,11 +102,19 @@ export function TimerWidget() {
                 state === "finished" ? "border-destructive bg-destructive/10" : "border-border"
               }`}
             >
-              <span className={`font-mono text-lg tabular-nums ${state === "paused" ? "text-muted-foreground" : ""}`}>
-                {state === "finished" ? t("finished") : mmss(left)}
+              {/* "Paused" under the time, where a narrow card can't cut it off
+                  the way it cut "Pasta · Paused"; the label stays the row's
+                  own child, as e2e/timer-widget-layout.spec.ts finds rows by it. */}
+              <span className="flex shrink-0 flex-col leading-tight">
+                <span className={`font-mono text-lg tabular-nums ${state === "paused" ? "text-muted-foreground" : ""}`}>
+                  {state === "finished" ? t("finished") : mmss(left)}
+                </span>
+                {state === "paused" && (
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{t("paused")}</span>
+                )}
               </span>
               <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
-                {state === "paused" ? [timer.label, t("paused")].filter(Boolean).join(" · ") : timer.label}
+                {timer.label}
               </span>
               {(state === "running" || state === "paused") && (
                 <Button
