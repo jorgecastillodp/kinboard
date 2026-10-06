@@ -4084,6 +4084,7 @@
     "toastUpdateFailed": "Échec de la mise à jour",
     "overdue": "En retard",
     "today": "Aujourd'hui",
+    "upcoming": "À venir",
     "emptyState": "Tout est terminé !",
     "moreCount": "+{count} autres",
     "toastNoTurnOpen": "Les tours de cette tâche n'ont pas encore commencé"
