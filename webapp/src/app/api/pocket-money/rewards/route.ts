@@ -1,32 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
-import { requireSession } from "@/lib/require-session";
-import { requireSettingsUnlock } from "@/lib/settings-pin";
-import { parseReward } from "@/lib/pocket-money/rewards";
+import type { NextRequest } from "next/server";
+import { POST as forward } from "@/app/api/rewards/route";
 
 export const dynamic = "force-dynamic";
 
-/**
- * POST /api/pocket-money/rewards -- a reward for the family's catalogue
- * (discussion #349). The family is the session's; the catalogue is a parent's
- * to keep, so this needs the settings PIN, like the rest of Settings.
- * Screens read the catalogue straight from point_rewards (family-scoped RLS).
+/*
+ * REMOVE in the release after RFC-017 step 1. A thin forward, kept for one
+ * release so a screen still running the previous bundle (a wall display that
+ * has not reloaded since the upgrade) keeps working. The route it forwards to
+ * does every check: the session, the settings PIN, the family.
  */
-export async function POST(request: NextRequest) {
-  const auth = await requireSession(request);
-  if (!auth.ok) return auth.response;
-  const locked = await requireSettingsUnlock(auth.session);
-  if (locked) return locked;
 
-  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-  const parsed = parseReward(body ?? {}, false);
-  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
-
-  const { data, error } = await (createAdminClient() as any)
-    .from("point_rewards")
-    .insert({ ...parsed.fields, family_id: auth.session.familyId })
-    .select()
-    .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ reward: data }, { status: 201 });
+/** POST /api/pocket-money/rewards -> POST /api/rewards. */
+export function POST(request: NextRequest) {
+  return forward(request);
 }

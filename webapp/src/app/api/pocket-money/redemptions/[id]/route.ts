@@ -1,40 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
-import { requireSession } from "@/lib/require-session";
-import { requireSettingsUnlock } from "@/lib/settings-pin";
-import type { RpcClient } from "@/lib/pocket-money/booking";
-import { decideRedemption } from "@/lib/pocket-money/rewards";
+import type { NextRequest } from "next/server";
+import { PATCH as forward } from "@/app/api/rewards/redemptions/[id]/route";
 
 export const dynamic = "force-dynamic";
 
-/**
- * PATCH /api/pocket-money/redemptions/[id]  body: { status: "approved" | "denied" }
- *
- * A parent's decision on a child's reward request (discussion #349), checked
- * against the settings PIN on the server: a child's own screen, which can make
- * the request, must not be able to approve it. Decided in one transaction
- * (decide_point_redemption): the request must still be pending, the child's
- * decisions are queued one after the other, and approving is refused with
- * nothing written when the points do not cover it. Approved twice at once:
- * one 200, one 409 already_decided. The deciding device is recorded.
+/*
+ * REMOVE in the release after RFC-017 step 1. A thin forward, kept for one
+ * release so a screen still running the previous bundle (a wall display that
+ * has not reloaded since the upgrade) keeps working. The route it forwards to
+ * does every check: the session, the settings PIN, the family.
  */
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const auth = await requireSession(request);
-  if (!auth.ok) return auth.response;
-  const locked = await requireSettingsUnlock(auth.session);
-  if (locked) return locked;
 
-  const body = (await request.json().catch(() => null)) as { status?: unknown } | null;
-  if (body?.status !== "approved" && body?.status !== "denied") {
-    return NextResponse.json({ error: "status must be approved or denied" }, { status: 400 });
-  }
-
-  const result = await decideRedemption(createAdminClient() as unknown as RpcClient, {
-    familyId: auth.session.familyId,
-    redemptionId: id,
-    decision: body.status,
-    deviceId: auth.session.deviceId,
-  });
-  return NextResponse.json(result.body, { status: result.status });
+/** PATCH /api/pocket-money/redemptions/[id] -> PATCH /api/rewards/redemptions/[id]. */
+export function PATCH(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  return forward(request, ctx);
 }

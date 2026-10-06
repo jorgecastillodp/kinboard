@@ -1,56 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
-import { requireSession } from "@/lib/require-session";
-import { requireSettingsUnlock } from "@/lib/settings-pin";
-import { parseReward } from "@/lib/pocket-money/rewards";
-import { UUID } from "@/lib/home/action-requests";
+import type { NextRequest } from "next/server";
+import { DELETE as forwardDelete, PATCH as forwardPatch } from "@/app/api/rewards/[id]/route";
 
 export const dynamic = "force-dynamic";
 
-/** PATCH /api/pocket-money/rewards/[id] -- edit a reward; needs the settings PIN. */
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const auth = await requireSession(request);
-  if (!auth.ok) return auth.response;
-  const locked = await requireSettingsUnlock(auth.session);
-  if (locked) return locked;
-  if (!UUID.test(id)) return NextResponse.json({ error: "not found" }, { status: 404 });
+/*
+ * REMOVE in the release after RFC-017 step 1. A thin forward, kept for one
+ * release so a screen still running the previous bundle (a wall display that
+ * has not reloaded since the upgrade) keeps working. The route it forwards to
+ * does every check: the session, the settings PIN, the family.
+ */
 
-  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-  const parsed = parseReward(body ?? {}, true);
-  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+type Ctx = { params: Promise<{ id: string }> };
 
-  const { data, error } = await (createAdminClient() as any)
-    .from("point_rewards")
-    .update(parsed.fields)
-    .eq("id", id)
-    .eq("family_id", auth.session.familyId)
-    .select()
-    .maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!data) return NextResponse.json({ error: "not found" }, { status: 404 });
-  return NextResponse.json({ reward: data });
+/** PATCH /api/pocket-money/rewards/[id] -> PATCH /api/rewards/[id]. */
+export function PATCH(request: NextRequest, ctx: Ctx) {
+  return forwardPatch(request, ctx);
 }
 
-/**
- * DELETE /api/pocket-money/rewards/[id] -- remove a reward; needs the settings
- * PIN. Requests already made keep their own copy of its title and cost.
- */
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const auth = await requireSession(request);
-  if (!auth.ok) return auth.response;
-  const locked = await requireSettingsUnlock(auth.session);
-  if (locked) return locked;
-  if (!UUID.test(id)) return NextResponse.json({ error: "not found" }, { status: 404 });
-
-  const { data, error } = await (createAdminClient() as any)
-    .from("point_rewards")
-    .delete()
-    .eq("id", id)
-    .eq("family_id", auth.session.familyId)
-    .select("id");
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!data || data.length === 0) return NextResponse.json({ error: "not found" }, { status: 404 });
-  return NextResponse.json({ ok: true });
+/** DELETE /api/pocket-money/rewards/[id] -> DELETE /api/rewards/[id]. */
+export function DELETE(request: NextRequest, ctx: Ctx) {
+  return forwardDelete(request, ctx);
 }

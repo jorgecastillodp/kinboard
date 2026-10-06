@@ -274,9 +274,9 @@ test.describe("the drawing", () => {
     // the page shares one answer with the stages sheet, which gives it to the current stage only
     expect(src("app/pocket-money/page.tsx")).toMatch(/<StagesSheet(?:(?!\/>)[\s\S])*mood=\{mood\}/);
     expect(src("components/pocket-money/stages-sheet.tsx")).toMatch(/mood=\{isCurrent \? mood : "normal"\}/);
-    // the settings thumbnail
-    const settings = src("app/settings/pocket-money/page.tsx");
-    expect(settings).toMatch(/<ChildCreature[\s\S]*?personId=\{acct\.person_id\}/);
+    // the settings thumbnail, on Settings -> Creatures & rewards since RFC-017
+    const settings = src("app/settings/creatures/page.tsx");
+    expect(settings).toMatch(/<ChildCreature[\s\S]*?personId=\{kid\.id\}/);
     expect(settings).toMatch(/function ChildCreature[\s\S]*?useCreatureMood\(personId\)[\s\S]*?<CreatureAvatar \{\.\.\.avatar\} mood=\{mood\} \/>/);
     // and the mood rules know nothing of pocket money, so they can move with the creature
     expect(src("lib/creature-mood.ts")).not.toMatch(/from\s+["'][^"']*pocket-money/);
