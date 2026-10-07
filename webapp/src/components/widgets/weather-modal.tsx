@@ -45,6 +45,7 @@ import {
   useWeatherForecast,
   useWeatherMapConfig,
 } from "@/hooks";
+import { rainChanceShown } from "@/lib/rain-chance";
 
 const WeatherMap = dynamic(() => import("./weather-map"), {
   ssr: false,
@@ -440,7 +441,7 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
                           {isToday ? t("todayLabel") : day.dayName}
                         </div>
                         <DayIcon className="size-5 text-primary shrink-0" strokeWidth={1.5} />
-                        {day.precipProbability > 0 ? (
+                        {rainChanceShown(day.precipProbability) ? (
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span className="flex items-center gap-0.5 text-xs text-weather-rain w-10 shrink-0">
