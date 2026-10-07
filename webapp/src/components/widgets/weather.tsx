@@ -29,6 +29,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useWeather, useWeatherForecast, useWeatherUnits } from "@/hooks";
+import { rainChanceShown } from "@/lib/rain-chance";
 import { useTimeFormat } from "@/hooks/use-time-format";
 import { WeatherModal } from "./weather-modal";
 import { WidgetCard } from "@/components/widget-card";
@@ -226,7 +227,8 @@ export function Weather({ className = "" }: WeatherProps) {
             <div className="flex items-center justify-between gap-2 mt-4 pt-4 border-t border-border/30">
               {upcomingDays.map((day) => {
                 const DayIcon = getWeatherIcon(day.conditionMain ?? day.condition);
-                const showRain = day.precipProbability > 0;
+                // Every day shows its chance, 0% included (lib/rain-chance.ts).
+                const showRain = rainChanceShown(day.precipProbability);
                 const isHighRain = day.precipProbability > 40;
                 return (
                   <Tooltip key={day.date}>
