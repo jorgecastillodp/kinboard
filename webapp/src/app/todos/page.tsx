@@ -39,7 +39,7 @@ import { useCreatureMood } from "@/hooks/use-creature-mood";
 import { creatureStage } from "@/lib/creatures/stage";
 import { readLook } from "@/lib/pocket-money/creatures/look";
 import type { Creature, Person } from "@/types/database";
-import { TodoDecorationFields } from "@/components/todo-decoration-fields";
+import { TodoDecorationFields, TodoEventsField } from "@/components/todo-decoration-fields";
 import { showUndoToast } from "@/lib/undo-toast";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
@@ -256,6 +256,7 @@ export default function TodosPage() {
   // Taking turns and tracking (#341): the rotation, or null when off.
   const [newTaskTurns, setNewTaskTurns] = useState<string[] | null>(null);
   const [newTaskTrack, setNewTaskTrack] = useState(false);
+  const [newTaskInEvents, setNewTaskInEvents] = useState(false);
   const [filterPerson, setFilterPerson] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "completed">("all");
   const [filterRecurrence, setFilterRecurrence] = useState<"all" | "recurring" | "once">("all");
@@ -277,6 +278,7 @@ export default function TodosPage() {
   const [editPoints, setEditPoints] = useState(0);
   const [editTurns, setEditTurns] = useState<string[] | null>(null);
   const [editTrack, setEditTrack] = useState(false);
+  const [editInEvents, setEditInEvents] = useState(false);
   // The two options only mean anything on a repeating task; a rotation with
   // nobody in it is no rotation.
   const turnFields = (type: RecurrenceType, turns: string[] | null, track: boolean) =>
@@ -324,6 +326,7 @@ export default function TodosPage() {
         recurrence: storedRecurrence(newTaskRecurrence, newTaskDays),
         icon: newTaskIcon || null,
         points: newTaskPoints,
+        show_in_events: newTaskInEvents,
         ...turnFields(newTaskRecurrence, newTaskTurns, newTaskTrack),
       });
 
@@ -337,6 +340,7 @@ export default function TodosPage() {
       setNewTaskPoints(0);
       setNewTaskTurns(null);
       setNewTaskTrack(false);
+      setNewTaskInEvents(false);
       setDialogOpen(false);
     } catch {
       toast.error(t("createFailed"));
@@ -372,6 +376,7 @@ export default function TodosPage() {
     setEditPoints(todo.points || 0);
     setEditTurns(todo.rotation_person_ids?.length ? todo.rotation_person_ids : null);
     setEditTrack(Boolean(todo.track_completion));
+    setEditInEvents(Boolean(todo.show_in_events));
     setEditDialogOpen(true);
   };
 
@@ -388,6 +393,7 @@ export default function TodosPage() {
         recurrence: storedRecurrence(editRecurrence, editDays),
         icon: editIcon || null,
         points: editPoints,
+        show_in_events: editInEvents,
         ...turnFields(editRecurrence, editTurns, editTrack),
       });
 
@@ -908,6 +914,8 @@ export default function TodosPage() {
                     )}
 
                     <TodoDecorationFields icon={newTaskIcon} points={newTaskPoints} onIconChange={setNewTaskIcon} onPointsChange={setNewTaskPoints} />
+
+                    <TodoEventsField checked={newTaskInEvents} onCheckedChange={setNewTaskInEvents} />
 
                     <Button
                       className="w-full"
@@ -1526,6 +1534,8 @@ export default function TodosPage() {
               )}
 
               <TodoDecorationFields icon={editIcon} points={editPoints} onIconChange={setEditIcon} onPointsChange={setEditPoints} />
+
+              <TodoEventsField checked={editInEvents} onCheckedChange={setEditInEvents} />
 
               <Button
                 className="w-full"

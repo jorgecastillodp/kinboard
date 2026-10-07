@@ -682,6 +682,8 @@
     "turnsEmpty": "Touchez les personnes qui se relaient, la première d'abord.",
     "trackLabel": "Suivre si c'est fait",
     "trackHint": "Chaque jour prévu passé est affiché comme fait ou non fait, dans la liste et le calendrier.",
+    "showInEventsLabel": "Afficher sous Événements sur l'accueil",
+    "showInEventsHint": "La place dans le widget Événements, le jour prévu. Une tâche sans date, ou en retard, figure sous Aujourd'hui jusqu'à ce qu'elle soit faite.",
     "assignTurnsNote": "À tour de rôle — voir plus bas",
     "fieldStart": "Commence",
     "dayDone": "Fait",
@@ -2612,7 +2614,7 @@
       "holidaysAsEventsLabel": "Afficher les jours fériés parmi les événements",
       "holidaysAsEventsHint": "Les jours fériés apparaissent aussi parmi les événements : dans le widget Événements, l'Aperçu de la semaine et l'économiseur d'écran. Le calendrier et le widget Jours fériés les affichent de toute façon.",
       "tasksAsEventsLabel": "Traiter les tâches comme des événements",
-      "tasksAsEventsHint": "Les tâches apparaissent aussi parmi les événements : dans le widget Événements, l'Aperçu de la semaine et la liste du jour du calendrier. Dans les listes à venir, une tâche récurrente n'apparaît qu'à sa prochaine occurrence."
+      "tasksAsEventsHint": "Les tâches apparaissent aussi parmi les événements : dans l'Aperçu de la semaine et la liste du jour du calendrier. Dans les listes à venir, une tâche récurrente n'apparaît qu'à sa prochaine occurrence. Le widget Événements affiche les tâches cochées « Afficher sous Événements sur l'accueil »."
     },
     "calendarSyncRange": {
       "title": "Portée de synchronisation",
@@ -4082,6 +4084,7 @@
     "toastUpdateFailed": "Échec de la mise à jour",
     "overdue": "En retard",
     "today": "Aujourd'hui",
+    "upcoming": "À venir",
     "emptyState": "Tout est terminé !",
     "moreCount": "+{count} autres",
     "toastNoTurnOpen": "Les tours de cette tâche n'ont pas encore commencé"
