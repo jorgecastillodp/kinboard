@@ -682,6 +682,8 @@
     "turnsEmpty": "Tippe die Personen an, die sich abwechseln – die erste zuerst.",
     "trackLabel": "Festhalten, ob es erledigt wurde",
     "trackHint": "Jeder vergangene fällige Tag wird als erledigt oder nicht erledigt angezeigt, in der Liste und im Kalender.",
+    "showInEventsLabel": "Auf Home unter Termine zeigen",
+    "showInEventsHint": "Listet sie im Termine-Widget an ihrem Tag auf. Eine Aufgabe ohne Datum oder eine überfällige steht unter Heute, bis sie erledigt ist.",
     "assignTurnsNote": "Im Wechsel – siehe unten",
     "fieldStart": "Beginnt",
     "dayDone": "Erledigt",
@@ -2612,7 +2614,7 @@
       "holidaysAsEventsLabel": "Feiertage zwischen den Terminen zeigen",
       "holidaysAsEventsHint": "Feiertage erscheinen auch zwischen den Terminen: im Widget Termine, in der Wochenübersicht und im Bildschirmschoner. Der Kalender und das Widget Feiertage zeigen sie so oder so.",
       "tasksAsEventsLabel": "Aufgaben wie Termine behandeln",
-      "tasksAsEventsHint": "Aufgaben erscheinen auch zwischen den Terminen: im Widget Termine, in der Wochenübersicht und in der Tagesliste des Kalenders. In Vorschau-Listen zeigt eine wiederkehrende Aufgabe nur ihr nächstes Mal."
+      "tasksAsEventsHint": "Aufgaben erscheinen auch zwischen den Terminen: in der Wochenübersicht und in der Tagesliste des Kalenders. In Vorschau-Listen zeigt eine wiederkehrende Aufgabe nur ihr nächstes Mal. Das Widget Termine zeigt die Aufgaben mit „Auf Home unter Termine zeigen“."
     },
     "calendarSyncRange": {
       "title": "Synchronisationszeitraum",
