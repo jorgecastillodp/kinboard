@@ -4,7 +4,7 @@ Powers the weather widget on the dashboard + the full-detail weather modal (tap 
 
 ## What it does
 
-- Current conditions, hourly forecast, 6-day forecast, sunrise/sunset
+- Current conditions, hourly forecast, 6-day forecast with each day's chance of rain (0% included), sunrise/sunset
 - City lookup by name (German + international cities) via OpenWeatherMap geocoding
 - "Comfort" feels-like rating + clothing suggestion ("light jacket", "rain coat", etc.)
 - Metric or imperial units, family-wide
