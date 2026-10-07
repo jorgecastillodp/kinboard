@@ -37,7 +37,7 @@ The main dashboard area. Widgets are toggle-able per family in **Settings → Wi
 
 | Widget | What |
 |---|---|
-| **Weather** | Current temperature, wind, 6-day forecast. Tap → full weather modal. See [OpenWeatherMap](OpenWeatherMap). |
+| **Weather** | Current temperature, wind, 6-day forecast with each day's chance of rain, 0% included. Tap → full weather modal. See [OpenWeatherMap](OpenWeatherMap). |
 | **Upcoming events** | Next 3-5 calendar events (today + future), plus any task ticked *Show under Events on Home* (see [Tasks](Tasks)). Tap → `/calendar`. |
 | **Schedule** | Today's school periods for selected child. Tap → `/schedule`. See [Schedule](Schedule). |
 | **Birthdays** | Closest 3 upcoming birthdays with countdown. Tap → `/birthdays`. See [Birthdays](Birthdays). |

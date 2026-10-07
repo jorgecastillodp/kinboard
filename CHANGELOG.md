@@ -34,6 +34,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **The forecast shows the chance of rain for every day, 0% included.** The Weather widget on Home and the day-by-day list in its detail view left a day's chance out when it was 0%, so only the rainy days showed one and a dry week looked unforecast. Every day now shows its figure in the same place; the hourly strip still lists only the hours that have a chance.
 
 - **The Tasks widget on Home reads like the Events widget.** Its rows are smaller and show a task's whole title, wrapped, where a narrow card cut it off with an ellipsis. The list is grouped under a *Today* label (tasks due today or overdue, and repeating tasks that are open) and an *Upcoming* label (later and undated tasks, by due date), as the Events widget groups by day, so the "Today" tag on each row is gone. *Show larger tasks on Home* still gives the big rows.
 - **The holiday country moved from Settings → Language to Settings → Holidays, and the school holidays moved with it from Settings → School schedule.** Both old pages link there. Nothing changes until someone picks: every existing family keeps exactly the public holidays it had.
