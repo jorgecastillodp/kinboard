@@ -57,12 +57,19 @@ test("every forecast day shows its chance of rain, 0% included, under its temper
     await expect(rain, `Day ${day}`).toHaveCount(1);
     await expect(rain, `Day ${day}`).toHaveText(`${CHANCES[day]}%`);
   }
-  // In the spot the figure always had, under the temperatures: all six sit at
-  // the same height, the 0% days with the 20% day.
-  const rainY = async (day: number) =>
-    (await column(page, `Day ${day}`).locator("span", { hasText: /^\d+%$/ }).boundingBox())!.y;
-  const heights = await Promise.all([1, 2, 3, 4, 5, 6].map(rainY));
-  expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(2);
+  // In the spot the figure always had: under the temperatures, in every column.
+  // (Not at one height: temperatures that wrap onto two lines make a column
+  // taller, and the row centres its columns.)
+  const gaps = await page.evaluate(() =>
+    [1, 2, 3, 4, 5, 6].map((day) => {
+      const name = [...document.querySelectorAll("span")].find((e) => e.textContent === `Day ${day}`)!;
+      const col = name.closest("div.flex-col") as HTMLElement;
+      const rain = [...col.querySelectorAll("span")].find((e) => /^\d+%$/.test(e.textContent ?? ""))!;
+      const temps = [...col.children].find((child) => child.textContent?.includes("°"))!;
+      return rain.getBoundingClientRect().top - temps.getBoundingClientRect().bottom;
+    }),
+  );
+  for (const [i, gap] of gaps.entries()) expect(gap, `Day ${i + 1}`).toBeGreaterThanOrEqual(-1);
 });
 
 test("the detail view's day list shows a chance for every day too", async ({ page }) => {
@@ -76,7 +83,8 @@ test("the detail view's day list shows a chance for every day too", async ({ pag
   await expect(dialog).toBeVisible({ timeout: 15_000 });
   for (let day = 1; day <= 6; day++) {
     const row = dialog.getByText(`Day ${day}`, { exact: true }).locator("xpath=ancestor::div[contains(@class,'rounded-xl')][1]");
-    await expect(row, `Day ${day}`).toContainText(new RegExp(`(^|\\D)${CHANCES[day]}%`));
+    // The figure's own element, not the row's text: "Day 1" and "0%" run together there.
+    await expect(row.locator("span", { hasText: /^\d+%$/ }), `Day ${day}`).toHaveText(`${CHANCES[day]}%`);
   }
 });
 
