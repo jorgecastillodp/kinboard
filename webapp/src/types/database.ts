@@ -369,6 +369,8 @@ export interface Database {
           points: number;
           rotation_person_ids: string[] | null;
           track_completion: boolean;
+          /** Listed among the Events on Home, on its day (lib/task-events.ts). */
+          show_in_events: boolean;
           tracking_started_day: string | null;
           schedule_start_day: string | null;
           schedule_anchor_day: string | null;
@@ -393,6 +395,7 @@ export interface Database {
           points?: number;
           rotation_person_ids?: string[] | null;
           track_completion?: boolean;
+          show_in_events?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -411,6 +414,7 @@ export interface Database {
           points?: number;
           rotation_person_ids?: string[] | null;
           track_completion?: boolean;
+          show_in_events?: boolean;
           created_at?: string;
           updated_at?: string;
         };

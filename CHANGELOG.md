@@ -1,5 +1,4 @@
 # Changelog
-
 All notable changes to Kinboard land here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -8,6 +7,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Pick which tasks show up as events on Home.** Ticking *Show under Events on Home* in a task's create or edit dialog lists that task in the Events widget on its day: a repeating task on its next day, and a task with no date, or an overdue one, under Today until it is done. Until now the choice was all or nothing: *Treat tasks as events* (Settings → Calendar) listed every task there. **The Events widget now lists only the ticked tasks**, so a family that had that switch on sees none until it ticks some; the switch still lists every task in the Week overview and the calendar's day list.
 - **The timer's preset times can be changed.** Settings → Widgets → Timers gains *Preset times*: the buttons the Timers widget offers, which were always 3, 5, 10 and 15 minutes. Add a time in whole minutes, from 1 minute to 24 hours, remove the ones you don't use, or reset to the defaults. There can be up to eight, the last one can't be removed, and every screen in the family shows the same ones.
 - **A running timer can be paused.** Each running timer in the Timers widget gains a pause button next to Stop. A paused timer keeps its time and shows Paused on every screen until somebody taps play, and its phone notification moves to the new end. Assistants see it as paused in `list_timers`.
 - **The family's time zone can be set.** Settings → Language → *Time zone* lists every zone with its current offset and time, and finds one by city or by offset (`UTC+1`, `+5:30`). It decides when the family's day starts and ends: which day a task was done on, whose turn it is, and what Home Assistant calls today. *Automatic*, the default, keeps the server's zone, as before — nothing in the app could set one until now. Zones go by their current names, Kolkata and Kyiv, even in a browser that lists the old ones.
@@ -34,6 +34,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+
+- **The Tasks widget on Home reads like the Events widget.** Its rows are smaller and show a task's whole title, wrapped, where a narrow card cut it off with an ellipsis. The list is grouped under a *Today* label (tasks due today or overdue, and repeating tasks that are open) and an *Upcoming* label (later and undated tasks, by due date), as the Events widget groups by day, so the "Today" tag on each row is gone. *Show larger tasks on Home* still gives the big rows.
 - **The holiday country moved from Settings → Language to Settings → Holidays, and the school holidays moved with it from Settings → School schedule.** Both old pages link there. Nothing changes until someone picks: every existing family keeps exactly the public holidays it had.
 
 - **Connecting an assistant offers permissions it didn't ask for.** ChatGPT and other assistants can keep asking for the permissions they knew about when they were first added, so a reconnect never picked up a newer one such as reading the car's charge level. The Kinboard page that opens when you connect now also lists every other permission, unticked, under "Also available"; tick any you want the assistant to have, and confirm with the settings PIN as before.

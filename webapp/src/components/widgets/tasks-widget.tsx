@@ -1,7 +1,7 @@
 "use client";
 
-import { todayKey, toLocalDateKey } from "@/lib/local-date";
-import { useMemo } from "react";
+import { toLocalDateKey } from "@/lib/local-date";
+import { Fragment, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import {
@@ -14,15 +14,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { useTodos, useUpdateTodo, usePeople, useSetting } from "@/hooks";
+import { useTodos, useUpdateTodo, usePeople, useSetting, useToday } from "@/hooks";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { useTodoPoints } from "@/hooks/use-todo-points";
 import { toast } from "sonner";
 import type { Todo } from "@/types/database";
 import { WidgetCard } from "@/components/widget-card";
 import { ChecklistItem } from "@/components/checklist-item";
-import { comparePriority } from "@/lib/todo-priority";
 import { isTodoOpen } from "@/lib/todo-recurrence";
+import { isOverdue, widgetTasks } from "@/lib/tasks-widget-groups";
 import { todayPerson } from "@/lib/todo-turns";
 import { PersonAvatar } from "@/components/person-avatar";
 
@@ -48,18 +48,6 @@ function TasksWidgetSkeleton() {
   );
 }
 
-function isOverdue(todo: Todo): boolean {
-  if (!todo.due_date || todo.completed) return false;
-  const today = todayKey();
-  return todo.due_date < today;
-}
-
-function isDueToday(todo: Todo): boolean {
-  if (!todo.due_date || todo.completed) return false;
-  const today = todayKey();
-  return todo.due_date === today;
-}
-
 export function TasksWidget({
   maxItems = 5,
   className = "",
@@ -70,33 +58,20 @@ export function TasksWidget({
   const { data: pointAwards = [] } = useTodoPoints();
   const updateTodo = useUpdateTodo();
   const { data: taskDisplay } = useSetting<{ large: boolean }>(SETTINGS_KEYS.taskDisplay, { large: false });
+  // The day rolls over on a kiosk that stays on: what is "today", and which
+  // repeating tasks have come round again, follow it.
+  const today = useToday();
+  const todayStr = toLocalDateKey(new Date(today));
 
-  // Sort: overdue first, then due today, then by priority, then by date
+  // Today's tasks first, then the upcoming ones (lib/tasks-widget-groups.ts).
   const openTodos = useMemo(() => {
     if (!todos) return [];
-    return todos
-      // A recurring chore ticked off today is not outstanding, even though
-      // its row stays `completed: false` so it can come round again.
-      .filter((t) => isTodoOpen(t))
-      .sort((a, b) => {
-        // Overdue first
-        const aOverdue = isOverdue(a);
-        const bOverdue = isOverdue(b);
-        if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
-
-        // Due today next
-        const aToday = isDueToday(a);
-        const bToday = isDueToday(b);
-        if (aToday !== bToday) return aToday ? -1 : 1;
-
-        // Higher priority first
-        const byPriority = comparePriority(a, b);
-        if (byPriority !== 0) return byPriority;
-
-        // Oldest first
-        return a.created_at.localeCompare(b.created_at);
-      });
-  }, [todos]);
+    // A recurring chore ticked off today is not outstanding, even though
+    // its row stays `completed: false` so it can come round again.
+    return widgetTasks(todos.filter((t) => isTodoOpen(t)), todayStr);
+    // isTodoOpen reads the clock, so the day is a dependency: at midnight the
+    // repeating tasks done yesterday are open again.
+  }, [todos, todayStr]);
 
   const displayTodos = openTodos.slice(0, maxItems);
   const totalOpen = openTodos.length;
@@ -181,41 +156,60 @@ export function TasksWidget({
             ))}
           </div>
         )}
-        <motion.div variants={container} initial="hidden" animate="show" className="flex flex-col gap-2">
-          {displayTodos.map((todo) => {
-            // A rotating task is today's person's.
-            const person = getPersonName(todayPerson(todo, toLocalDateKey()));
-            const overdue = isOverdue(todo);
-            const dueToday = isDueToday(todo);
-            return (
-              <ChecklistItem
-                key={todo.id}
-                checked={false}
-                onCheckedChange={() => handleToggle(todo)}
-                className={taskDisplay?.large ? "min-h-[72px] [&_label]:text-lg [&_.peer]:scale-125" : undefined}
-                color={person?.color}
-                label={
-                  <span className="flex flex-col">
-                    <span className="truncate leading-tight">{todo.icon && <span className="mr-2 text-xl" aria-hidden="true">{todo.icon}</span>}{todo.title}{todo.points > 0 && <span className="ml-2 text-xs text-primary">⭐ {todo.points}</span>}</span>
-                    <span className="mt-0.5 flex items-center gap-2 text-2xs">
-                      {overdue && <span className="text-destructive">{t("overdue")}</span>}
-                      {dueToday && !overdue && <span className="text-warning">{t("today")}</span>}
-                    </span>
-                  </span>
-                }
-                meta={
-                  person ? (
-                    <PersonAvatar
-                      name={person.name}
-                      color={person.color}
-                      avatarUrl={person.avatar_url}
-                      size={24}
-                    />
-                  ) : undefined
-                }
-              />
-            );
-          })}
+        <motion.div variants={container} initial="hidden" animate="show" className="flex flex-col gap-1.5">
+          {(() => {
+            let lastSection = "";
+            return displayTodos.map(({ section, todo }) => {
+              // A rotating task is today's person's.
+              const person = getPersonName(todayPerson(todo, todayStr));
+              const overdue = isOverdue(todo, todayStr);
+              const large = taskDisplay?.large ?? false;
+              const showSection = section !== lastSection;
+              lastSection = section;
+              return (
+                <Fragment key={todo.id}>
+                  {/* The Events widget's day label, for Today and Upcoming. */}
+                  {showSection && (
+                    <div className="mb-0.5 mt-2 flex items-center gap-2 first:mt-0">
+                      <span className="text-kiosk-label text-2xs">{section === "today" ? t("today") : t("upcoming")}</span>
+                      <div className="h-px flex-1 bg-border/40" />
+                    </div>
+                  )}
+                  <ChecklistItem
+                    checked={false}
+                    onCheckedChange={() => handleToggle(todo)}
+                    // "Show larger tasks on Home" keeps its big rows; every
+                    // other family gets the compact row.
+                    compact={!large}
+                    className={large ? "min-h-[72px] [&_label]:text-lg [&_.peer]:scale-125" : undefined}
+                    color={person?.color}
+                    label={
+                      // The whole title, wrapped: a narrow card used to cut it
+                      // off with an ellipsis.
+                      <span className="flex min-w-0 flex-col">
+                        <span className="break-words leading-snug">
+                          {todo.icon && <span className={large ? "mr-2 text-xl" : "mr-1.5 text-base"} aria-hidden="true">{todo.icon}</span>}
+                          {todo.title}
+                          {todo.points > 0 && <span className="ml-2 text-xs text-primary">⭐ {todo.points}</span>}
+                        </span>
+                        {overdue && <span className="text-2xs text-destructive">{t("overdue")}</span>}
+                      </span>
+                    }
+                    meta={
+                      person ? (
+                        <PersonAvatar
+                          name={person.name}
+                          color={person.color}
+                          avatarUrl={person.avatar_url}
+                          size={24}
+                        />
+                      ) : undefined
+                    }
+                  />
+                </Fragment>
+              );
+            });
+          })()}
           {displayTodos.length === 0 && (
             <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
               <CheckCircle2 className="mb-2 size-8 text-success/40" strokeWidth={1.75} />

@@ -38,13 +38,13 @@ The main dashboard area. Widgets are toggle-able per family in **Settings → Wi
 | Widget | What |
 |---|---|
 | **Weather** | Current temperature, wind, 6-day forecast. Tap → full weather modal. See [OpenWeatherMap](OpenWeatherMap). |
-| **Upcoming events** | Next 3-5 calendar events (today + future). Tap → `/calendar`. |
+| **Upcoming events** | Next 3-5 calendar events (today + future), plus any task ticked *Show under Events on Home* (see [Tasks](Tasks)). Tap → `/calendar`. |
 | **Schedule** | Today's school periods for selected child. Tap → `/schedule`. See [Schedule](Schedule). |
 | **Birthdays** | Closest 3 upcoming birthdays with countdown. Tap → `/birthdays`. See [Birthdays](Birthdays). |
 | **Week overview** | 7-day strip with event/task density per day. |
 | **Meal plan** | Today's planned meals (breakfast / lunch / dinner / snack). See [Recipes](Recipes). |
 | **Waste collection** | Next pickups grouped by waste type. Reads any Google Calendar marked as a "waste pickup" calendar. |
-| **Tasks** | Open todos, sorted by priority + due date. See [Tasks](Tasks). |
+| **Tasks** | Open tasks under a *Today* label (due today, overdue, or repeating and open) and an *Upcoming* label (later or undated, by due date), in compact rows that show the whole title. Settings → Widgets → Tasks has *Show larger tasks on Home*. See [Tasks](Tasks). |
 | **Notes** | Latest 3 family notes + "+ new note" pinned to bottom. See [Notes](Notes). |
 | **Vehicles** | Battery, range, and charging status for every configured car, rotating through multiple vehicles every 8 seconds. Ships via the [Vehicles](Vehicles) plugin (Tesla + Generic EV drivers). |
 | **Photos** | One picture from the family library, changing every 20 seconds; tap to open the album. Uses whichever source is configured in Settings → Photos, and says so rather than sitting empty when none is. Ships via the [Photos](Photos) plugin. |

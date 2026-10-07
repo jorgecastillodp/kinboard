@@ -1527,6 +1527,7 @@ export function useCreateTodo() {
       points?: number;
       rotation_person_ids?: string[] | null;
       track_completion?: boolean;
+      show_in_events?: boolean;
     }) => {
        
       const { data, error } = await (supabase as any)

@@ -10,6 +10,11 @@ export interface ChecklistItemProps {
   meta?: ReactNode;
   /** Context color (person/primary) for the unchecked checkbox border. */
   color?: string;
+  /**
+   * A denser row for a small widget: less padding, and a label that fills the
+   * row's height, so the whole row is what is tapped.
+   */
+  compact?: boolean;
   className?: string;
 }
 
@@ -19,13 +24,15 @@ export function ChecklistItem({
   label,
   meta,
   color,
+  compact = false,
   className,
 }: ChecklistItemProps) {
   const id = useId();
   return (
     <div
       className={cn(
-        "flex min-h-[52px] items-center gap-3 rounded-xl border border-border bg-card px-4 elev-sm transition-opacity [transition-duration:120ms]",
+        "flex items-center rounded-xl border border-border bg-card elev-sm transition-opacity [transition-duration:120ms]",
+        compact ? "min-h-[40px] gap-2.5 px-3" : "min-h-[52px] gap-3 px-4",
         checked && "opacity-55",
         className
       )}
@@ -42,7 +49,7 @@ export function ChecklistItem({
       </span>
       <label
         htmlFor={id}
-        className={cn("min-w-0 flex-1 cursor-pointer text-sm", checked && "line-through")}
+        className={cn("min-w-0 flex-1 cursor-pointer text-sm", compact && "flex items-center self-stretch py-1.5", checked && "line-through")}
       >
         {label}
       </label>

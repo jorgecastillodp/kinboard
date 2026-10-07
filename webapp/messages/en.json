@@ -673,6 +673,8 @@
     "turnsEmpty": "Tap the people who take turns, first one first.",
     "trackLabel": "Track whether it was done",
     "trackHint": "Every past due day is shown as done or not done, in the list and the calendar.",
+    "showInEventsLabel": "Show under Events on Home",
+    "showInEventsHint": "Lists it in the Events widget on its day. A task with no date, or one that is overdue, is listed under Today until it is done.",
     "assignTurnsNote": "Taking turns — see below",
     "fieldStart": "Starts",
     "dayDone": "Done",
@@ -2549,7 +2551,7 @@
       "holidaysAsEventsLabel": "Show holidays among events",
       "holidaysAsEventsHint": "Holidays also appear among events: in the Events widget, the Week overview and the screensaver. The calendar and the Holidays widget show them either way.",
       "tasksAsEventsLabel": "Treat tasks as events",
-      "tasksAsEventsHint": "Tasks also appear among events: in the Events widget, the Week overview and the calendar's day list. In lists of what is coming up, a repeating task shows only its next time."
+      "tasksAsEventsHint": "Tasks also appear among events: in the Week overview and the calendar's day list. In lists of what is coming up, a repeating task shows only its next time. The Events widget lists the tasks ticked “Show under Events on Home”."
     },
     "caldav": {
       "title": "CalDAV calendars",
@@ -3878,6 +3880,7 @@
     "toastUpdateFailed": "Failed to update",
     "overdue": "Overdue",
     "today": "Today",
+    "upcoming": "Upcoming",
     "emptyState": "All done!",
     "moreCount": "+{count} more",
     "toastNoTurnOpen": "This task's turns haven't started yet"
