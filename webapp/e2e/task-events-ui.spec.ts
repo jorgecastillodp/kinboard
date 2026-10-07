@@ -22,6 +22,8 @@ const TITLE = /^(What needs to be done\?|Was muss erledigt werden\?|Que faut-il 
 const CREATE = /^(Create task|Aufgabe erstellen|Créer la tâche)$/;
 const SAVE = /^(Save|Speichern|Enregistrer)$/;
 const SHOW_IN_EVENTS = /^(Show under Events on Home|Auf Home unter Termine zeigen|Afficher sous Événements sur l'accueil)$/;
+// The checkbox is named by its whole label, hint included, so it is found by the start of it.
+const FLAG_BOX = /^(Show under Events on Home|Auf Home unter Termine zeigen|Afficher sous Événements sur l'accueil)/;
 const EVENTS = /^(Events|Termine|Événements)$/;
 
 /** Opens a dialog by clicking `opener`; retried, as in todo-turns-ui.spec.ts. */
@@ -39,7 +41,7 @@ async function createTask(page: Page, title: string, inEvents: boolean) {
   await page.goto("/todos", { waitUntil: "domcontentloaded" });
   const dialog = await openDialog(page, page.getByRole("button", { name: NEW_TASK }).first());
   await dialog.getByPlaceholder(TITLE).fill(title);
-  const flag = dialog.getByRole("checkbox", { name: SHOW_IN_EVENTS });
+  const flag = dialog.getByRole("checkbox", { name: FLAG_BOX });
   // Off to begin with: nothing changes for a task that is not flagged.
   await expect(flag).not.toBeChecked();
   // The checkbox is drawn over its input: tap its label, as a person does.
@@ -84,9 +86,9 @@ test("a flagged task is listed under Events on Home, remembered by its dialog, a
   // The dialog remembers the flag; taking it off and saving removes the entry.
   await page.goto("/todos", { waitUntil: "domcontentloaded" });
   const dialog = await openDialog(page, page.getByText(flagged, { exact: true }).first());
-  await expect(dialog.getByRole("checkbox", { name: SHOW_IN_EVENTS })).toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: FLAG_BOX })).toBeChecked();
   await dialog.getByText(SHOW_IN_EVENTS).click();
-  await expect(dialog.getByRole("checkbox", { name: SHOW_IN_EVENTS })).not.toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: FLAG_BOX })).not.toBeChecked();
   await dialog.getByRole("button", { name: SAVE }).click();
   await expect(dialog).toBeHidden();
 
@@ -96,7 +98,7 @@ test("a flagged task is listed under Events on Home, remembered by its dialog, a
   // Flagged again from the edit dialog: back among the Events.
   await page.goto("/todos", { waitUntil: "domcontentloaded" });
   const again = await openDialog(page, page.getByText(flagged, { exact: true }).first());
-  await expect(again.getByRole("checkbox", { name: SHOW_IN_EVENTS })).not.toBeChecked();
+  await expect(again.getByRole("checkbox", { name: FLAG_BOX })).not.toBeChecked();
   await again.getByText(SHOW_IN_EVENTS).click();
   await again.getByRole("button", { name: SAVE }).click();
   await expect(again).toBeHidden();
