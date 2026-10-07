@@ -10,9 +10,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
-import { useEvents, useHolidayEntries, usePeople, useSetting, useTodos, useToday } from "@/hooks";
-import { SETTINGS_KEYS } from "@/lib/settings-keys";
-import { DEFAULT_CALENDAR_DISPLAY, type CalendarDisplaySettings } from "@/lib/calendar-markers";
+import { useEvents, useHolidayEntries, usePeople, useTodos, useToday } from "@/hooks";
 import { eventTaskOccurrences } from "@/lib/task-events";
 import { entryListDay, HOLIDAY_COLOR, holidayEndPattern, keyToDate } from "@/lib/holiday-entries";
 import { toLocalDateKey } from "@/lib/local-date";
@@ -86,14 +84,8 @@ export function UpcomingEvents({
   const todayKey = toLocalDateKey(new Date(today));
   const { entries: holidays } = useHolidayEntries(todayKey, toLocalDateKey(new Date(endDate)), events, { eventList: true });
   const { data: people } = usePeople();
-  const { data: calendarDisplay } = useSetting<CalendarDisplaySettings>(
-    SETTINGS_KEYS.calendarDisplay,
-    DEFAULT_CALENDAR_DISPLAY,
-  );
-  const tasksAsEvents = calendarDisplay?.tasksAsEvents ?? false;
-  // Always read: a task can be flagged for this list one by one (its dialog's
-  // "Show under Events on Home"), whether or not every task is listed. The
-  // Tasks widget reads the same query, so Home asks once.
+  // The tasks flagged for this list one by one (their dialog's "Show under
+  // Events on Home"). The Tasks widget reads the same query, so Home asks once.
   const { data: todos } = useTodos();
 
   // Transform events to display format
@@ -133,9 +125,9 @@ export function UpcomingEvents({
     [holidays, todayKey, t, dateLocale, locale],
   );
 
-  // Tasks join the list once each, at their next day in the window, as all-day
-  // items: every task when tasks are treated as events, otherwise the ones
-  // flagged "Show under Events on Home" (lib/task-events.ts).
+  // The flagged tasks join the list once each, at their next day in the
+  // window, as all-day items (lib/task-events.ts). "Treat tasks as events" is
+  // not consulted: it lists every task elsewhere, and here the checkbox picks.
   const displayEvents = useMemo(() => {
     // Holidays first: on a tie the sort keeps them ahead of the day's events.
     const withHolidays = [...holidayEvents, ...calendarEvents].sort((a, b) => a.start.getTime() - b.start.getTime());
@@ -145,7 +137,6 @@ export function UpcomingEvents({
       new Date(startDate),
       new Date(endDate),
       "hsl(var(--muted-foreground))",
-      { all: tasksAsEvents },
     ).map((o) => ({
       id: o.id,
       title: o.personName
@@ -157,7 +148,7 @@ export function UpcomingEvents({
       holiday: false,
     }));
     return [...withHolidays, ...tasks].sort((a, b) => a.start.getTime() - b.start.getTime());
-  }, [calendarEvents, holidayEvents, tasksAsEvents, todos, people, startDate, endDate, tCalendar]);
+  }, [calendarEvents, holidayEvents, todos, people, startDate, endDate, tCalendar]);
 
   if (isLoading) {
     return <UpcomingEventsSkeleton />;

@@ -2614,7 +2614,7 @@
       "holidaysAsEventsLabel": "Afficher les jours fériés parmi les événements",
       "holidaysAsEventsHint": "Les jours fériés apparaissent aussi parmi les événements : dans le widget Événements, l'Aperçu de la semaine et l'économiseur d'écran. Le calendrier et le widget Jours fériés les affichent de toute façon.",
       "tasksAsEventsLabel": "Traiter les tâches comme des événements",
-      "tasksAsEventsHint": "Les tâches apparaissent aussi parmi les événements : dans le widget Événements, l'Aperçu de la semaine et la liste du jour du calendrier. Dans les listes à venir, une tâche récurrente n'apparaît qu'à sa prochaine occurrence."
+      "tasksAsEventsHint": "Les tâches apparaissent aussi parmi les événements : dans l'Aperçu de la semaine et la liste du jour du calendrier. Dans les listes à venir, une tâche récurrente n'apparaît qu'à sa prochaine occurrence. Le widget Événements affiche les tâches cochées « Afficher sous Événements sur l'accueil »."
     },
     "calendarSyncRange": {
       "title": "Portée de synchronisation",

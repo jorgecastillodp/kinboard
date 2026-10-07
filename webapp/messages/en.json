@@ -2614,7 +2614,7 @@
       "holidaysAsEventsLabel": "Show holidays among events",
       "holidaysAsEventsHint": "Holidays also appear among events: in the Events widget, the Week overview and the screensaver. The calendar and the Holidays widget show them either way.",
       "tasksAsEventsLabel": "Treat tasks as events",
-      "tasksAsEventsHint": "Tasks also appear among events: in the Events widget, the Week overview and the calendar's day list. In lists of what is coming up, a repeating task shows only its next time."
+      "tasksAsEventsHint": "Tasks also appear among events: in the Week overview and the calendar's day list. In lists of what is coming up, a repeating task shows only its next time. The Events widget lists the tasks ticked “Show under Events on Home”."
     },
     "calendarSyncRange": {
       "title": "Sync range",

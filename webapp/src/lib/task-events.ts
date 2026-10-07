@@ -6,19 +6,23 @@ import { isRecurring } from "@/lib/todo-recurrence";
 export type EventTodo = MarkerTodo & { id: string; title: string; show_in_events?: boolean | null };
 
 /**
- * The tasks the Events widget lists, each once.
+ * The tasks the Events widget lists, each once: the ones flagged "Show under
+ * Events on Home" in their create / edit dialog, and only those.
  *
- * A task is listed when it is flagged (Show under Events on Home, in its
- * create / edit dialog), or when `all` is set: Settings -> Calendar -> "Tasks
- * as events" lists every task. Each is listed once, at its next day in the
- * window: one daily chore listed on every day would fill the widget and push
- * the real events out.
+ * Settings -> Calendar -> "Treat tasks as events" does not list every task
+ * here. It lists them in the week overview and the calendar's day list, but
+ * here the checkbox is how a family picks: with that switch deciding too, a
+ * family that had it on (this one did) could never leave a task out, and the
+ * checkbox could only add what was already there.
+ *
+ * A flagged task is listed once, at its next day in the window: one daily
+ * chore listed on every day would fill the widget and push the real events out.
  *
  * A task is listed on its day, which takes a due date or a repeat. A flagged
- * one-off task with neither, or one that is overdue, has no day to be on
- * but is still to be done, so it is listed today until it is ticked off:
- * somebody who flagged it wants to see it, and an empty list would read as a
- * broken option. Without the flag, such a task is not listed, as before.
+ * one-off task with neither, or one that is overdue, has no day to be on but
+ * is still to be done, so it is listed today until it is ticked off: somebody
+ * who flagged it wants to see it, and an empty list would read as a broken
+ * option.
  */
 export function eventTaskOccurrences(
   todos: readonly EventTodo[],
@@ -26,16 +30,16 @@ export function eventTaskOccurrences(
   from: Date,
   to: Date,
   unassignedColor: string,
-  { all, now = new Date() }: { all: boolean; now?: Date },
+  now: Date = new Date(),
 ): TaskOccurrence[] {
-  const listed = all ? todos : todos.filter((todo) => todo.show_in_events === true);
-  if (listed.length === 0) return [];
+  const flagged = todos.filter((todo) => todo.show_in_events === true);
+  if (flagged.length === 0) return [];
 
-  const onTheirDay = nextTaskOccurrences(taskOccurrences(listed, people, from, to, unassignedColor, now));
+  const onTheirDay = nextTaskOccurrences(taskOccurrences(flagged, people, from, to, unassignedColor, now));
 
   const today = toLocalDateKey(now);
-  const standIns = todos
-    .filter((todo) => todo.show_in_events === true && !isRecurring(todo) && (!todo.due_date || todo.due_date.slice(0, 10) < today))
+  const standIns = flagged
+    .filter((todo) => !isRecurring(todo) && (!todo.due_date || todo.due_date.slice(0, 10) < today))
     // Today's occurrence, made by the same code as every other one (colour,
     // person, and nothing for a task that is done or in the bin), by giving
     // the task today as its day.

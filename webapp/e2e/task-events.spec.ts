@@ -26,16 +26,25 @@ const task = (over: Partial<EventTodo> & Record<string, unknown> = {}): EventTod
   n += 1;
   return { id: `t${n}`, title: `Task ${n}`, completed: false, recurrence: "once", due_date: null, last_completed: null, show_in_events: false, person_id: null, created_at: "2026-10-01T00:00:00.000Z", ...over };
 };
-const list = (todos: EventTodo[], all = false) =>
-  eventTaskOccurrences(todos, PEOPLE, FROM, TO, GREY, { all, now: NOW }).map((o) => `${o.dayKey} ${o.title}`);
+const list = (todos: EventTodo[]) =>
+  eventTaskOccurrences(todos, PEOPLE, FROM, TO, GREY, NOW).map((o) => `${o.dayKey} ${o.title}`);
 
-test("only flagged tasks are listed, unless every task is", () => {
+test("only flagged tasks are listed: the family picks which tasks show up as events", () => {
   const flagged = task({ title: "Flagged", due_date: "2026-10-08", show_in_events: true });
   const plain = task({ title: "Plain", due_date: "2026-10-08" });
   expect(list([flagged, plain])).toEqual(["2026-10-08 Flagged"]);
-  expect(list([flagged, plain], true)).toEqual(["2026-10-08 Flagged", "2026-10-08 Plain"]);
   expect(list([plain])).toEqual([]);
   expect(list([])).toEqual([]);
+});
+
+test("repeating tasks that are not flagged are not listed, however often they come round", () => {
+  // The reported case: a family with every task treated as an event elsewhere still saw these here.
+  const daily = task({ title: "Water the plants", recurrence: "daily" });
+  const someDays = task({ title: "Read 20 minutes", recurrence: "days:MO,TU,WE,TH" });
+  const weekly = task({ title: "Bins", recurrence: "weekly", last_completed: "2026-10-03T08:00:00" });
+  const flaggedDaily = task({ title: "Feed the fish", recurrence: "daily", show_in_events: true });
+  expect(list([daily, someDays, weekly])).toEqual([]);
+  expect(list([daily, someDays, weekly, flaggedDaily])).toEqual(["2026-10-06 Feed the fish"]);
 });
 
 test("a flagged task is listed on its due day, and not before it is in the window", () => {
@@ -48,9 +57,8 @@ test("a flagged one-off with no date, or overdue, is listed today until it is ti
   const undated = task({ title: "No date", show_in_events: true });
   const overdue = task({ title: "Overdue", due_date: "2026-10-02", show_in_events: true });
   expect(list([undated, overdue])).toEqual(["2026-10-06 No date", "2026-10-06 Overdue"]);
-  // Without the flag, nothing changes: neither has a day to be listed on.
+  // Without the flag, neither is listed.
   expect(list([task({ title: "No date" }), task({ title: "Overdue", due_date: "2026-10-02" })])).toEqual([]);
-  expect(list([task({ title: "No date" }), task({ title: "Overdue", due_date: "2026-10-02" })], true)).toEqual([]);
   // Ticked off, it goes.
   expect(list([task({ title: "Done", completed: true, show_in_events: true }), task({ title: "Done late", due_date: "2026-10-02", completed: true, show_in_events: true })])).toEqual([]);
 });
@@ -69,7 +77,6 @@ test("a task in the bin is never listed, flagged or not", () => {
   const binned = task({ title: "Binned", due_date: "2026-10-08", show_in_events: true, deleted_at: "2026-10-05T00:00:00.000Z" });
   const binnedUndated = task({ title: "Binned undated", show_in_events: true, deleted_at: "2026-10-05T00:00:00.000Z" });
   expect(list([binned, binnedUndated])).toEqual([]);
-  expect(list([binned, binnedUndated], true)).toEqual([]);
 });
 
 test("a person gives the entry its colour and name, and the list is sorted by day, then title", () => {
@@ -79,7 +86,7 @@ test("a person gives the entry its colour and name, and the list is sorted by da
     task({ title: "Soon", due_date: "2026-10-07", show_in_events: true }),
     task({ title: "No date", show_in_events: true }),
   ];
-  const out = eventTaskOccurrences(todos, PEOPLE, FROM, TO, GREY, { all: false, now: NOW });
+  const out = eventTaskOccurrences(todos, PEOPLE, FROM, TO, GREY, NOW);
   expect(out.map((o) => `${o.dayKey} ${o.title}`)).toEqual(["2026-10-06 No date", "2026-10-07 Soon", "2026-10-09 A later", "2026-10-09 B later"]);
   const withPerson = out.find((o) => o.title === "B later")!;
   expect(withPerson).toMatchObject({ color: "#e11d48", personName: "Emma", personId: "p1" });
@@ -90,19 +97,32 @@ test("a person gives the entry its colour and name, and the list is sorted by da
   expect(standIn.date.getTime()).toBe(new Date(2026, 9, 6).getTime());
 });
 
-test("a flagged task is not listed twice when every task is", () => {
-  const flagged = task({ title: "Both", due_date: "2026-10-08", show_in_events: true });
-  const undated = task({ title: "Undated both", show_in_events: true });
-  expect(list([flagged, undated], true)).toEqual(["2026-10-06 Undated both", "2026-10-08 Both"]);
-});
-
-test("the Events widget lists tasks through this, reading them whether or not every task is listed", () => {
+test("the Events widget lists tasks through this, and never asks whether every task is treated as an event", () => {
   const widget = codeOnly(read("src/components/widgets/upcoming-events.tsx"));
   expect(widget).toContain("eventTaskOccurrences(");
-  expect(widget).toContain("{ all: tasksAsEvents }");
   expect(widget).toContain("const { data: todos } = useTodos();");
-  expect(widget).not.toContain("useTodos({ enabled: tasksAsEvents })");
-  expect(widget).not.toContain("if (!tasksAsEvents) return withHolidays;");
+  // The setting that lists every task in the week overview and the calendar
+  // must not decide here, or a family with it on cannot leave a task out.
+  expect(widget).not.toContain("tasksAsEvents");
+  expect(widget).not.toContain("calendarDisplay");
+  expect(widget).not.toContain("calendar-markers");
+  const lib = codeOnly(read("src/lib/task-events.ts"));
+  expect(lib).toContain("const flagged = todos.filter((todo) => todo.show_in_events === true);");
+  expect(lib).not.toMatch(/\ball\b/);
+});
+
+test("the switch that lists every task elsewhere says the Events widget lists the ticked ones", () => {
+  const ticked: Record<string, string> = {
+    en: "Show under Events on Home",
+    de: "Auf Home unter Termine zeigen",
+    fr: "Afficher sous Événements sur l'accueil",
+  };
+  for (const locale of ["en", "de", "fr"]) {
+    const hint: string = JSON.parse(read(`messages/${locale}.json`)).settings.calendarDisplay.tasksAsEventsHint;
+    expect(hint, locale).toContain(ticked[locale]);
+  }
+  const en: string = JSON.parse(read("messages/en.json")).settings.calendarDisplay.tasksAsEventsHint;
+  expect(en).not.toContain("in the Events widget");
 });
 
 test("both task dialogs carry the option, and save, reset and refill it", () => {
