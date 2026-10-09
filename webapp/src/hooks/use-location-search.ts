@@ -1,32 +1,28 @@
 import { useState, useCallback, useRef } from "react";
+import { formatPlace, locationSearchParams, type PlaceAddress } from "@/lib/location-search";
 
 export interface LocationResult {
   display_name: string;
   place_id: number;
   lat: string;
   lon: string;
-  address?: {
-    road?: string;
-    house_number?: string;
-    city?: string;
-    town?: string;
-    village?: string;
-    municipality?: string;
-    county?: string;
-    state?: string;
-    postcode?: string;
-    country?: string;
-  };
+  address?: PlaceAddress;
 }
 
 interface UseLocationSearchOptions {
   debounceMs?: number;
   limit?: number;
+  /**
+   * ISO 3166-1 alpha-2. Searches this country first and the whole world when
+   * it has no match. Omitted: the whole world.
+   */
   countryCode?: string;
+  /** The app's language: the names in the results come back in it. */
+  language?: string;
 }
 
 export function useLocationSearch(options: UseLocationSearchOptions = {}) {
-  const { debounceMs = 300, limit = 5, countryCode = "de" } = options;
+  const { debounceMs = 300, limit = 5, countryCode, language = "en" } = options;
 
   const [results, setResults] = useState<LocationResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -58,23 +54,16 @@ export function useLocationSearch(options: UseLocationSearchOptions = {}) {
       setError(null);
 
       debounceTimer.current = setTimeout(async () => {
-        abortController.current = new AbortController();
+        const controller = new AbortController();
+        abortController.current = controller;
 
-        try {
-          const params = new URLSearchParams({
-            q: query,
-            format: "json",
-            addressdetails: "1",
-            limit: limit.toString(),
-            countrycodes: countryCode,
-          });
-
+        const searchIn = async (country: string | undefined): Promise<LocationResult[]> => {
+          const params = locationSearchParams({ query, limit, countryCode: country, language });
           const response = await fetch(
             `https://nominatim.openstreetmap.org/search?${params}`,
             {
-              signal: abortController.current.signal,
+              signal: controller.signal,
               headers: {
-                "Accept-Language": "de",
                 "User-Agent": "FamilyCalendar/1.0",
               },
             }
@@ -84,7 +73,13 @@ export function useLocationSearch(options: UseLocationSearchOptions = {}) {
             throw new Error("Search failed");
           }
 
-          const data: LocationResult[] = await response.json();
+          return (await response.json()) as LocationResult[];
+        };
+
+        try {
+          let data = await searchIn(countryCode);
+          // Nothing in the family's own country: an event can be anywhere, so look everywhere.
+          if (countryCode && data.length === 0) data = await searchIn(undefined);
           setResults(data);
           setError(null);
         } catch (err) {
@@ -92,14 +87,14 @@ export function useLocationSearch(options: UseLocationSearchOptions = {}) {
             // Ignore abort errors
             return;
           }
-          setError("Suche fehlgeschlagen");
+          setError("Location search failed");
           setResults([]);
         } finally {
           setIsLoading(false);
         }
       }, debounceMs);
     },
-    [debounceMs, limit, countryCode]
+    [debounceMs, limit, countryCode, language]
   );
 
   const clear = useCallback(() => {
@@ -113,26 +108,11 @@ export function useLocationSearch(options: UseLocationSearchOptions = {}) {
     }
   }, []);
 
-  // Format a location result into a short display string
-  const formatLocation = useCallback((location: LocationResult): string => {
-    const addr = location.address;
-    if (!addr) return location.display_name;
-
-    const parts: string[] = [];
-
-    // Street with house number
-    if (addr.road) {
-      parts.push(addr.house_number ? `${addr.road} ${addr.house_number}` : addr.road);
-    }
-
-    // City/Town/Village
-    const city = addr.city || addr.town || addr.village || addr.municipality;
-    if (city) {
-      parts.push(addr.postcode ? `${addr.postcode} ${city}` : city);
-    }
-
-    return parts.length > 0 ? parts.join(", ") : location.display_name;
-  }, []);
+  // A result as one short line, written the way its own country writes an address
+  const formatLocation = useCallback(
+    (location: LocationResult): string => formatPlace(location.address, location.display_name),
+    [],
+  );
 
   return {
     results,
