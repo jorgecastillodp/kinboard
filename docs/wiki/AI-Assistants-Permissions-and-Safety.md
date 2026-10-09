@@ -15,21 +15,21 @@ a write permission does not include reading what it writes.
 
 | Permission | Consent page label | What it grants |
 |---|---|---|
-| `family:read` | Read the family summary, calendar, people, tasks, shopping list, meal plan, recipes, school timetable, birthdays, pocket money balances, points, rewards and each creature's species and stage, timers, countdowns, screen messages, attention hints and recycle bin | Every reading tool except notes, energy, the home and vehicles. Attention hints built from Home Assistant only as a count unless `home:read` is granted too. Points and rewards include each creature's species and stage, never its name or look |
+| `family:read` | Read the family summary, calendar, people, tasks, shopping list, meal plan, recipes, school timetable, birthdays, pocket money balances, points, rewards and each creature's species and stage, timers, countdowns, screen messages, attention hints, weather forecast and recycle bin | Every reading tool except notes, energy, the home and vehicles. Attention hints built from Home Assistant only as a count unless `home:read` is granted too. Points and rewards include each creature's species and stage, never its name or look |
 | `notes:read` | Read notes | Reading the 100 newest notes |
 | `calendar:write` | Add, change and delete calendar events and countdowns | Adding, editing and deleting events (written through to Google or CalDAV) and saying who an event is for; adding and deleting countdowns |
-| `tasks:write` | Add, tick off, edit and delete tasks | Adding, completing, reopening, editing and deleting tasks, with assignee, repetition, priority, icon and points; restoring a deleted task; dismissing an attention hint |
+| `tasks:write` | Add, tick off, edit and delete tasks | Adding tasks (one, or up to 15 at once, all or none), completing, reopening, editing and deleting them, with assignee, repetition, priority, icon and points, and who takes turns on a repeating task; restoring a deleted task; dismissing an attention hint |
 | `shopping:write` | Add, tick off, rename and delete shopping items | Adding, checking, unchecking, renaming and deleting items; putting a recipe's ingredients on the list |
 | `notes:write` | Add, edit and delete notes | Adding, editing, pinning and deleting notes; restoring a deleted note |
 | `energy:read` | Read the energy sensors set up in Energy (solar, battery, grid, consumption) | Reading the sensors chosen under **Settings → Energy**, never any other Home Assistant entity |
-| `meals:write` | Add and remove meals | Adding and removing meal plan entries; restoring a removed one. There is no edit: remove a meal and add another |
+| `meals:write` | Add and remove meals, and save and change recipes | Adding and removing meal plan entries; restoring a removed one; saving a new recipe to the family's collection and changing a saved one (its title, description, servings, times, tags, ingredients and steps). There is no meal edit: remove a meal and add another. A recipe's picture and favourite stay on Kinboard's recipe page, and only that page deletes a recipe |
 | `announcements:write` | Send a message to your family's screens, mark one as seen, and show a camera on the wall displays | Sending a message to every screen and phone; marking one as seen; putting one of the family's cameras full screen on the wall displays for up to five minutes, with a push to every phone (the Integration API's `show_camera`, which has no assistant tool yet but which a connection holding this permission can call) |
 | `home:read` | List your home's cataloged devices and their state | Listing the devices in your catalogue and reading their state; seeing the details of attention hints built from Home Assistant |
 | `home:control` | Control devices from your catalogue — locks, alarms, garage doors, scenes, scripts and switches only after someone confirms with the settings PIN | Running an allowed action on a catalogue device; following a request that waits for confirmation. Grant `home:read` too if the assistant should look before it acts |
 | `vehicles:read` | See your vehicles' charge level, range and charging status | Reading each car's charge, range and charging status (and temperature, locks, doors, windows and odometer where reported), never its location |
 | `timers:write` | Start and stop timers on the screens | Starting and stopping kitchen timers |
 | `birthdays:write` | Add, change and delete birthdays | Adding, editing and deleting birthdays; restoring a deleted one |
-| `pocket_money:write` | Ask to book pocket money or ask for a child's reward — a parent approves each with the settings PIN. A reward request notifies the parents and holds the child's points until then | Asking for a deposit or a withdrawal, which a family member must allow; following that request. Asking for a reward for a child, which waits for a parent like the child's own request |
+| `pocket_money:write` | Ask to book pocket money, ask for a child's reward, or ask a parent to approve or decline one — a parent confirms each with the settings PIN. A reward request notifies the parents and holds the child's points until then | Asking for a deposit or a withdrawal, which a family member must allow; following that request. Asking for a reward for a child, which waits for a parent like the child's own request. Asking a parent to approve or decline a reward request, which they confirm on a Kinboard screen |
 
 Which tool needs which permission: [What assistants can do](AI-Assistants-Capabilities#all-tools-by-permission).
 
@@ -41,12 +41,13 @@ assistant you'd let tick off and set up the children's chores.
 
 ## Confirmation on the screens
 
-Two kinds of request never run on an assistant's say-so:
+Three kinds of request never run on an assistant's say-so:
 
 - **sensitive Home Assistant actions** (see [below](#home-assistant-devices)): locks, alarm
   panels, garage doors and gates, scenes, scripts, switches that aren't
   outlets, and the rest of the list;
-- **every pocket-money booking**, deposit or withdrawal, of any amount.
+- **every pocket-money booking**, deposit or withdrawal, of any amount;
+- **every decision on a child's reward request**, approve or decline.
 
 The assistant is told that nothing has happened yet and that someone has to
 confirm it on a Kinboard screen. Then:
@@ -54,8 +55,10 @@ confirm it on a Kinboard screen. Then:
 1. **Every Kinboard screen shows it at once.** On every page of every joined
    device, over the screensaver too, a card appears: **An assistant is
    asking**, with *"Claude wants to unlock Front door (Hall)"* or *"ChatGPT
-   wants to add €5.00 to Enno's pocket money (note: "mowing the lawn")"*,
-   the line *"Only allow this if someone in the family asked for it."*, and
+   wants to add €5.00 to Enno's pocket money (note: "mowing the lawn")"*
+   or *"Claude wants to approve Mira's reward "30 minutes of tablet time"
+   for 30 points"* — a reward decision also lists the child, the reward,
+   the points and, set apart, **Approve** or **Decline** — then the line *"Only allow this if someone in the family asked for it."*, and
    a countdown of the seconds left.
 2. **Phones get a push notification** (those with notifications switched
    on): *"Claude wants to …"*, *"Open to allow it with the settings PIN, or
@@ -89,6 +92,17 @@ A few more rules:
   (*"Allowed, but there isn't enough pocket money for this, so nothing was
   booked."*). Once booked, Kinboard doesn't undo it; a mistake needs a
   booking the other way.
+- **Reward decisions:** allowing one decides the reward request on the
+  server exactly as a parent's own Approve or Decline in Settings →
+  Creatures & rewards does, and the child's device is told the same way.
+  If someone answered it in the app first, the app's answer stands and the
+  screen says so (*"Allowed, but this reward request had already been
+  answered, so nothing changed."*); if the child's points no longer cover
+  an approval, nothing is approved. **Deny** on the screen leaves the
+  reward request waiting, untouched. Refunds are only in the app.
+- **Who can allow it:** any Kinboard screen of the family, a child's own
+  tablet included, but only with the settings PIN. The PIN is what makes it
+  a parent's decision, so keep it from the children.
 - **Revoking an assistant ends its waiting requests**; nothing runs.
 - **The assistant asks what happened** with `get_action_status`. It sees
   only its own requests.
@@ -98,6 +112,59 @@ pocket-money request, or a screen still on the old version shows a generic
 line with no amount or child. See [Self-hosting
 notes](AI-Assistants-Self-Hosting#upgrading).
 
+## Trusting an assistant
+
+Confirmation on the screens is the default for every assistant. You can switch it off for one assistant you
+trust: **Settings → Integration tokens**, find the row with the **Assistant**
+label, and turn on **Trust this assistant**. Kinboard asks for the settings
+PIN and shows this before it does anything:
+
+> *Everything this assistant asks for will happen right away — including
+> unlocking doors, opening the garage, switching off the alarm, booking
+> pocket money and deciding rewards. Nobody is asked first. A message
+> someone sends it, or text on a web page it reads, could make it do things
+> you didn't intend.*
+
+That is the trade-off, said plainly. Confirmation is what stands between a
+prompt injection (see [below](#text-in-your-data-is-data-not-instructions))
+and your front door. With trust on, the only thing standing there is the
+assistant's own judgement. Turn it on only for an assistant that only you
+use, and only if you're comfortable with that.
+
+What trust changes, and what it doesn't:
+
+- **It's one switch per assistant, for everything, until you turn it off.**
+  There is no "doors yes, pocket money no" and no time limit. If you want
+  that, leave it off.
+- **It's tied to that connection.** A second assistant in the same family
+  still asks. If you revoke the assistant, or switch off **Allow AI
+  assistants**, the trust is gone with it, and connecting again starts
+  untrusted. A token refreshing itself in the background keeps it.
+- **It skips the person, not the checks.** A trusted request goes through
+  exactly the steps an allowed one does: the assistant must still be
+  connected, the device must still be in your catalogue and the action
+  still on its list of allowed actions; a withdrawal still can't exceed the
+  balance, and a reward decision still fails if someone answered it in the
+  app first or the points no longer cover it. The limits stay too: at most
+  5 such requests per 10 minutes. A family with no settings PIN can't trust
+  an assistant, and still gets no sensitive actions.
+- **You see what it did.** Each time, every Kinboard screen shows a quiet
+  message, *"Done without asking: open Garage door"*, **via** the
+  assistant's name. No push and no sound. It stays until someone taps
+  **Got it**, and an assistant can't tap it away for you. The record of
+  each action stays in Kinboard either way, marked as allowed by trust.
+- **A retry doesn't run it twice.** If the assistant's request times out
+  and it sends the same request again, Kinboard recognises it and answers
+  with what happened the first time, or says it's still running, instead
+  of opening the door or booking the money a second time.
+- **Turning it on needs the PIN, typed right then.** An unlocked settings
+  screen isn't enough, and wrong guesses count against the same limit as
+  every other PIN prompt. No assistant can turn it on for itself: there is
+  no tool or Integration API call for it.
+- **Turning it off needs nothing.** Anyone at a screen can switch it off,
+  and it holds from the very next request. A request that was just starting
+  when you switched it off goes back to waiting on the screens.
+
 ## Rewards
 
 Asking for a reward with `request_reward` is the same as the child tapping
@@ -106,6 +173,13 @@ Asking for a reward with `request_reward` is the same as the child tapping
 - **It only asks.** The request waits in Settings → Creatures & rewards, at
   the top, until a parent approves or declines it with the settings PIN. No
   assistant, and no Home Assistant token, can approve or decline one.
+- **An assistant can ask a parent to decide** with `decide_reward_request`
+  (*"Approve Mira's 30 minutes of tablet time"*). That too only asks: it
+  shows up on every Kinboard screen [for confirmation](#confirmation-on-the-screens),
+  and only a parent allowing it there with the settings PIN approves or
+  declines anything. The reward's title is shown in quotes as the family
+  typed it, so a title can't pass itself off as Kinboard's own words or
+  change what is being decided.
 - **The parents' phones are told**: *"Mia would like 🎮 An hour of
   Minecraft (50 ⭐)"*; tapping it opens the requests. Devices that belong to
   a child (Settings → Devices) are left out, so a brother's tablet doesn't
@@ -181,7 +255,7 @@ down, and nothing happens.
 
 | What | Limit |
 |---|---|
-| Requests waiting for confirmation (home actions and pocket money together) | at most **2** waiting at once, and **5** new ones per 10 minutes |
+| Requests waiting for confirmation (home actions, pocket money and reward decisions together) | at most **2** waiting at once, and **5** new ones per 10 minutes |
 | Edits and deletes across tasks, shopping items, notes, calendar events and meal entries, and reward requests | **30** per 10 minutes, all together |
 | Messages to the screens | **5** per 10 minutes |
 | Timers | at most **10** running, paused or ringing for the family, whoever started them; one ringing unanswered for over an hour no longer counts. Each up to 24 hours |
@@ -228,17 +302,19 @@ Whatever permissions you grant, and whatever someone approves:
 - **No presence.** Who is home is never read.
 - **No vehicle location.** `list_vehicles` never returns where a car is.
 - **No alarm or lock codes.** An assistant never holds or passes on a code;
-  arming, disarming, locking and unlocking always go through PIN
-  confirmation instead.
+  arming, disarming, locking and unlocking go through PIN confirmation
+  instead, or, for an assistant you [trust](#trusting-an-assistant), run
+  without one.
 - **No generic Home Assistant calls.** `homeassistant.*` (which can reach
   any domain), `automation.*`, `update.*`, `shell_command.*` and every
   domain not in the table above are unreachable. So is targeting a different
   device than the one checked.
 - **No emptying the recycle bin**, and no erasing anything in it for good.
 - **No web recipes.** Recipe search covers the family's own collection
-  only.
-- **No settings.** No tool changes the PIN, the catalogue, the switch or
-  any other setting.
+  only. An assistant can save a new recipe to it, but not change or delete
+  one.
+- **No settings.** No tool changes the PIN, the catalogue, the switch,
+  an assistant's trust or any other setting.
 
 ## Text in your data is data, not instructions
 
@@ -253,7 +329,9 @@ Kinboard handles it in layers:
 - Every tool that returns family text tells the assistant to treat it as
   data, never as instructions.
 - What an injected instruction could do without a person is bounded: no
-  sensitive home action and no pocket-money booking runs without the PIN,
+  sensitive home action and no pocket-money booking runs without the PIN
+  (unless you [trust the assistant](#trusting-an-assistant), which removes
+  exactly this layer),
   and the edit-and-delete limit stops a "clean everything up" long before
   the lists are empty.
 - Deleted tasks, notes, meals and birthdays can be brought back.
@@ -267,7 +345,8 @@ needs to answer questions needs only the read permissions.
 
 - **One connection:** **Settings → Integration tokens**, find the row with
   the **Assistant** label and select **Revoke**. It stops working at once,
-  and any request it left waiting is ended. The row stays, marked revoked, so
+  and any request it left waiting is ended, and its trust, if you gave it,
+  is gone. The row stays, marked revoked, so
   you can still see what it was and when it was last used.
 - **Every assistant:** switch off **Allow AI assistants** on the same page.
   This revokes every assistant connection your family has. Hand-made tokens

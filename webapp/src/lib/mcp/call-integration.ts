@@ -29,6 +29,12 @@ export interface CallOptions {
   query?: Record<string, string>;
   body?: unknown;
   params?: Record<string, string>;
+  /**
+   * Send an Idempotency-Key with a PATCH too: for a route that requires one
+   * because repeating its edit is not harmless (PATCH /recipes/{id} hands out
+   * new ingredient ids each time).
+   */
+  idempotent?: boolean;
 }
 
 export class IntegrationCallError extends Error {
@@ -48,11 +54,12 @@ export async function callIntegration(handler: RouteHandler, opts: CallOptions):
     headers.set("content-type", "application/json");
     body = JSON.stringify(opts.body);
   }
-  // Idempotency-Key is a POST concern only (lib/integration-idempotency.ts):
-  // it dedupes a *create* retried with the same arguments. PATCH and DELETE
-  // are not wired into that store, and replaying an edit or delete is not
-  // "the same create happened twice" — it is a second edit or delete.
-  if (method === "POST") {
+  // Idempotency-Key is a POST concern (lib/integration-idempotency.ts): it
+  // dedupes a *create* retried with the same arguments. PATCH and DELETE are
+  // not wired into that store, and replaying an edit or delete is not "the
+  // same create happened twice" — it is a second edit or delete. The one
+  // exception asks for it with `idempotent`.
+  if (method === "POST" || opts.idempotent) {
     headers.set("idempotency-key", randomUUID());
   }
   const response = await handler(
@@ -61,8 +68,47 @@ export async function callIntegration(handler: RouteHandler, opts: CallOptions):
   );
   const data = (await response.json().catch(() => null)) as { error?: unknown; code?: unknown } | null;
   if (!response.ok) {
-    const message = typeof data?.error === "string" ? data.error : `Kinboard returned ${response.status}`;
-    throw new IntegrationCallError(message, response.status, typeof data?.code === "string" ? data.code : undefined);
+    throw new IntegrationCallError(
+      failureMessage(response, typeof data?.error === "string" ? data.error : null),
+      response.status,
+      typeof data?.code === "string" ? data.code : undefined,
+    );
   }
   return data;
+}
+
+/** A status with no words from the route, in words the model can act on. */
+const STATUS_WORDS: Record<number, string> = {
+  400: "the request was not accepted",
+  401: "the connection to Kinboard is no longer signed in; reconnecting the assistant fixes it",
+  403: "this connection is not allowed to do that",
+  404: "not found in this family's Kinboard",
+  409: "it conflicts with the current state in Kinboard",
+  429: "too many requests",
+};
+
+/**
+ * The text a tool's caller sees for a refused or failed call. The route's
+ * own `error` is the core of it: written for an external reader, and the
+ * only text specific enough to act on ("recurring tasks can't be reopened").
+ * Around it: how long to wait when the route said (a rate limit), and for a
+ * 5xx that the fault was Kinboard's, so the model does not rewrite valid
+ * arguments chasing an error that was never about them. Without a route
+ * message the status is put into words, never left as a bare number — the
+ * connector directories reject a generic "Internal Server Error" or "Bad
+ * Request" with no detail.
+ */
+function failureMessage(response: Response, routeError: string | null): string {
+  const { status } = response;
+  const parts: string[] = [];
+  if (routeError) parts.push(routeError);
+  else if (status >= 500) parts.push(`Kinboard could not complete the request (HTTP ${status})`);
+  else parts.push(`Kinboard refused the request (HTTP ${status}): ${STATUS_WORDS[status] ?? "the request was not accepted"}`);
+  const retryAfter = Number(response.headers.get("retry-after"));
+  if (Number.isFinite(retryAfter) && retryAfter > 0) {
+    parts.push(`Try again in ${Math.ceil(retryAfter)} seconds.`);
+  } else if (status >= 500) {
+    parts.push("This was a problem on Kinboard's side, not with the request; trying again in a moment may work.");
+  }
+  return parts.map((p, i) => (i < parts.length - 1 && !/[.!?]$/.test(p) ? `${p}.` : p)).join(" ");
 }

@@ -290,8 +290,27 @@ paths:
 
         Every action that runs is recorded against the calling token.
 
-        Only `200` and `202` are remembered against the Idempotency-Key; the
-        key is bound to the entity as well as the body.
+        **A trusted assistant.** When the family has switched on *Trust this
+        assistant* for the calling connection (Settings, with the settings
+        PIN — never through this API), the request does not wait: it runs at
+        once through the same checks an approval runs, and the answer says how
+        it ended — `200` `done`, `409` when it was refused before it ran
+        (`reason` as in `GET /actions/{id}`, or `revoked`), `502` when it may or
+        may not have happened — each with `request_id` and
+        `allowed_by_trust: true`, and remembered against the Idempotency-Key so
+        a retry never runs it twice. A `202 pending_confirmation` is still
+        possible if the trust was switched off as it started.
+
+        The Idempotency-Key is reserved before anything runs. Another request
+        with the same key while the first is running — or after its result
+        could not be recorded, or it failed after it had started — is `409`
+        with `reason: in_progress` (`Retry-After`), and runs nothing. A request
+        that failed before anything ran gives the key back.
+
+        Only `200`, `202`, `502` (Home Assistant was called and did not
+        confirm; it may have happened) and a trusted assistant's answer with a
+        `request_id` are remembered against the Idempotency-Key; the key is
+        bound to the entity as well as the body.
       x-required-scope: home:control
       parameters:
         - $ref: "#/components/parameters/Entity"
@@ -317,7 +336,7 @@ paths:
                   additionalProperties: true
       responses:
         "200":
-          description: Home Assistant ran the action
+          description: "Home Assistant ran the action — not sensitive, or sensitive and the assistant is trusted (then with `request_id` and `allowed_by_trust`)"
           content:
             application/json:
               schema:
@@ -325,6 +344,8 @@ paths:
                 required: [status]
                 properties:
                   status: { type: string, enum: [done] }
+                  request_id: { type: string, format: uuid }
+                  allowed_by_trust: { type: boolean, enum: [true] }
         "202":
           description: Sensitive — stored until a family member confirms it on a Kinboard screen with the settings PIN, or it expires
           content:
@@ -388,21 +409,36 @@ paths:
       summary: The outcome of any request this assistant left waiting for confirmation
       description: |
         A `request_id` from a `202 pending_confirmation` of any kind — a
-        sensitive home action, or a pocket-money booking. Needs
+        sensitive home action, a pocket-money booking, or a decision on a
+        reward request. Needs
         `home:control` **or** `pocket_money:write`: either is enough. Only
-        the calling token's own requests are visible; any other id,
-        including another assistant's in the same family, is `404`.
+        the calling token's own requests are visible, and only of a kind it
+        holds the scope for: a home request needs `home:control`, a
+        pocket-money booking or a reward decision `pocket_money:write`. Any
+        other id -- another assistant's in the same family, another
+        family's, or one of a kind the token may not make -- is `404`, the
+        same answer as an id that does not exist.
 
-        The same as `GET /home/actions/{id}`, plus `kind` (`home` or
-        `pocket_money`) and `description`, the request in words as the
+        The same as `GET /home/actions/{id}`, plus `kind` (`home`,
+        `pocket_money` or `reward_decision`) and `description`, the request in words as the
         family was asked about it. `entity_id` and `service` are `null` for
-        a request that is not a home action. `result.reason`
+        a request that is not a home action. A `done` pocket-money booking's
+        `result` is `{ status: 200, booked: true }` -- no account data; a
+        `done` reward decision's is
+        `{ status: 200, decided: approved | declined }`. A failure's is
+        `{ status: 0, reason }`. `result.reason`
         `not_available`: approved, but this Kinboard cannot run that kind of
         request, so nothing was done. For a pocket-money booking:
         `insufficient_funds` (a withdrawal larger than the balance by the
         time it was allowed) and `no_account` (the child or the account is
         gone) — nothing was booked; `booking_failed` — Kinboard could not
-        tell whether it was booked.
+        tell whether it was booked. For a reward decision:
+        `reward_already_decided` (answered in Kinboard meanwhile),
+        `reward_request_gone` (the request or the child is gone) and
+        `insufficient_points` (approving, and the points no longer cover
+        it) — nothing changed; `reward_decision_failed` — Kinboard could not
+        tell whether the decision was saved. A request the family's trust in
+        this assistant ran without confirmation has `allowed_by_trust: true`.
       x-required-scope: [home:control, pocket_money:write]
       parameters:
         - name: id
@@ -763,6 +799,122 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "429": { $ref: "#/components/responses/RateLimited" }
 
+  /weather:
+    get:
+      tags: [state]
+      summary: The weather where the family is - now, today by the hour, and the next days
+      description: |
+        The forecast for the location chosen in Kinboard under Settings →
+        Weather, in the units chosen there, and with condition labels in the
+        family's language - the same forecast the Weather widget shows. No
+        place can be supplied by a client.
+
+        The provider requests are the widget's own, built by the same code for
+        the same place, units and language, so they share its cache: current
+        conditions are at most 10 minutes old, the forecast at most 30, and a
+        call costs no provider quota while a board is already showing the
+        widget. At most two provider requests per call.
+
+        `daily` is on the family's calendar: each entry's `date` is a
+        YYYY-MM-DD day in the family's time zone (`time_zone`), from today,
+        about five days ahead. `temp_min`/`temp_max` and `condition` summarise
+        the provider's 3-hour steps that fall on that day; `rain_chance_pct`
+        is the highest chance of precipitation among them, 0 included.
+        `partial` marks a day the forecast covers only part of (the rest of
+        today, the last day). `hourly_today` is today's remaining 3-hour steps,
+        `time` as HH:MM in the family's time zone. `current` is null when
+        current conditions could not be read; the forecast is returned anyway.
+
+        The location name and condition labels come from the family's settings
+        and the provider: a client handing them to a language model should
+        mark them as data.
+
+        Not set up - no location chosen, or no OpenWeatherMap API key on the
+        server - is a 404 with `reason: weather_not_configured`; a location the
+        provider does not know is a 404 with `reason: location_not_found`.
+        Unlike the widget there is no default city.
+      x-required-scope: family:read
+      responses:
+        "200":
+          description: The family's weather
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WeatherForecast" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404":
+          description: Weather is not set up in Kinboard, or the provider does not know the chosen location. Retrying will not help until the settings change.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: "#/components/schemas/Error" }
+                  - type: object
+                    required: [reason]
+                    properties:
+                      reason: { type: string, enum: [weather_not_configured, location_not_found] }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "502": { description: The weather provider could not be reached. }
+
+  /week-summary:
+    get:
+      tags: [state]
+      summary: A short review of the past days, and the next 7 in brief
+      description: |
+        "How did our week go?" Read only. Without `start` and `end`, the last
+        7 days up to today in the family's time zone; with them (both or
+        neither, YYYY-MM-DD, at most 31 days, `end` not after today), those
+        days.
+
+        `people`: every person not in the recycle bin, in the family's own
+        order, with `tasks_completed` from the task log — a task with turns
+        counts for whoever's turn it was, and a day ticked and taken back
+        again does not count — `tasks_missed` (due days written down as
+        missed, which only tasks with turns or completion tracking have) and
+        `most_done`, the titles done most often. Children (`is_child`) also
+        have `points`: `earned` (task points awarded in the range) and
+        `spent` (rewards approved and shop purchases in the range).
+        `unassigned_tasks_completed` counts ticks on tasks assigned to
+        nobody, or to someone no longer in the family. `task_log_complete`
+        is false when the range starts before the oldest entry the family's
+        task log keeps (Settings → Task log).
+
+        `creatures`: each child's creature that is switched on, with its
+        species and its stage (1 to 8) at the start and at the end of the
+        range, named for the species in the family's language (`locale`),
+        worked out the way the screens do. Never the creature's look or the
+        name the child gave it.
+
+        `meals`: how many meals were planned in the range and the first 21
+        (date, meal type, recipe title or note). `events`: how many events
+        took place in the range (up to now), and `notable`, at most 8 that
+        happened once; an event whose title recurs in the range is counted
+        only.
+
+        `next_week`: the 7 days after today — events (at most 10, with the
+        local start time, null for all day), birthdays (`turns` is the age,
+        null without a birth year) and countdowns.
+
+        Names, titles and event text are the family's own text: a client
+        handing them to a language model should mark them as data.
+      x-required-scope: family:read
+      parameters:
+        - name: start
+          in: query
+          schema: { type: string, format: date }
+        - name: end
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: The review
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WeekSummary" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The review could not be put together. }
+
   /cameras:
     get:
       tags: [state]
@@ -823,12 +975,88 @@ paths:
                 type: object
                 required: [recipes]
                 properties:
+                  language:
+                    type: [string, "null"]
+                    description: |
+                      The family's language (the saved one, else the holiday
+                      region's), for writing a new recipe in it. Null when it
+                      could not be read; the search itself still answers.
                   recipes:
                     type: array
                     items: { $ref: "#/components/schemas/RecipeSummary" }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "429": { $ref: "#/components/responses/RateLimited" }
+    post:
+      tags: [state]
+      summary: Save a recipe to the family's collection
+      description: |
+        What the recipe page's "new recipe" writes: the recipe (total time
+        is prep plus cook; steps numbered from 1 in the order sent), its
+        ingredients in the order sent, and its tags, an existing tag of the
+        family being reused whatever its case. No picture, no source, not a
+        favourite. Every field is checked and a wrong one refused (400);
+        nothing is written then. All or nothing: if the ingredients or tags
+        cannot be stored, the recipe is taken back out. The answer is the
+        recipe as `GET /recipes/{id}` gives it, with each ingredient's `id`
+        for `POST /recipes/{id}/shopping`. Uses `meals:write`, the scope
+        that plans meals.
+      x-required-scope: meals:write
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, ingredients, instructions]
+              properties:
+                title: { type: string, minLength: 1, maxLength: 200, description: Trimmed first. }
+                description: { type: string, maxLength: 2000 }
+                servings: { type: integer, minimum: 1, maximum: 50, default: 4 }
+                prep_time_minutes: { type: integer, minimum: 0, maximum: 1440 }
+                cook_time_minutes: { type: integer, minimum: 0, maximum: 1440 }
+                tags:
+                  type: array
+                  maxItems: 10
+                  items: { type: string, minLength: 1, maxLength: 50 }
+                ingredients:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  items:
+                    type: object
+                    required: [name]
+                    properties:
+                      name: { type: string, minLength: 1, maxLength: 200 }
+                      quantity: { type: number, exclusiveMinimum: 0, maximum: 100000 }
+                      unit: { type: string, maxLength: 30 }
+                      group: { type: string, maxLength: 100 }
+                      notes: { type: string, maxLength: 300 }
+                instructions:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items: { type: string, minLength: 1, maxLength: 2000 }
+      responses:
+        "201":
+          description: The recipe was saved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [recipe]
+                properties:
+                  recipe: { $ref: "#/components/schemas/RecipeDetail" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "409": { description: Idempotency key reused with different arguments. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The recipe could not be saved. }
 
   /recipes/{id}:
     get:
@@ -857,6 +1085,95 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "404": { description: No such recipe in this family. }
         "429": { $ref: "#/components/responses/RateLimited" }
+    patch:
+      tags: [state]
+      summary: Change a saved recipe
+      description: |
+        What the recipe page's edit writes, with the create's checks. Only
+        the fields sent change; a field this route does not change (the
+        picture, the favourite, the source) is refused with `400`, so a
+        misspelt one is never silently ignored. `ingredients` and
+        `instructions` replace the whole list, in the order sent; `tags`
+        makes the tags exactly the list sent (`[]` removes them all);
+        `description` and the two times take `null` to clear. Changing a
+        time sets total time to prep plus cook again.
+
+        All or nothing: the new ingredients are written beside the old ones,
+        then the recipe, then the tags, and the old ingredients are deleted
+        last; if any step fails, the steps before it are undone and nothing
+        is left half changed. Replacing the ingredients gives them new ids;
+        the answer carries them. Another family's recipe and a binned one
+        are not found.
+
+        An `Idempotency-Key` is required, unlike other edits: replacing the
+        ingredients is not harmless to repeat, since each run hands out new
+        ids. A retry with the same key gets the first answer back. Counts
+        against the assistant limit on edits and deletes. Uses
+        `meals:write`, the scope that saves recipes.
+      x-required-scope: meals:write
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              additionalProperties: false
+              properties:
+                title: { type: string, minLength: 1, maxLength: 200, description: Trimmed first. }
+                description: { type: [string, "null"], maxLength: 2000 }
+                servings: { type: integer, minimum: 1, maximum: 50 }
+                prep_time_minutes: { type: [integer, "null"], minimum: 0, maximum: 1440 }
+                cook_time_minutes: { type: [integer, "null"], minimum: 0, maximum: 1440 }
+                tags:
+                  type: array
+                  maxItems: 10
+                  items: { type: string, minLength: 1, maxLength: 50 }
+                ingredients:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  description: Replaces every ingredient. Each gets a new id.
+                  items:
+                    type: object
+                    required: [name]
+                    properties:
+                      name: { type: string, minLength: 1, maxLength: 200 }
+                      quantity: { type: number, exclusiveMinimum: 0, maximum: 100000 }
+                      unit: { type: string, maxLength: 30 }
+                      group: { type: string, maxLength: 100 }
+                      notes: { type: string, maxLength: 300 }
+                instructions:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  description: Replaces every step, numbered from 1 in the order sent.
+                  items: { type: string, minLength: 1, maxLength: 2000 }
+      responses:
+        "200":
+          description: The recipe as it is now
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [recipe]
+                properties:
+                  recipe: { $ref: "#/components/schemas/RecipeDetail" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { description: No such recipe in this family. }
+        "409": { description: Idempotency key reused with different arguments. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The recipe could not be changed; nothing was. }
 
   /recipes/{id}/shopping:
     post:
@@ -872,7 +1189,11 @@ paths:
         ingredients; an id that is not in this recipe is refused and nothing
         is added. With Bring! two-way sync on, each item is also put on the
         family's Bring! list; the catalogue or Bring! failing never fails
-        the add. Every call adds new items. No body means every ingredient
+        the add. An ingredient already on the list and not ticked off is
+        merged into that item instead of added again (same name ignoring
+        case and simple plurals; quantities in the same unit add up, a
+        different unit is appended, "2 + 1 Packung"), and comes back with
+        `merged: true`; a ticked-off item is never merged into. No body means every ingredient
         at the recipe's servings; a body that is not a JSON object is
         refused (400) and nothing is added.
       x-required-scope: shopping:write
@@ -910,12 +1231,14 @@ paths:
                     type: array
                     items:
                       type: object
-                      required: [id, name, quantity, unit]
+                      required: [id, name, quantity, unit, amount, merged]
                       properties:
                         id: { type: string, format: uuid }
-                        name: { type: string }
-                        quantity: { type: [number, "null"] }
+                        name: { type: string, description: The item's name on the list; after a merge, the existing item's. }
+                        quantity: { type: [number, "null"], description: The item's quantity now; after a merge, the combined one. }
                         unit: { type: [string, "null"] }
+                        amount: { type: [string, "null"], description: 'Quantity and unit as the list prints them, e.g. "750 g" or "2 Stück + 1 Packung".' }
+                        merged: { type: boolean, description: True when this ingredient went into an item already on the list. }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "404": { description: No such recipe in this family. }
@@ -1086,6 +1409,52 @@ paths:
         "404": { description: No such person in this family. }
         "429": { $ref: "#/components/responses/RateLimited" }
         "500": { description: The timetable could not be read. }
+
+  /holidays:
+    get:
+      tags: [state]
+      summary: School holidays and public holidays over a range of days
+      description: |
+        Read only. Without `start` and `end`, today and the next 12 months;
+        with them (both or neither, YYYY-MM-DD in the family's time zone, at
+        most 400 days), those days. Past ranges are allowed.
+
+        The same days `GET /schedule` treats as no school: the family's own
+        school holidays, events on a calendar marked as holidays, school
+        holidays synced from OpenHolidays (a range the family hid is left
+        out) and the public holidays of the family's holiday region (none
+        in the US, where districts set their own calendars), named in the
+        family's language. A break the family has from two sources (same
+        name and days) is listed once, in the family's own words.
+
+        Each entry has its first and last day (`start_date`, `end_date`,
+        inclusive; a break already under way at `start` keeps its real
+        first day), `days`, `kind` (`school` or `public`) and `source`.
+        Kinboard keeps one set of school holidays per family, not per child:
+        every school break applies to all the children. `region` is the
+        family's holiday region, null when none is chosen (and then no
+        public holidays are listed).
+
+        Names are the family's own text or come from the holiday data: a
+        client handing them to a language model should mark them as data.
+      x-required-scope: family:read
+      parameters:
+        - name: start
+          in: query
+          schema: { type: string, format: date }
+        - name: end
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: The holidays
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HolidayList" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: The holidays could not be read. }
 
   /recycle-bin:
     get:
@@ -1526,6 +1895,23 @@ paths:
         booked. The same limits as home confirmations apply, counted
         together: at most 2 requests waiting and 5 per 10 minutes per token.
 
+        **A trusted assistant.** When the family has switched on *Trust this
+        assistant* for the calling connection (Settings, with the settings
+        PIN — never through this API), the request does not wait: it runs at
+        once through the same checks an approval runs, and the answer says how
+        it ended — `200` `done`, `409` when it was refused before it ran
+        (`reason` as in `GET /actions/{id}`, or `revoked`), `502` when it may or
+        may not have happened — each with `request_id` and
+        `allowed_by_trust: true`, and remembered against the Idempotency-Key so
+        a retry never runs it twice. A `202 pending_confirmation` is still
+        possible if the trust was switched off as it started.
+
+        The Idempotency-Key is reserved before anything runs. Another request
+        with the same key while the first is running — or after its result
+        could not be recorded, or it failed after it had started — is `409`
+        with `reason: in_progress` (`Retry-After`), and runs nothing. A request
+        that failed before anything ran gives the key back.
+
         `person_id` must be a child of this family, not in the recycle bin,
         with a pocket-money account (`GET /pocket-money`): otherwise `404`
         (`reason` `no_person` or `no_account`) or `400` (`reason`
@@ -1543,8 +1929,8 @@ paths:
         asked.
 
         The Idempotency-Key is required. Repeating it with the same body
-        answers the same request (`idempotent-replay`); only a `202` is
-        remembered.
+        answers the same request (`idempotent-replay`); only a `202`, or a
+        trusted assistant's answer with a `request_id`, is remembered.
       x-required-scope: pocket_money:write
       parameters:
         - name: Idempotency-Key
@@ -1564,6 +1950,18 @@ paths:
                 type: { type: string, enum: [deposit, withdrawal] }
                 note: { type: [string, "null"], maxLength: 100, description: Trimmed first. }
       responses:
+        "200":
+          description: "A trusted assistant's request: it ran at once, without confirmation"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, request_id, allowed_by_trust, result]
+                properties:
+                  status: { type: string, enum: [done] }
+                  request_id: { type: string, format: uuid }
+                  allowed_by_trust: { type: boolean, enum: [true] }
+                  result: { $ref: "#/components/schemas/ActionResult" }
         "202":
           description: Stored until a family member allows it with the settings PIN, denies it, or it expires
           content:
@@ -1579,8 +1977,9 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { description: "The family has no settings PIN, so nobody could allow it (`reason: pin_required`). Nothing was done." }
         "404": { description: "No such person in this family (`reason: no_person`), or the child has no account (`reason: no_account`)." }
-        "409": { description: Idempotency key reused with different arguments. }
+        "409": { description: "Idempotency key reused with different arguments; or a trusted assistant's booking refused before it ran (`allowed_by_trust`, `reason`), nothing booked." }
         "429": { $ref: "#/components/responses/RateLimited" }
+        "502": { description: "A trusted assistant's request ran, but Kinboard could not tell whether it took effect (`allowed_by_trust`, `reason`). It may or may not have happened." }
         "503": { description: "Kinboard could not check the PIN or this assistant's pending requests. Nothing was done." }
 
   /rewards:
@@ -1632,7 +2031,8 @@ paths:
         button makes, held against the child's points. **It only asks:**
         nothing is spent until a parent approves it on a Kinboard screen
         with the settings PIN, and a parent may decline it. The Integration
-        API cannot approve or decline a request. The parents' phones are
+        API cannot approve or decline a request itself;
+        `POST /rewards/requests/{id}/decision` asks a parent to. The parents' phones are
         pushed (their quiet hours apply), as for the child's own request.
 
         `child` is a person_id or a child's name, `reward` a reward's id or
@@ -1683,6 +2083,119 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "409": { description: "The child has no creature switched on (`reason: no_creature`) or not enough available points (`reason: insufficient_points`), or the idempotency key was reused with different arguments. Nothing was asked." }
         "429": { $ref: "#/components/responses/RateLimited" }
+
+  /rewards/requests/{id}/decision:
+    post:
+      tags: [state]
+      summary: Ask a parent to approve or decline a reward request
+      description: |
+        **Nothing is decided by this call.** It asks a family member to
+        confirm a decision on one of the child's reward requests (`{id}`
+        from `GET /rewards`' `pending`) on a Kinboard screen with the
+        settings PIN — anyone there may deny it, and it expires after
+        2 minutes — exactly as a sensitive home action or a pocket-money
+        booking does. The answer is `202 pending_confirmation` with a
+        `request_id` to follow at `GET /actions/{id}`; only `done` there
+        means the reward request was decided. The same limits as every
+        confirmation apply, counted together: at most 2 requests waiting and
+        5 per 10 minutes per token.
+
+        **A trusted assistant.** When the family has switched on *Trust this
+        assistant* for the calling connection (Settings, with the settings
+        PIN — never through this API), the request does not wait: it runs at
+        once through the same checks an approval runs, and the answer says how
+        it ended — `200` `done`, `409` when it was refused before it ran
+        (`reason` as in `GET /actions/{id}`, or `revoked`), `502` when it may or
+        may not have happened — each with `request_id` and
+        `allowed_by_trust: true`, and remembered against the Idempotency-Key so
+        a retry never runs it twice. A `202 pending_confirmation` is still
+        possible if the trust was switched off as it started.
+
+        The Idempotency-Key is reserved before anything runs. Another request
+        with the same key while the first is running — or after its result
+        could not be recorded, or it failed after it had started — is `409`
+        with `reason: in_progress` (`Retry-After`), and runs nothing. A request
+        that failed before anything ran gives the key back.
+
+        Allowing it decides the reward request on the server exactly as a
+        parent's own Approve or Deny on the rewards page does: still
+        pending, and for an approval the child's points still covering it,
+        checked under the child's lock. A request answered in Kinboard
+        meanwhile ends `failed` with `result.reason: reward_already_decided`
+        and nothing changes. Refunds are not available here.
+
+        `{id}` must be a reward request of this family, of a child not in
+        the recycle bin: otherwise `404`, the same for another family's id.
+        Already approved or declined: `409` (`reason: already_decided`, with
+        `status`). Approving when the child's points no longer cover it:
+        `409` (`reason: insufficient_points`, with `balance` and
+        `cost_points`). A decision on it already waiting: `409`
+        (`reason: already_asked`).
+
+        The Idempotency-Key is required. Repeating it with the same body
+        answers the same request (`idempotent-replay`); only a `202`, or a
+        trusted assistant's answer with a `request_id`, is remembered.
+      x-required-scope: pocket_money:write
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [approve, decline] }
+      responses:
+        "200":
+          description: "A trusted assistant's request: it ran at once, without confirmation"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, request_id, allowed_by_trust, result]
+                properties:
+                  status: { type: string, enum: [done] }
+                  request_id: { type: string, format: uuid }
+                  allowed_by_trust: { type: boolean, enum: [true] }
+                  result: { $ref: "#/components/schemas/ActionResult" }
+        "202":
+          description: Stored until a family member allows it with the settings PIN, denies it, or it expires
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, request_id, expires_at, decision, reward_request]
+                properties:
+                  status: { type: string, enum: [pending_confirmation] }
+                  request_id: { type: string, format: uuid }
+                  expires_at: { type: string, format: date-time }
+                  decision: { type: string, enum: [approve, decline] }
+                  reward_request:
+                    type: object
+                    required: [id, person_id, child_name, title, cost_points]
+                    properties:
+                      id: { type: string, format: uuid }
+                      person_id: { type: string, format: uuid }
+                      child_name: { type: string }
+                      title: { type: string }
+                      cost_points: { type: integer }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { description: "The family has no settings PIN, so nobody could allow it (`reason: pin_required`). Nothing was asked." }
+        "404": { description: "No such reward request in this family. Nothing was asked." }
+        "409": { description: "Already approved or declined (`reason: already_decided`), not enough points to approve (`reason: insufficient_points`), a decision already waiting (`reason: already_asked`), or the idempotency key reused with different arguments. Nothing was asked." }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "502": { description: "A trusted assistant's request ran, but Kinboard could not tell whether it took effect (`allowed_by_trust`, `reason`). It may or may not have happened." }
+        "503": { description: "Kinboard could not check the PIN or this assistant's pending requests. Nothing was asked." }
 
   /people:
     get:
@@ -2073,6 +2586,14 @@ paths:
 
         A task can also be created with an assignee, a repetition, a
         priority, an icon and points, the fields the task form offers.
+
+        A shopping item can carry a `quantity`. When an item with the same
+        name (ignoring case and simple plurals such as egg/eggs or
+        Zwiebel/Zwiebeln) is already on the list and not ticked off, nothing
+        new is added: the add is merged into that item, quantities in the
+        same unit are added up and a different unit is appended
+        ("2 + 1 Packung"). The answer is then `200` with `merged: true` and
+        the item as it now stands. A ticked-off item is never merged into.
       parameters:
         - name: list
           in: path
@@ -2091,6 +2612,14 @@ paths:
               required: [summary]
               properties:
                 summary: { type: string }
+                quantity:
+                  type: string
+                  maxLength: 40
+                  description: |
+                    Shopping only. A number with an optional unit: "2", "2x",
+                    "500 g", "1,5 kg", "1 Packung". Replaces a quantity in
+                    `summary`. Text that does not start with a positive number
+                    is refused with `400`.
                 due:
                   type: [string, "null"]
                   description: Calendar day. Ignored by lists that have no due date.
@@ -2124,16 +2653,127 @@ paths:
                   description: |
                     Tasks only. Awarded when the task is completed, but only
                     when it is assigned to a child.
+                rotation_person_ids:
+                  type: [array, "null"]
+                  items: { type: string, format: uuid }
+                  minItems: 1
+                  maxItems: 20
+                  description: |
+                    Tasks only. The people who take turns, in turn order, each
+                    a person of the same family and each once; the task's
+                    person then follows the turn, so `person_id` is refused
+                    alongside a non-empty list. Needs a `recurrence` other
+                    than `once`. An empty list, a stranger or someone named
+                    twice is refused with `400`. Points on such a task go to
+                    whoever's turn it was when it is ticked off, if a child.
+                track_completion:
+                  type: boolean
+                  description: |
+                    Tasks only. Write down each due day as done or missed.
+                    `true` needs a `recurrence` other than `once`.
       responses:
-        "201":
-          description: Created
+        "200":
+          description: Shopping only — merged into an item already on the list.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/ListItem" }
+              schema: { $ref: "#/components/schemas/ShoppingAddResult" }
+        "201":
+          description: Created. On the shopping list the answer also has `merged` (false) and the item.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: "#/components/schemas/ListItem" }
+                  - { $ref: "#/components/schemas/ShoppingAddResult" }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "409": { description: The Idempotency-Key was used with different arguments. }
         "429": { $ref: "#/components/responses/RateLimited" }
+
+  /tasks/batch:
+    post:
+      tags: [state]
+      summary: Create several tasks at once, all or none
+      description: |
+        A routine in one call ("a morning routine for Mira"): 1 to 15 tasks,
+        each with exactly the fields `POST /lists/tasks` takes for a task
+        (`summary`, `due`, `person_id` or `rotation_person_ids`,
+        `recurrence`, `priority`, `icon`, `points`, `track_completion`) and
+        checked the same way. All are created or none: a refused task is a
+        `400` whose `error` names it by position (1-based) and title and
+        whose `index` is its 0-based position, and nothing is written; the
+        tasks are then inserted in one statement, so a failure there keeps
+        none of them either.
+
+        An `Idempotency-Key` is required and is reserved before anything
+        runs: a retry with the same key and body after a `201` replays it
+        instead of creating the tasks twice; while the first request still
+        runs, the same key is a `409` with `reason: in_progress`; the same
+        key with a different body is a `409`. A refusal gives the key back,
+        so a corrected retry may use it. Each call with a new key creates
+        new tasks. Needs `tasks:write`, as for one task.
+      x-required-scope: tasks:write
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tasks]
+              properties:
+                tasks:
+                  type: array
+                  minItems: 1
+                  maxItems: 15
+                  items:
+                    type: object
+                    required: [summary]
+                    description: The body `POST /lists/tasks` takes for one task.
+                    additionalProperties: true
+                    properties:
+                      summary: { type: string, minLength: 1 }
+      responses:
+        "201":
+          description: Every task was created, in the order sent.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [created]
+                properties:
+                  created:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, summary, status, due]
+                      properties:
+                        id: { type: string, format: uuid }
+                        summary: { type: string }
+                        status: { type: string, enum: [needs_action] }
+                        due: { type: [string, "null"], format: date }
+        "400":
+          description: A task was refused, or the body is not 1 to 15 tasks. Nothing was created.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: "#/components/schemas/Error" }
+                  - type: object
+                    properties:
+                      index: { type: integer, minimum: 0, description: The refused task's 0-based position. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "409":
+          description: "The Idempotency-Key was used with different arguments, or a request with it is still running (`reason: in_progress`)."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { description: "The tasks could not be created. They are written in one step: either all of them were created or none." }
 
   /lists/{list}/{item}:
     patch:
@@ -2162,8 +2802,9 @@ paths:
         longer be changed.
 
         `person_id` (tasks only) assigns or unassigns the task; it must be a
-        person in the same family, or `null`. `recurrence`, `priority`, `icon`
-        and `points` (tasks only) take the same values as on create.
+        person in the same family, or `null`. `recurrence`, `priority`, `icon`,
+        `points`, `rotation_person_ids` and `track_completion` (tasks only)
+        take the same values as on create.
       parameters:
         - name: list
           in: path
@@ -2219,6 +2860,21 @@ paths:
                   description: |
                     Tasks only (refused with `400` on any other list). Awarded when the task is completed, but only
                     when it is assigned to a child.
+                rotation_person_ids:
+                  type: [array, "null"]
+                  items: { type: string, format: uuid }
+                  maxItems: 20
+                  description: |
+                    Tasks only (refused with `400` on any other list). The
+                    people who take turns, in order, as on create; `null` or
+                    an empty list stops the turns. The task must repeat once
+                    the patch is applied (the `recurrence` sent, or else the
+                    stored one). A new list or order applies from the next
+                    due day. Setting `recurrence: once` also stops the turns
+                    and tracking.
+                track_completion:
+                  type: boolean
+                  description: Tasks only (refused with `400` on any other list). As on create.
       responses:
         "200": { description: Updated }
         "400": { $ref: "#/components/responses/InvalidRequest" }
@@ -2642,7 +3298,7 @@ components:
       required: [id, kind, description, status, entity_id, service, created_at, expires_at, decided_at, result]
       properties:
         id: { type: string, format: uuid }
-        kind: { type: string, enum: [home, pocket_money] }
+        kind: { type: string, enum: [home, pocket_money, reward_decision] }
         description: { type: string, description: "The request in words, e.g. `unlock Front door (Hallway)` or `add €5.00 to Enno’s pocket money (note: “mowing the lawn”)`." }
         status: { type: string, enum: [pending, approved, denied, expired, failed, done] }
         entity_id: { type: [string, "null"] }
@@ -2651,13 +3307,24 @@ components:
         expires_at: { type: string, format: date-time }
         decided_at: { type: [string, "null"], format: date-time }
         result:
-          type: [object, "null"]
-          required: [status]
-          properties:
-            status: { type: integer, description: "Home Assistant's HTTP status for a home request; 0 when it was not reached or did not answer, and for other kinds." }
-            reason:
-              type: string
-              enum: [not_in_catalogue, catalogue_unavailable, not_allowed, unknown_outcome, not_available, insufficient_funds, no_account, booking_failed]
+          $ref: "#/components/schemas/ActionResult"
+
+    ActionResult:
+      type: [object, "null"]
+      required: [status]
+      description: |
+        What became of it, once it ran or failed. A `done` booking says
+        `booked`; a `done` reward decision says how
+        it was decided. A failure carries `status: 0` and, for pocket money
+        and reward decisions always, a `reason`. A home request's `status` is
+        Home Assistant's HTTP status, as at `/home/actions/{id}`.
+      properties:
+        status: { type: integer, description: "Home Assistant's HTTP status for a home request (0 when it was not reached or did not answer). Other kinds: 200 when it ran, 0 when it failed." }
+        reason:
+          type: string
+          enum: [not_in_catalogue, catalogue_unavailable, not_allowed, unknown_outcome, not_available, insufficient_funds, no_account, booking_failed, reward_already_decided, reward_request_gone, insufficient_points, reward_decision_failed]
+        booked: { type: boolean, enum: [true], description: "pocket_money, done: the entry is in the ledger. No account data is returned with it." }
+        decided: { type: string, enum: [approved, declined], description: "reward_decision, done: what the reward request now is." }
 
     VehicleStatus:
       type: object
@@ -2690,6 +3357,201 @@ components:
         odometer: { type: [number, "null"] }
         odometer_unit: { type: [string, "null"] }
         observed_at: { type: [string, "null"], format: date-time }
+
+    WeekSummary:
+      type: object
+      required: [start, end, time_zone, locale, people, unassigned_tasks_completed, task_log_complete, creatures, meals, events, next_week]
+      properties:
+        start: { type: string, format: date }
+        end: { type: string, format: date }
+        time_zone: { type: string }
+        locale: { type: string, description: The language stage names are in. }
+        people:
+          type: array
+          items:
+            type: object
+            required: [person_id, name, is_child, tasks_completed, tasks_missed, most_done]
+            properties:
+              person_id: { type: string, format: uuid }
+              name: { type: string }
+              is_child: { type: boolean }
+              tasks_completed: { type: integer, minimum: 0 }
+              tasks_missed: { type: integer, minimum: 0 }
+              most_done:
+                type: array
+                maxItems: 3
+                items:
+                  type: object
+                  required: [title, times]
+                  properties:
+                    title: { type: string }
+                    times: { type: integer, minimum: 1 }
+              points:
+                type: object
+                description: Children only.
+                required: [earned, spent]
+                properties:
+                  earned: { type: integer, minimum: 0 }
+                  spent: { type: integer, minimum: 0 }
+        unassigned_tasks_completed: { type: integer, minimum: 0 }
+        task_log_complete: { type: boolean }
+        creatures:
+          type: array
+          items:
+            type: object
+            required: [person_id, name, species, from_stage, from_stage_name, to_stage, to_stage_name]
+            properties:
+              person_id: { type: string, format: uuid }
+              name: { type: string }
+              species: { type: string }
+              from_stage: { type: integer, minimum: 1, maximum: 8 }
+              from_stage_name: { type: string }
+              to_stage: { type: integer, minimum: 1, maximum: 8 }
+              to_stage_name: { type: string }
+        meals:
+          type: object
+          required: [count, planned]
+          properties:
+            count: { type: integer, minimum: 0 }
+            planned:
+              type: array
+              maxItems: 21
+              items:
+                type: object
+                required: [date, meal_type, title]
+                properties:
+                  date: { type: string, format: date }
+                  meal_type: { type: string, enum: [breakfast, lunch, dinner, snack] }
+                  title: { type: [string, "null"] }
+        events:
+          type: object
+          required: [count, notable]
+          properties:
+            count: { type: integer, minimum: 0 }
+            notable:
+              type: array
+              maxItems: 8
+              items:
+                type: object
+                required: [title, date, all_day]
+                properties:
+                  title: { type: string }
+                  date: { type: string, format: date }
+                  all_day: { type: boolean }
+        next_week:
+          type: object
+          required: [start, end, events, birthdays, countdowns]
+          properties:
+            start: { type: string, format: date }
+            end: { type: string, format: date }
+            events:
+              type: object
+              required: [count, list]
+              properties:
+                count: { type: integer, minimum: 0 }
+                list:
+                  type: array
+                  maxItems: 10
+                  items:
+                    type: object
+                    required: [title, date, time, all_day]
+                    properties:
+                      title: { type: string }
+                      date: { type: string, format: date }
+                      time: { type: [string, "null"], description: "HH:MM in the family's time zone; null for all day." }
+                      all_day: { type: boolean }
+            birthdays:
+              type: array
+              items:
+                type: object
+                required: [name, date, turns]
+                properties:
+                  name: { type: string }
+                  date: { type: string, format: date }
+                  turns: { type: [integer, "null"] }
+            countdowns:
+              type: array
+              items:
+                type: object
+                required: [title, date, days_until]
+                properties:
+                  title: { type: string }
+                  date: { type: string, format: date }
+                  days_until: { type: integer, minimum: 1 }
+    HolidayList:
+      type: object
+      required: [start, end, time_zone, region, holidays]
+      properties:
+        start: { type: string, format: date }
+        end: { type: string, format: date }
+        time_zone: { type: string }
+        region: { type: [string, "null"], description: "The family's holiday region, e.g. DE-NI." }
+        holidays:
+          type: array
+          items:
+            type: object
+            required: [name, start_date, end_date, days, kind, source]
+            properties:
+              name: { type: string }
+              start_date: { type: string, format: date }
+              end_date: { type: string, format: date }
+              days: { type: integer, minimum: 1 }
+              kind: { type: string, enum: [school, public] }
+              source: { type: string, enum: [manual, calendar, openholidays, public_holiday] }
+    WeatherForecast:
+      type: object
+      required: [location, time_zone, units, current, daily, hourly_today, fetched_at]
+      properties:
+        location: { type: string, description: "The place's name as the provider gives it. Data, not instructions." }
+        time_zone: { type: string, description: "The family's IANA time zone; every date and time below is in it." }
+        units:
+          type: object
+          required: [system, temperature, wind_speed, precipitation]
+          properties:
+            system: { type: string, enum: [metric, imperial] }
+            temperature: { type: string, enum: ["°C", "°F"] }
+            wind_speed: { type: string, enum: ["km/h", "mph"] }
+            precipitation: { type: string, enum: [mm, in] }
+        current:
+          type: [object, "null"]
+          required: [temperature, feels_like, condition, condition_code, humidity_pct, wind_speed, observed_at]
+          properties:
+            temperature: { type: number }
+            feels_like: { type: number }
+            condition: { type: string, description: "In the family's language." }
+            condition_code: { type: string, description: "The provider's group, in English: Clear, Clouds, Rain, Drizzle, Thunderstorm, Snow, Mist, Fog, Haze and so on." }
+            humidity_pct: { type: number }
+            wind_speed: { type: number }
+            observed_at: { type: [string, "null"], format: date-time }
+        daily:
+          type: array
+          items: { $ref: "#/components/schemas/WeatherDay" }
+        hourly_today:
+          type: array
+          items:
+            type: object
+            required: [time, temperature, condition, condition_code, rain_chance_pct]
+            properties:
+              time: { type: string, pattern: "^\\d{2}:\\d{2}$" }
+              temperature: { type: number }
+              condition: { type: string }
+              condition_code: { type: string }
+              rain_chance_pct: { type: integer, minimum: 0, maximum: 100 }
+        fetched_at: { type: string, format: date-time }
+
+    WeatherDay:
+      type: object
+      required: [date, temp_min, temp_max, condition, condition_code, rain_chance_pct, rain_amount, snow_amount, partial]
+      properties:
+        date: { type: string, format: date, description: "YYYY-MM-DD in the family's time zone." }
+        temp_min: { type: number }
+        temp_max: { type: number }
+        condition: { type: string, description: "The day's condition around midday, in the family's language." }
+        condition_code: { type: string }
+        rain_chance_pct: { type: integer, minimum: 0, maximum: 100, description: "The day's highest chance of precipitation. 0 is a value, never a stand-in for unknown." }
+        rain_amount: { type: number, description: "In `units.precipitation`." }
+        snow_amount: { type: number, description: "In `units.precipitation`." }
+        partial: { type: boolean, description: "The forecast covers only part of this day, so min/max are for those hours." }
 
     Person:
       type: object
@@ -2774,6 +3636,45 @@ components:
           type: [string, "null"]
           format: date
           description: Always null for lists without a due date.
+        amount:
+          type: [string, "null"]
+          description: |
+            Shopping only: quantity and unit as the list prints them ("2 Stück",
+            "500 g", "2 Stück + 1 Packung"), or null for none.
+        rotation_person_ids:
+          type: array
+          items: { type: string, format: uuid }
+          description: |
+            Read, tasks only, and only on a task whose people take turns: who,
+            in turn order.
+        today_person_id:
+          type: [string, "null"]
+          format: uuid
+          description: |
+            Read, tasks only, alongside `rotation_person_ids`: whose turn it is
+            today, in the family's time zone (before the turns start, the first
+            person's).
+        track_completion:
+          type: boolean
+          enum: [true]
+          description: Read, tasks only, and only when the task writes down each due day as done or missed.
+
+    ShoppingAddResult:
+      allOf:
+        - { $ref: "#/components/schemas/ListItem" }
+        - type: object
+          required: [merged, item]
+          properties:
+            merged: { type: boolean }
+            item:
+              type: object
+              required: [id, name, quantity, unit, amount]
+              properties:
+                id: { type: string, format: uuid }
+                name: { type: string }
+                quantity: { type: [number, "null"] }
+                unit: { type: [string, "null"] }
+                amount: { type: [string, "null"] }
 
     ServiceName:
       type: string

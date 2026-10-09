@@ -4,7 +4,8 @@
  * A sensitive home action (a lock, an alarm panel, a garage door, a script,
  * …) is not run when an assistant asks. Nor is anything else of a `kind`
  * that needs a person (RFC-012 §3: a pocket-money booking). It is stored as
- * a pending request;
+ * a pending request — as is a parent's decision on a child's reward request
+ * (`reward_decision`);
  * every Kinboard screen shows it and every phone is pushed. A family member
  * approves it there with the settings PIN, or denies it — which needs no PIN
  * — and only an approval runs it — with the domain, service, entity and data **as stored**, never
@@ -44,20 +45,33 @@
  *    stored action is re-checked against the policy; otherwise it ends
  *    `failed` with a `reason` and nothing runs. Then its kind's `execute`
  *    runs it once — for home, one Home Assistant call — and the row becomes
- *    `done` or `failed` with `result = { status }` — the HTTP status only.
+ *    `done` or `failed` with its `result`: for home, `{ status }`, Home
+ *    Assistant's HTTP status only; for a booking or a reward decision that
+ *    ran, `{ status: 200, booked: true }` or
+ *    `{ status: 200, decided }`; for any failure, `{ status: 0, reason }`.
  * 5. A row left `approved` for over a minute (the server stopped between the
  *    claim and the answer) is reported, and marked best-effort, as `failed`
  *    with `reason: "unknown_outcome"`: it may or may not have happened.
+ *
+ * A trusted assistant (Settings → Integrations → "Trust this assistant",
+ * `integration_tokens.trusted_at`) skips only the person:
+ * `submitActionRequest` stores its request already `approved`, with
+ * `decided_by_trust` and no deciding device, and runs it at once through
+ * `runApproved` — the very steps 4 above that a PIN approval runs: the
+ * assistant re-checked, the kind's `validate`, its `execute`, `finish`. The
+ * PIN, the screens and the push are what it skips; nothing it is checked
+ * against is.
  */
 
 import { decideHomeAction, ENTITY_ID } from "@/lib/home/policy";
 import type { IntegrationScope } from "@/lib/integration-auth";
 import { MAX_ASSISTANT_BOOKING_CENTS, type BookingInput, type BookingResult } from "@/lib/pocket-money/booking";
+import { REWARD_COST_MAX, REWARD_COST_MIN } from "@/lib/pocket-money/points";
 
 export type ActionStatus = "pending" | "approved" | "denied" | "expired" | "failed" | "done";
 
 /** What a request asks for. The table's CHECK lists the same (RFC-012 §3). */
-export const ACTION_KINDS = ["home", "pocket_money"] as const;
+export const ACTION_KINDS = ["home", "pocket_money", "reward_decision"] as const;
 export type ActionKind = (typeof ACTION_KINDS)[number];
 
 /**
@@ -66,6 +80,19 @@ export type ActionKind = (typeof ACTION_KINDS)[number];
  * still be that token's own.
  */
 export const ACTION_STATUS_SCOPES = ["home:control", "pocket_money:write"] as const satisfies readonly IntegrationScope[];
+
+/**
+ * The scope a token must hold to read a request of each kind back: the one
+ * that lets it make that kind. `ACTION_STATUS_SCOPES` only opens the door;
+ * this decides which requests are behind it. A booking holds a child's name,
+ * an amount and a note, which a token with only home:control has no business
+ * reading (family:read is what reads pocket money).
+ */
+export const ACTION_KIND_SCOPE: Readonly<Record<ActionKind, IntegrationScope>> = {
+  home: "home:control",
+  pocket_money: "pocket_money:write",
+  reward_decision: "pocket_money:write",
+};
 
 /** RFC-011 §4.3: a request lives two minutes. */
 export const ACTION_REQUEST_TTL_MS = 120_000;
@@ -82,15 +109,32 @@ export const APPROVED_STALE_MS = 60_000;
  * Pocket money: `insufficient_funds` (a withdrawal larger than the balance),
  * `no_account` (the child or their account is gone), `booking_failed` (the
  * database could not be read or refused the booking).
+ * Reward decisions: `reward_already_decided` (answered in the app, or by
+ * another request, meanwhile), `reward_request_gone` (the request, or the
+ * child, is no longer there), `insufficient_points` (approving: the child's
+ * points no longer cover it), `reward_decision_failed` (the database could
+ * not be read, or did not answer; the decision may or may not be saved).
  */
 export type ActionFailureReason =
   | "not_in_catalogue" | "catalogue_unavailable" | "not_allowed" | "unknown_outcome" | "not_available"
-  | "insufficient_funds" | "no_account" | "booking_failed";
+  | "insufficient_funds" | "no_account" | "booking_failed"
+  | "reward_already_decided" | "reward_request_gone" | "insufficient_points" | "reward_decision_failed";
 
 export interface ActionResult {
-  /** Home Assistant's HTTP status; 0 when it was not reached or did not answer. Other kinds: 0. */
+  /**
+   * home: Home Assistant's HTTP status; 0 when it was not reached or did not
+   * answer. Other kinds: 200 when it ran, 0 when it failed (with `reason`).
+   */
   status: number;
   reason?: ActionFailureReason;
+  /**
+   * pocket_money, done: the entry is in the ledger. Nothing about the account
+   * goes with it: a token with home:control alone may follow requests here,
+   * and no balance is that token's to read.
+   */
+  booked?: true;
+  /** reward_decision, done: what the reward request now is. */
+  decided?: "approved" | "declined";
 }
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -108,7 +152,7 @@ export interface ActionRequestRow {
   entity_name: string | null;
   domain: string | null;
   service: string | null;
-  /** home: the service data, run as is. pocket_money: the booking (RFC-012 §3). */
+  /** home: the service data, run as is. pocket_money: the booking (RFC-012 §3). reward_decision: `RewardDecision`. */
   data: Record<string, unknown>;
   status: ActionStatus;
   created_at: string;
@@ -116,15 +160,22 @@ export interface ActionRequestRow {
   decided_at: string | null;
   decided_by_device_id: string | null;
   result: ActionResult | null;
+  /**
+   * True when nobody confirmed it because the family trusts this assistant
+   * (`submitActionRequest`). Absent or false otherwise — the column defaults
+   * to false, and an untrusted request is written exactly as before.
+   */
+  decided_by_trust?: boolean;
 }
 
 export type NewActionRow = Omit<ActionRequestRow, "id" | "created_at">;
 
 export interface ActionPatch {
   status: ActionStatus;
-  decided_at?: string;
+  decided_at?: string | null;
   decided_by_device_id?: string | null;
   result?: ActionResult | null;
+  decided_by_trust?: boolean;
 }
 
 export interface ActionRequestStore {
@@ -318,9 +369,21 @@ export async function createActionRequest(
     result: null,
   });
 
+  await pushFor(row, input, deps.push);
+
+  return { id: row.id, expiresAt: row.expires_at };
+}
+
+/** Tell the family's phones about a stored request; never fails, never waits over five seconds. */
+async function pushFor(
+  row: ActionRequestRow,
+  input: CreateActionInput | CreateKindRequestInput,
+  push: CreateDeps["push"],
+): Promise<void> {
+  const home = !("kind" in input);
   let timer: ReturnType<typeof setTimeout> | undefined;
   await Promise.race([
-    deps.push({
+    push({
       familyId: input.familyId,
       requestId: row.id,
       request: {
@@ -336,8 +399,6 @@ export async function createActionRequest(
     new Promise<void>((resolve) => { timer = setTimeout(resolve, PUSH_TIMEOUT_MS); }),
   ]);
   clearTimeout(timer);
-
-  return { id: row.id, expiresAt: row.expires_at };
 }
 
 /**
@@ -454,16 +515,27 @@ export async function familyActionRequest(
 }
 
 /**
- * `get_action_status`: one request, but only for the assistant that made it
- * — any other id, including another assistant's in the same family, is null
- * (404). Expired pending rows are marked `expired` on the way.
+ * `get_action_status`: one request, but only for the assistant that made it,
+ * and only while that token still holds the scope of the request's kind
+ * (`ACTION_KIND_SCOPE`). Any other id — another assistant's in the same
+ * family, another family's, or one of a kind this token may not make — is
+ * null (404), the same as an id that does not exist. Expired pending rows are
+ * marked `expired` on the way.
  */
 export async function actionRequestStatus(
-  input: { id: string; familyId: string; tokenId: string; kind?: ActionKind },
+  input: { id: string; familyId: string; tokenId: string; scopes: readonly string[]; kind?: ActionKind },
   deps: { store: ActionRequestStore; now?: () => Date },
 ): Promise<ActionRequestRow | null> {
+  if (!UUID.test(input.id)) return null;
+  // Checked on the stored row before settling it, so a token that may not see
+  // a request does not even mark it expired.
+  const stored = await deps.store.get(input.id, input.familyId);
+  if (!stored || stored.family_id !== input.familyId) return null;
+  if (stored.token_id === null || stored.token_id !== input.tokenId) return null;
+  const needs = (ACTION_KIND_SCOPE as Record<string, IntegrationScope | undefined>)[stored.kind];
+  if (!needs || !input.scopes.includes(needs)) return null;
   const row = await familyActionRequest(input.id, input.familyId, deps);
-  if (!row || row.token_id === null || row.token_id !== input.tokenId) return null;
+  if (!row || row.token_id !== input.tokenId) return null;
   // `/home/actions/{id}` asks for home requests only.
   if (input.kind && row.kind !== input.kind) return null;
   return row;
@@ -516,7 +588,9 @@ export function toAssistantRequest(row: ActionRequestRow) {
  * the same, plus what kind of request it is and what it asked for, in words.
  */
 export function toAssistantStatus(row: ActionRequestRow, t: ActionTranslator) {
-  return { ...toAssistantRequest(row), kind: row.kind, description: describeRequestVerb(t, row) };
+  const status = { ...toAssistantRequest(row), kind: row.kind, description: describeRequestVerb(t, row) };
+  // Only on a request nobody confirmed: every other answer is as it was.
+  return row.decided_by_trust ? { ...status, allowed_by_trust: true as const } : status;
 }
 
 // ── deciding ────────────────────────────────────────────────────────────────
@@ -540,6 +614,20 @@ export interface DecideDeps {
   pocketMoneyAccount?: (familyId: string, personId: string) => Promise<{ accountId: string; currency: string } | null>;
   /** `lib/pocket-money/booking.ts`: one atomic booking. */
   bookPocketMoney?: (input: BookingInput) => Promise<BookingResult>;
+  // What the `reward_decision` handler runs with. Without them it decides nothing.
+  /**
+   * A reward request of this family whose child is not in the recycle bin,
+   * as it is now, or null. Throws when unreadable.
+   */
+  rewardRedemption?: (familyId: string, redemptionId: string) => Promise<RewardRedemptionNow | null>;
+  /**
+   * `decideRedemption` (lib/pocket-money/rewards.ts) — decide_point_redemption,
+   * the parent's own Approve / Deny, with the child's push. `deviceId` is the
+   * screen that allowed it.
+   */
+  decideRedemption?: (input: {
+    familyId: string; redemptionId: string; decision: "approved" | "denied"; deviceId: string | null;
+  }) => Promise<{ status: number; body: Record<string, unknown> }>;
   /** Replaces a kind's handler in `ACTION_KIND_HANDLERS`. For tests. */
   kinds?: Partial<Record<ActionKind, ActionKindHandler>>;
   now?: () => Date;
@@ -736,7 +824,10 @@ const pocketMoneyHandler: ActionKindHandler = {
         type: deposit ? "manual_deposit" : "withdrawal",
         note: booking.note ?? clientLabel(row.client_name),
       });
-      if (booked.ok) return { ok: true, result: { status: 0 } };
+      // Said in so many words: a bare `status: 0` is what a failure carries.
+      // No balance: the result is read back by get_action_status, which is
+      // not a permission to read pocket money.
+      if (booked.ok) return { ok: true, result: { status: 200, booked: true } };
       if (booked.error === "insufficient_funds") return failed("insufficient_funds");
       if (booked.error === "not_found") return failed("no_account");
       console.error("[assistant-actions] booking failed:", booked.message);
@@ -751,9 +842,153 @@ const pocketMoneyHandler: ActionKindHandler = {
   },
 };
 
+// ── reward decisions ────────────────────────────────────────────────────────
+
+/**
+ * What a `reward_decision` request stores in `data`: which of the family's
+ * reward requests, approve or decline, and — as the parent is shown them and
+ * as they were when the assistant asked — whose it is, what it is and what
+ * it costs. Only `redemption_id` and `decision` say what runs; the rest is
+ * checked against the reward request again before it does.
+ */
+export interface RewardDecision {
+  redemption_id: string;
+  decision: "approve" | "decline";
+  person_id: string;
+  child_name: string;
+  reward_title: string;
+  cost_points: number;
+}
+
+/** A reward request as it is now, for the check before a decision runs. */
+export interface RewardRedemptionNow {
+  id: string;
+  person_id: string;
+  status: string;
+  cost_points: number;
+}
+
+/** Quotation marks a title or a name must not bring into the sentence. */
+const QUOTES = /["\u201C\u201D\u201E\u201F\u00AB\u00BB\u2039\u203A]/g;
+
+/** How much of a reward's title a screen, a push or the assistant is shown: the catalogue's own limit. */
+export const REWARD_DECISION_TITLE_MAX = 80;
+
+/** A stored reward decision, or null when `data` is not one — which then never runs. */
+export function rewardDecisionFrom(data: Record<string, unknown> | null | undefined): RewardDecision | null {
+  if (!data || typeof data !== "object") return null;
+  const { redemption_id, decision, person_id, child_name, reward_title, cost_points } = data as Record<string, unknown>;
+  if (typeof redemption_id !== "string" || !UUID.test(redemption_id)) return null;
+  if (decision !== "approve" && decision !== "decline") return null;
+  if (typeof person_id !== "string" || !UUID.test(person_id)) return null;
+  if (typeof child_name !== "string" || rewardChildLabel(child_name).length === 0 || child_name.length > MAX_NAME) return null;
+  if (typeof reward_title !== "string" || rewardTitleLabel(reward_title) === null) return null;
+  if (typeof cost_points !== "number" || !Number.isInteger(cost_points)) return null;
+  if (cost_points < REWARD_COST_MIN || cost_points > REWARD_COST_MAX) return null;
+  return { redemption_id, decision, person_id, child_name, reward_title, cost_points };
+}
+
+/**
+ * A reward's title as the family is shown it in a confirmation: the same
+ * treatment as an assistant's note (`bookingNoteLabel`) — one line, nothing
+ * invisible, no quotation marks of its own, at most 80 characters — because
+ * the sentence puts it in quotes, and a title must not be able to close them
+ * and carry on as if Kinboard were speaking. The title is the family's own
+ * text, but it is data here, never words of Kinboard's. Empty → null.
+ */
+export function rewardTitleLabel(title: string): string | null {
+  const flat = stripInvisible(title).replace(QUOTES, "'").trim();
+  if (flat.length === 0) return null;
+  return flat.length > REWARD_DECISION_TITLE_MAX ? `${flat.slice(0, REWARD_DECISION_TITLE_MAX - 1).trimEnd()}…` : flat;
+}
+
+/**
+ * A child's name in a confirmation: one line, nothing invisible, no quotation
+ * marks of its own (it sits next to the quoted title), at most 40 characters.
+ */
+export function rewardChildLabel(name: string): string {
+  return clientLabel(stripInvisible(name).replace(QUOTES, "'"));
+}
+
+/**
+ * "approve Mira's reward “Tablet time” for 30 points", in `t`'s language.
+ * Which of approve and decline is part of the sentence's own words, never of
+ * the title's.
+ */
+function describeRewardDecision(t: ActionTranslator, data: Record<string, unknown>): string {
+  const decision = rewardDecisionFrom(data);
+  if (!decision) return t("kinds.reward_decision");
+  return t(`kinds.reward_decision_${decision.decision}`, {
+    name: rewardChildLabel(decision.child_name),
+    reward: rewardTitleLabel(decision.reward_title) as string,
+    points: decision.cost_points,
+  });
+}
+
+/**
+ * A parent's decision on a child's reward request, asked for by an assistant
+ * and run only once a family member allowed it with the settings PIN. It
+ * decides through `decideRedemption` — decide_point_redemption, exactly what
+ * a parent's own Approve or Deny on the rewards page runs: the child locked,
+ * the request re-read FOR UPDATE and decided only while still pending, an
+ * approval refused when the points no longer cover it — so a decision made
+ * in the app meanwhile wins, and this one ends `failed` saying so.
+ *
+ * Before that, the reward request is read again: gone (or its child binned)
+ * is `reward_request_gone`; no longer pending, `reward_already_decided`; a
+ * different child or cost from what the family was shown, `not_allowed`.
+ */
+const rewardDecisionHandler: ActionKindHandler = {
+  async validate(row, familyId, deps) {
+    const decision = rewardDecisionFrom(row.data);
+    if (!decision) return "not_allowed";
+    if (!deps.rewardRedemption || !deps.decideRedemption) return "not_available";
+    let now: RewardRedemptionNow | null;
+    try {
+      now = await deps.rewardRedemption(familyId, decision.redemption_id);
+    } catch {
+      return "reward_decision_failed";
+    }
+    if (!now) return "reward_request_gone";
+    if (now.status !== "pending") return "reward_already_decided";
+    if (now.person_id !== decision.person_id || now.cost_points !== decision.cost_points) return "not_allowed";
+    return null;
+  },
+  async execute(row, familyId, deps) {
+    const failed = (reason: ActionFailureReason) => ({ ok: false, result: { status: 0, reason } });
+    const decision = rewardDecisionFrom(row.data);
+    if (!decision || !deps.decideRedemption) return failed("not_available");
+    const wanted = decision.decision === "approve" ? "approved" : "denied";
+    try {
+      const answer = await deps.decideRedemption({
+        familyId,
+        redemptionId: decision.redemption_id,
+        decision: wanted,
+        // The screen that allowed it, as the app records the one that decided.
+        deviceId: row.decided_by_device_id,
+      });
+      if (answer.status === 200 && answer.body.status === wanted) {
+        return { ok: true, result: { status: 200, decided: wanted === "approved" ? "approved" : "declined" } };
+      }
+      if (answer.status === 409 && answer.body.error === "already_decided") return failed("reward_already_decided");
+      if (answer.status === 409 && answer.body.error === "insufficient_points") return failed("insufficient_points");
+      if (answer.status === 404) return failed("reward_request_gone");
+      console.error("[assistant-actions] reward decision failed:", answer.status);
+      return failed("reward_decision_failed");
+    } catch (err) {
+      console.error("[assistant-actions] reward decision failed:", err instanceof Error ? err.name : "error");
+      return failed("reward_decision_failed");
+    }
+  },
+  describe(t, request) {
+    return describeRewardDecision(t, request.data);
+  },
+};
+
 export const ACTION_KIND_HANDLERS: Readonly<Record<ActionKind, ActionKindHandler>> = {
   home: homeHandler,
   pocket_money: pocketMoneyHandler,
+  reward_decision: rewardDecisionHandler,
 };
 
 /** The handler for a row's kind, or null for a kind this server does not know. */
@@ -840,10 +1075,37 @@ export async function decideActionRequest(input: DecideInput, deps: DecideDeps):
   );
   if (!approved) return conflict(id, familyId, deps, clock());
 
+  return runApproved(approved, familyId, deps);
+}
+
+/**
+ * Steps 5 to 7: run a request that is `approved` — by a person with the PIN
+ * (`decideActionRequest`), or by the family's trust in its assistant
+ * (`submitActionRequest`). One path for both, so trust can skip the person
+ * and nothing else: the assistant is re-checked, the kind's `validate`
+ * re-reads what it must, `execute` runs exactly what was stored.
+ *
+ * `beforeRun`, for the trusted path only, is asked after the assistant was
+ * re-checked and before `validate`: a non-null answer stops here with that
+ * result, unrun.
+ */
+async function runApproved(
+  approved: ActionRequestRow,
+  familyId: string,
+  deps: DecideDeps,
+  beforeRun?: () => Promise<DecideResult | null>,
+): Promise<DecideResult> {
+  const id = approved.id;
+
   // 5. Revoked while the PIN was being typed: nothing runs.
   if (!(await deps.store.tokenActive(approved.token_id, familyId))) {
     const denied = await deps.store.transition(id, familyId, "approved", { status: "denied", result: null });
     return { status: 409, error: "revoked", request: denied ?? approved };
+  }
+
+  if (beforeRun) {
+    const stopped = await beforeRun();
+    if (stopped) return stopped;
   }
 
   // 6. Its kind may still run it — for home: still in the catalogue, and
@@ -894,4 +1156,174 @@ async function finish(
   }
   const reread = (await deps.store.get(id, familyId)) ?? current;
   return { status: 200, request: reread ?? { ...approved, status, result } };
+}
+
+// ── trusted assistants ──────────────────────────────────────────────────────
+
+export interface SubmitDeps extends CreateDeps {
+  /**
+   * Does this family trust this assistant right now? True only for a
+   * connection of this family that is trusted and not revoked. A throw is
+   * "not trusted": the request then waits for a person, as before.
+   */
+  trusted?: (familyId: string, tokenId: string) => Promise<boolean>;
+  /** What a trusted request runs with: the same dependencies a PIN approval uses. */
+  decide?: DecideDeps;
+  /** The quiet notice on the screens after a trusted request ran. A throw is logged, never the request's. */
+  notice?: (row: ActionRequestRow) => Promise<void>;
+}
+
+export interface SubmitResult {
+  id: string;
+  expiresAt: string;
+  /**
+   * Set when the assistant was trusted: the request as it ended — `done`,
+   * `failed`, `denied` (disconnected meanwhile), or `pending` again when the
+   * trust was taken away while it was starting. Absent for a request that
+   * simply waits for a person.
+   */
+  request?: ActionRequestRow;
+}
+
+/**
+ * Store a request that needs a person — or, when the family trusts this
+ * assistant, run it now without one.
+ *
+ * Untrusted (the default, and whenever trust cannot be read): exactly
+ * `createActionRequest`, nothing else.
+ *
+ * Trusted: the row is written already `approved`, `decided_by_trust`, with
+ * no deciding device — so it never shows on a screen as a question — and
+ * goes through `runApproved`, the same steps a PIN approval takes: the
+ * assistant re-checked, the kind's `validate`, `execute` exactly as stored,
+ * `finish`. Between the token re-check and `validate` the trust is read
+ * once more: switched off by then, the row goes back to `pending` and is
+ * pushed like any other request. That re-read is not under a lock — a
+ * request already past it when the switch is turned off still finishes;
+ * revoking the assistant is what stops it, at the token re-check, if it has
+ * not got that far either. A trusted request that ran (`done`) leaves a
+ * notice on the screens (`trustedNoticeText`).
+ */
+export async function submitActionRequest(
+  input: CreateActionInput | CreateKindRequestInput,
+  deps: SubmitDeps,
+): Promise<SubmitResult> {
+  const isTrusted = async () => {
+    if (!deps.trusted || !deps.decide) return false;
+    try {
+      return (await deps.trusted(input.familyId, input.tokenId)) === true;
+    } catch (err) {
+      console.error("[assistant-actions] could not read trust:", err instanceof Error ? err.name : "error");
+      return false;
+    }
+  };
+  if (!(await isTrusted())) return createActionRequest(input, deps);
+  const decide = deps.decide as DecideDeps;
+
+  const now = (deps.now ?? (() => new Date()))();
+  const home = !("kind" in input);
+  const row = await deps.store.insert({
+    family_id: input.familyId,
+    token_id: input.tokenId,
+    client_name: input.clientName.slice(0, MAX_NAME),
+    kind: home ? "home" : input.kind,
+    entity_id: home ? input.entityId : null,
+    entity_name: home ? input.entityName.slice(0, MAX_NAME) : null,
+    domain: home ? input.domain : null,
+    service: home ? input.service : null,
+    data: input.data,
+    status: "approved",
+    expires_at: new Date(now.getTime() + ACTION_REQUEST_TTL_MS).toISOString(),
+    decided_at: now.toISOString(),
+    decided_by_device_id: null,
+    decided_by_trust: true,
+    result: null,
+  });
+
+  const outcome = await runApproved(row, input.familyId, decide, async () => {
+    if (await isTrusted()) return null;
+    // Trust was taken away while this was starting: ask, as for any assistant.
+    const back = await decide.store.transition(row.id, input.familyId, "approved", {
+      status: "pending", decided_at: null, decided_by_device_id: null, decided_by_trust: false,
+    });
+    if (!back) return { status: 409, error: "already_decided", request: (await decide.store.get(row.id, input.familyId)) ?? row };
+    await pushFor(back, input, deps.push);
+    return { status: 200, request: back };
+  });
+
+  const ended = outcome.request ?? row;
+  if (ended.status === "done" && ended.decided_by_trust && deps.notice) {
+    try {
+      await deps.notice(ended);
+    } catch (err) {
+      console.error("[assistant-actions] notice failed:", err instanceof Error ? err.name : "error");
+    }
+  }
+  return { id: row.id, expiresAt: row.expires_at, request: ended };
+}
+
+/** Failures after which something may or may not have happened. */
+const UNCERTAIN: ReadonlySet<ActionFailureReason> = new Set(["unknown_outcome", "booking_failed", "reward_decision_failed"]);
+
+/**
+ * What a route answers for a request `submitActionRequest` ran under trust:
+ * 200 `done` (for a booking or a reward decision with its `result`, which
+ * says booked or decided; a home action's answer is as it was); 202
+ * `pending_confirmation`, as for any request, when the trust
+ * was taken away while it started; 409 when it was refused before it ran
+ * (with the reason) or the assistant was disconnected meanwhile; 502 when it
+ * may or may not have happened. Always with `request_id`, which
+ * `get_action_status` reports the same way.
+ */
+export function trustedAnswer(row: ActionRequestRow): { status: number; body: Record<string, unknown> } {
+  if (row.status === "pending") {
+    return { status: 202, body: { status: "pending_confirmation", request_id: row.id, expires_at: row.expires_at } };
+  }
+  const base = { request_id: row.id, allowed_by_trust: true };
+  if (row.status === "done") {
+    const said = row.kind !== "home" && row.result ? { result: row.result } : {};
+    return { status: 200, body: { status: "done", ...base, ...said } };
+  }
+  if (row.status === "denied") {
+    return {
+      status: 409,
+      body: { error: "This assistant was disconnected before it ran. Nothing was done.", code: "conflict", status: "denied", reason: "revoked", ...base },
+    };
+  }
+  const reason = row.status === "failed" ? row.result?.reason : "unknown_outcome";
+  if (row.status === "failed" && reason && !UNCERTAIN.has(reason)) {
+    return {
+      status: 409,
+      body: { error: `It was not done (${reason}). Nothing changed.`, code: "conflict", status: "failed", reason, ...base },
+    };
+  }
+  return {
+    status: 502,
+    body: {
+      error: "It ran without confirmation, but Kinboard could not confirm that it happened. It may or may not have happened; check before trying again.",
+      code: "upstream_unavailable", status: "failed", reason: reason ?? null, ...base,
+    },
+  };
+}
+
+/** How long a trusted action's notice may be: a screen message's own limit. */
+export const TRUSTED_NOTICE_MAX = 200;
+
+/**
+ * The notice a trusted request leaves on the screens, in `t`'s language:
+ * "Done without asking: add €5.00 to Mira's pocket money (note: 'mowing')".
+ * It is the request's own description, so anything an assistant wrote that
+ * reaches it — a booking's note — is already one line, without invisible or
+ * direction-changing characters, without quotation marks of its own, at most
+ * 100 characters, and in quotes (`bookingNoteLabel`); reward titles and names
+ * likewise (`rewardTitleLabel`, `rewardChildLabel`). The whole is cut to a
+ * screen message's 200 characters. `sender` is the assistant's name for the
+ * "via" line: one line, nothing invisible, at most 40 characters.
+ */
+export function trustedNoticeText(t: ActionTranslator, row: ActionRequestRow): { body: string; sender: string } {
+  const body = stripInvisible(t("trustedNotice", { action: describeRequestVerb(t, row) })).trim();
+  return {
+    body: body.length > TRUSTED_NOTICE_MAX ? `${body.slice(0, TRUSTED_NOTICE_MAX - 1).trimEnd()}…` : body,
+    sender: clientLabel(stripInvisible(row.client_name)),
+  };
 }

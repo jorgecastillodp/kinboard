@@ -35,6 +35,20 @@ See [Prompt injection](AI-Assistants-Permissions-and-Safety#text-in-your-data-is
 >
 > "When is the next birthday?" · "Wer hat als Nächstes Geburtstag?"
 
+### Looking back on the week
+
+| Tool | What it does | Permission | Notes |
+|---|---|---|---|
+| `get_week_summary` | A short review of the past days, the last 7 unless you name others (up to 31): per person the tasks done and missed, each child's points earned and spent, which creatures grew a stage, the meals planned and the events that took place; then the next 7 days' events, birthdays and countdowns in brief | `family:read` | Reads. A chore the kids take turns at counts for whoever's turn it was; a tick taken back doesn't count. Missed days exist only for tasks with turns or *Track whether it was done*. Days are your family's days. Never shows a creature's name or look |
+
+> "How did our week go?" · "Wie war unsere Woche?"
+>
+> "How did the kids do with their chores last week? Put it on the screens." · "Wie liefen die Aufgaben der Kinder letzte Woche? Zeig es auf den Bildschirmen."
+
+The review only reads. It reaches the screens only when you ask, through
+`send_message`, which needs the permission to send a message to your
+family's screens (`announcements:write`).
+
 ## Calendar
 
 | Tool | What it does | Permission | Notes |
@@ -42,7 +56,7 @@ See [Prompt injection](AI-Assistants-Permissions-and-Safety#text-in-your-data-is
 | `list_calendar_events` | Events overlapping a date and time range | `family:read` | Reads |
 | `search_calendar_events` | Find appointments by name: the title, place or description contains the words, ignoring case | `family:read` | Reads. From today to 365 days ahead unless a range is given (at most 370 days); at most 100 events, earliest first |
 | `list_writable_calendars` | The calendars an event can be added to, including connected Google and CalDAV calendars | `family:read` | Reads. An event is always created on a calendar picked from this list |
-| `create_calendar_event` | Add a timed or all-day event, optionally for someone | `calendar:write` | Adds, outside Kinboard: written through to Google or CalDAV when the calendar is connected; the assistant is told to report a sync failure |
+| `create_calendar_event` | Add a timed or all-day event, optionally for someone | `calendar:write` | Adds, outside Kinboard: written through to Google or CalDAV when the calendar is connected; the assistant is told to report a sync failure. Without a time it asks first (all day, or when?); without a person it adds the event, then asks once who it's for |
 | `update_calendar_event` | Change an event's title, time, all-day dates, place, description or who it is for | `calendar:write` | Changes, outside Kinboard. The previous values are overwritten, in Kinboard and in Google or CalDAV, and cannot be restored. One occurrence of a repeating CalDAV event can't be edited |
 | `delete_calendar_event` | Delete an event, including from Google or CalDAV | `calendar:write` | Changes, outside Kinboard. Cannot be undone: calendar events have no recycle bin. If the provider refuses, the event is kept. One occurrence of a repeating CalDAV event can't be deleted |
 
@@ -71,15 +85,33 @@ settings. See [Calendar](Calendar).
 >
 > "What does Mia have third period on Wednesday?" · "Was hat Mia am Mittwoch in der dritten Stunde?"
 
+### Holidays and planning a break
+
+| Tool | What it does | Permission | Notes |
+|---|---|---|---|
+| `list_school_holidays` | The school holidays and public holidays over a range of days, the next 12 months unless you name others: each with its name, first and last day, and whether it is a school break or a public holiday | `family:read` | Reads. The same days `get_school_timetable` treats as no school, from the same sources. Kinboard keeps one set of school holidays per family, so a break applies to all the children; public holidays are your region's (none in the US). Public holidays are named in your family's language |
+
+> "When are the autumn holidays?" · "Wann sind die Herbstferien?"
+>
+> "Plan the autumn break: we'd like to go to the coast for a few days." · "Plan die Herbstferien: Wir wollen ein paar Tage an die Küste."
+
+Planning a break uses tools you already have: the assistant reads the
+holidays, checks the weather with `get_weather_forecast` when the trip is
+within about five days, puts the trip in the calendar as one all-day event
+from the first to the last day with `create_calendar_event`, and can add a
+countdown to the departure with `add_countdown`. Each of those asks for its
+own permission.
+
 ## Tasks
 
 | Tool | What it does | Permission | Notes |
 |---|---|---|---|
-| `list_tasks` | The active tasks, with whether they're done and when they're due | `family:read` | Reads |
-| `create_task` | Add a task. Optionally for someone, with a due date, repeating (once, daily, weekly, every other week, monthly, or on picked weekdays), with a priority (high, medium, low), an icon and points (0 to 10,000) | `tasks:write` | Adds. The assistant is told to ask rather than invent a due date, an assignee or a repetition |
+| `list_tasks` | The active tasks, with whether they're done and when they're due; for a task people take turns at, who takes part and whose turn it is today | `family:read` | Reads |
+| `create_task` | Add a task. Optionally for someone, with a due date, repeating (once, daily, weekly, every other week, monthly, or on picked weekdays), with a priority (high, medium, low), an icon and points (0 to 10,000). A repeating task can also go round between people who take turns | `tasks:write` | Adds. The assistant never invents a due date, an assignee or a repetition; when you left them out it asks once afterwards |
+| `create_tasks` | Add several tasks at once, up to 15, each with the same choices as `create_task`: a morning routine, a packing list, the chores for the week | `tasks:write` | Adds. All are added or none: if one of them can't be saved, none is, and the assistant hears which one and why. It shows you the list and waits for your yes before adding them |
 | `complete_task` | Mark a task done. A repeating task is done for today, in the family's time zone, and comes due again on its next day | `tasks:write` | Changes. A child's task with points awards them, just as ticking it off on a screen does |
 | `reopen_task` | Mark a one-off task not done again | `tasks:write` | Changes. Repeating tasks can't be reopened; Kinboard has no undo for a day already marked done |
-| `update_task` | Change a task's title, due date, assignee, repetition, priority, icon or points | `tasks:write` | Changes. A changed field's previous value is not kept |
+| `update_task` | Change a task's title, due date, assignee, repetition, priority, icon or points, or who takes turns (or stop the turns) | `tasks:write` | Changes. A changed field's previous value is not kept |
 | `delete_task` | Delete a task | `tasks:write` | Changes. Goes to the recycle bin; `restore_task` or **Settings → Recycle bin** brings it back |
 
 > "Add 'take the bins out' for Enno, every Tuesday, 5 points." ·
@@ -90,12 +122,36 @@ settings. See [Calendar](Calendar).
 Points are awarded only when a task is assigned to a child. On a grown-up's
 task they're stored but never awarded. See [Tasks](Tasks).
 
+When you add a task without saying who it's for or when, the assistant saves it
+anyway and then asks you once, briefly, about what's missing: who it's for, a
+day if one makes sense, and points if it's for a child (never for a grown-up).
+Say "just add it" and it won't ask.
+
+**Taking turns.** Ask for a chore that goes round ("the kids take turns
+washing up, every day") and the assistant sets up one repeating task with the
+people in order, as *Take turns* does in the task dialog. If you didn't say who
+takes part, it asks once; it never assumes all the children. Points on such a
+task go to whoever's turn it was when it's ticked off, and only if that's a
+child. Asking "whose turn is it to wash up?" reads today's person from the task.
+
+> "Mira and Jonas take turns emptying the dishwasher, every day, 2 points." ·
+> "Mira und Jonas räumen abwechselnd die Spülmaschine aus, jeden Tag, 2 Punkte."
+
+**Routines.** Ask for a routine ("make a morning routine for Mira") and the
+assistant suggests a short list of tasks, each repeating, with an icon and a
+few points where they fit, and shows it to you first. Once you say yes it adds
+them all in one go, and if anything is still open (points for a child's task,
+for example) it asks once for the whole list, not task by task.
+
+> "Make a morning routine for Mira: get dressed, brush teeth, pack her school bag, every school day." ·
+> "Mach eine Morgenroutine für Mira: anziehen, Zähne putzen, Schulranzen packen, an jedem Schultag."
+
 ## Shopping list
 
 | Tool | What it does | Permission | Notes |
 |---|---|---|---|
-| `list_shopping_items` | The shopping list | `family:read` | Reads |
-| `add_shopping_item` | Add an item | `shopping:write` | Adds, outside Kinboard when Bring! sync is on |
+| `list_shopping_items` | The shopping list, with how much of each item | `family:read` | Reads |
+| `add_shopping_item` | Add an item, optionally with a quantity ("2", "500 g", "1 Packung") | `shopping:write` | Adds, outside Kinboard when Bring! sync is on. If the item is already on the list and not ticked off, it is merged into it instead (see below) |
 | `check_shopping_item` | Mark an item bought | `shopping:write` | Changes |
 | `uncheck_shopping_item` | Mark an item not bought | `shopping:write` | Changes |
 | `rename_shopping_item` | Change an item's name | `shopping:write` | Changes. The previous name is not kept |
@@ -103,7 +159,37 @@ task they're stored but never awarded. See [Tasks](Tasks).
 
 > "Put milk and butter on the shopping list." · "Schreib Milch und Butter auf die Einkaufsliste."
 >
+> "Put 500 g of flour on the list." · "Schreib 500 g Mehl auf die Liste."
+>
 > "What do we still need to buy?" · "Was müssen wir noch einkaufen?"
+
+### Adding something that's already on the list
+
+When an assistant adds something that is already on the shopping list and
+not yet ticked off, Kinboard doesn't add it a second time. It adds to the
+item that's there, and the assistant is told so, so it can say "milk was
+already on the list, it's 3 now".
+
+- **Same item** means the same name, ignoring upper and lower case, extra
+  spaces and simple plurals: *egg* and *eggs*, *tomato* and *tomatoes*,
+  *Zwiebel* and *Zwiebeln*. Nothing looser than that: *milk* and *oat milk*
+  stay two items, and so do *Ei* and *Eis*.
+- **Quantities add up** when they are in the same unit: 2 and 1 make 3,
+  500 g and 250 g make 750 g. A plain number and *Stück* count the same.
+  Different units are not converted but written side by side: 2 and
+  1 Packung become *2 + 1 Packung*.
+- **No quantity means "some".** A second *salt* without a quantity leaves
+  the salt that's there as it is, rather than turning it into *2 salt*.
+- **A ticked-off item is never merged into.** Once it's bought, needing it
+  again is a new need, so a new item is added.
+- With Bring! sync on, Bring! gets the item's new quantity under the name
+  it already has there, so Bring! updates its item rather than listing it
+  twice.
+
+The same applies to `add_recipe_to_shopping_list`, so two recipes that both
+need milk leave one milk on the list, and to Home Assistant's shopping
+to-do list. Items added on a Kinboard screen are not merged: there you can
+see the list and use the + button on the item that's already there.
 
 ## Notes
 
@@ -121,11 +207,13 @@ task they're stored but never awarded. See [Tasks](Tasks).
 | Tool | What it does | Permission | Notes |
 |---|---|---|---|
 | `get_meal_plan` | Planned meals in a date range, at most 31 days: each with its date, slot (breakfast, lunch, dinner or snack) and a recipe or a free-text note | `family:read` | Reads |
-| `add_meal` | Add a meal to a date and slot: one of the family's recipes, or a free-text note of up to 200 characters | `meals:write` | Adds. Adds to the slot rather than replacing what's there; a slot can hold more than one meal |
+| `add_meal` | Add a meal to a date and slot: one of the family's recipes, or a free-text note of up to 200 characters | `meals:write` | Adds. Adds to the slot rather than replacing what's there; a slot can hold more than one meal. When you didn't say which meal, the assistant asks ("tonight" means dinner) |
 | `remove_meal` | Remove a meal plan entry | `meals:write` | Changes. Goes to the recycle bin; `restore_meal` brings it back |
 | `search_recipes` | Find the family's own saved recipes by title or tag; with neither, favourites first | `family:read` | Reads. At most 50 results. Never searches the web |
 | `get_recipe` | One recipe: servings, times, tags, ingredients and the steps | `family:read` | Reads |
-| `add_recipe_to_shopping_list` | Put a recipe's ingredients on the shopping list, all of them or only the ones picked, scaled to the servings asked for (up to 50) | `shopping:write` | Adds, outside Kinboard when Bring! sync is on, and Kinboard can't take them back off the Bring! list. Each call adds the items again, even if they are already on the list |
+| `create_recipe` | Save a recipe to your collection: title, a short description, servings, prep and cook time, tags, ingredients (quantity, unit, name, group, notes) and the steps in order. No picture | `meals:write` | Adds. The assistant looks for a saved recipe first and asks before saving a second one with the same name |
+| `update_recipe` | Change a saved recipe: its title, description, servings, times, tags, ingredients or steps | `meals:write` | Changes. Only what you asked for; a new ingredient list or new steps replace the old ones whole, and the assistant says in one line what will change first. All or nothing. The previous version is not kept |
+| `add_recipe_to_shopping_list` | Put a recipe's ingredients on the shopping list, all of them or only the ones picked, scaled to the servings asked for (up to 50) | `shopping:write` | Adds, outside Kinboard when Bring! sync is on, and Kinboard can't take them back off the Bring! list. Each ingredient keeps its quantity. One that's already on the list and not ticked off is [merged into that item](#adding-something-thats-already-on-the-list) rather than added again |
 
 > "Put the ingredients for the lasagne recipe on the shopping list." ·
 > "Pack die Zutaten vom Lasagne-Rezept auf die Einkaufsliste."
@@ -133,8 +221,40 @@ task they're stored but never awarded. See [Tasks](Tasks).
 > "…but only for 6 people, and we've got the onions." ·
 > "…aber für 6 Personen, und Zwiebeln haben wir."
 >
+> "Come up with a nice dinner for tonight." ·
+> "Denk dir ein schönes Abendessen für heute aus."
+>
+> "Save that recipe to Kinboard." · "Speicher das Rezept in Kinboard."
+>
+> "Save this recipe" (with a photo of a cookbook page, or a link) ·
+> "Speicher dieses Rezept" (mit Foto einer Kochbuchseite oder einem Link)
+>
+> "In our lasagne, use crème fraîche instead of cream." ·
+> "Nimm in unserer Lasagne Crème fraîche statt Sahne."
+>
 > "Plan spaghetti bolognese for dinner on Saturday." ·
 > "Plan für Samstagabend Spaghetti Bolognese ein."
+
+**Inventing or saving a recipe.** Asked for a dinner idea, the assistant first
+looks through your own recipes; only when nothing fits does it write a new one,
+in your family's language, in metric units and sized for your household unless
+you said otherwise. It saves it, plans it for the day you asked, and asks once
+whether you already have some of the ingredients before putting the rest on the
+shopping list. A recipe you worked out together is saved exactly as agreed, and
+then the assistant only offers to plan it or shop for it. It never makes claims
+about nutrition or allergies.
+
+**From a photo or a link.** Share a photo of a cookbook page or a link to a
+recipe, and the assistant reads it itself and saves the recipe as written there.
+A quantity the source doesn't give stays empty rather than guessed, and the
+description says where it came from ("From: …"). It copies only the recipe, not
+the page around it.
+
+**Changing a saved recipe.** The assistant changes only what you asked for and
+leaves the rest as it was. When it is about to replace the ingredient list or
+the steps, it tells you in one line what will change first. When you save a
+recipe whose name you already have, it asks whether to update the saved one or
+keep both.
 
 See [Recipes & meal planning](Recipes).
 
@@ -187,7 +307,7 @@ See [Birthdays](Birthdays).
 |---|---|---|---|
 | `list_pocket_money` | Each child's pocket money: balance, what they've saved in total, their allowance, and their saving goals with how far along each one is | `family:read` | Reads. Only children with a pocket money account |
 | `book_pocket_money` | Ask to add money to a child's pocket money or take some out: 0.01 to 500 at a time, at most two decimals, with an optional note of up to 100 characters | `pocket_money:write` | Adds, **after confirmation**. Nothing is booked until a family member allows it on a Kinboard screen with the settings PIN. A withdrawal larger than the balance is refused. Once booked, a mistake needs a booking the other way |
-| `get_action_status` | What became of a booking (or a home action) that waited for confirmation | `pocket_money:write` or `home:control` | Reads. Only this connection's own requests |
+| `get_action_status` | What became of a booking, a reward decision (or a home action) that waited for confirmation | `pocket_money:write` or `home:control` | Reads. Only this connection's own requests |
 
 > "Give Enno €5 pocket money for mowing the lawn." ·
 > "Gib Enno 5 € Taschengeld fürs Rasenmähen."
@@ -202,14 +322,17 @@ See also [Pocket Money](Pocket-Money).
 
 | Tool | What it does | Permission | Notes |
 |---|---|---|---|
-| `get_rewards` | For each child with a creature: the points they can spend, have earned, owe and have waiting, and their creature's species and stage, with the stage's name in your language and how far it is to the next one. Also the family's rewards and the requests waiting for a parent | `family:read` | Reads. Never the creature's name or how it looks; those stay on the family's own screens |
-| `request_reward` | Ask for a reward for a child, as the child's own *Redeem* does. The child is named by name or id, the reward by title or id | `pocket_money:write` | **Only asks.** Nothing is spent until a parent approves it with the settings PIN in Settings → Creatures & rewards, and a parent may decline it. The parents' phones are told. Refused when the child has no creature or not enough points left over after what is already waiting. An assistant can't approve or decline a request |
+| `get_rewards` | For each child with a creature: the points they can spend, have earned, owe and have waiting, and their creature's species and stage, with the stage's name in your language and how far it is to the next one. Also the family's rewards and the requests waiting for a parent, each with its id | `family:read` | Reads. Never the creature's name or how it looks; those stay on the family's own screens |
+| `request_reward` | Ask for a reward for a child, as the child's own *Redeem* does. The child is named by name or id, the reward by title or id | `pocket_money:write` | **Only asks.** Nothing is spent until a parent approves it with the settings PIN in Settings → Creatures & rewards, and a parent may decline it. The parents' phones are told. Refused when the child has no creature or not enough points left over after what is already waiting. An assistant can't approve or decline a request itself; `decide_reward_request` asks a parent to |
+| `decide_reward_request` | Ask a parent to approve or decline one of the requests waiting for a parent, by its id from `get_rewards` | `pocket_money:write` | **After confirmation.** Nothing is approved or declined until a parent allows it on a Kinboard screen with the settings PIN; anyone at the screen may refuse it, and it expires after 2 minutes. It then counts exactly as if the parent had pressed Approve or Decline in Settings → Creatures & rewards. Refused when the request was already answered in Kinboard, when a decision on it is already waiting, or, to approve, when the child no longer has the points. Refunds stay in the app |
 
 > "How many points does Mia have?" · "Wie viele Punkte hat Mia?"
 >
 > "Mia would like an hour of Minecraft." · "Mia möchte eine Stunde Minecraft."
 >
 > "What stage is Ben's dragon at?" · "In welcher Stufe ist Bens Drache?"
+>
+> "Approve Mira's 30 minutes of tablet time." · "Genehmige Miras 30 Minuten Tablet-Zeit."
 
 How a request reaches the parents: [Permissions and
 safety](AI-Assistants-Permissions-and-Safety#rewards).
@@ -246,6 +369,20 @@ See [Recycle bin](Recycle-Bin).
 > "Any new messages on the board?" · "Gibt es neue Nachrichten auf dem Board?"
 
 See [Messages](Messages).
+
+## Weather
+
+| Tool | What it does | Permission | Notes |
+|---|---|---|---|
+| `get_weather_forecast` | The weather now, today's forecast in 3-hour steps, and each day for about five days ahead: lowest and highest temperature, the condition, and the chance of rain as a percentage (0% included). The same forecast the Weather widget shows | `family:read` | Reads. Always the place chosen under **Settings → Weather**, in the units chosen there; the assistant cannot ask about another town. Days are your family's days, in your time zone. Shares the widget's cached forecast instead of fetching a copy of its own |
+
+> "Will it rain on the school trip on Thursday?" · "Regnet es am Donnerstag beim Schulausflug?"
+>
+> "Do the kids need a jacket this afternoon?" · "Brauchen die Kinder heute Nachmittag eine Jacke?"
+
+If weather isn't set up yet (no location chosen, or no OpenWeatherMap key on
+the server), the assistant says so instead of guessing. See
+[OpenWeatherMap](OpenWeatherMap).
 
 ## Energy
 
@@ -303,13 +440,13 @@ See [Vehicles](Vehicles).
 
 | Permission | Tools |
 |---|---|
-| `family:read` | `get_family_summary`, `get_next_birthday`, `list_calendar_events`, `search_calendar_events`, `list_writable_calendars`, `list_people`, `get_school_timetable`, `list_tasks`, `list_shopping_items`, `get_meal_plan`, `search_recipes`, `get_recipe`, `list_timers`, `list_birthdays`, `list_countdowns`, `list_pocket_money`, `get_rewards`, `list_deleted_items`, `list_screen_messages`, `list_attention_items` |
+| `family:read` | `get_family_summary`, `get_next_birthday`, `list_calendar_events`, `search_calendar_events`, `list_writable_calendars`, `list_people`, `get_school_timetable`, `list_tasks`, `list_shopping_items`, `get_meal_plan`, `search_recipes`, `get_recipe`, `list_timers`, `list_birthdays`, `list_countdowns`, `list_pocket_money`, `get_rewards`, `list_deleted_items`, `list_screen_messages`, `list_attention_items`, `get_weather_forecast`, `get_week_summary`, `list_school_holidays` |
 | `notes:read` | `list_notes` |
 | `calendar:write` | `create_calendar_event`, `update_calendar_event`, `delete_calendar_event`, `add_countdown`, `delete_countdown` |
-| `tasks:write` | `create_task`, `complete_task`, `reopen_task`, `update_task`, `delete_task`, `restore_task`, `dismiss_attention_item` |
+| `tasks:write` | `create_task`, `create_tasks`, `complete_task`, `reopen_task`, `update_task`, `delete_task`, `restore_task`, `dismiss_attention_item` |
 | `shopping:write` | `add_shopping_item`, `check_shopping_item`, `uncheck_shopping_item`, `rename_shopping_item`, `delete_shopping_item`, `add_recipe_to_shopping_list` |
 | `notes:write` | `create_note`, `update_note`, `delete_note`, `restore_note` |
-| `meals:write` | `add_meal`, `remove_meal`, `restore_meal` |
+| `meals:write` | `add_meal`, `remove_meal`, `restore_meal`, `create_recipe`, `update_recipe` |
 | `announcements:write` | `send_message`, `acknowledge_message` |
 | `energy:read` | `get_solar_production`, `get_energy_status` |
 | `home:read` | `list_home_devices`, `get_device_state` |
@@ -317,6 +454,6 @@ See [Vehicles](Vehicles).
 | `vehicles:read` | `list_vehicles` |
 | `timers:write` | `start_timer`, `stop_timer` |
 | `birthdays:write` | `add_birthday`, `update_birthday`, `delete_birthday`, `restore_birthday` |
-| `pocket_money:write` | `book_pocket_money`, `get_action_status`, `request_reward` |
+| `pocket_money:write` | `book_pocket_money`, `get_action_status`, `request_reward`, `decide_reward_request` |
 
 63 tools in all.
