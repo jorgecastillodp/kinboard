@@ -55,6 +55,7 @@ The blue "+ New event" button opens a dialog:
 - Start + end (date picker)
 - Person assignment (or "family")
 - **Calendar** — pick any of your Google calendars (event will round-trip to Google) or "Local only" (stays inside Kinboard)
+- **Location** (optional) — type three letters or more for address suggestions from OpenStreetMap. They come from the country of your [holiday region](#holidays) (the whole world when none is picked, or when that country has no match), in the app's language, and each address is written the way its country writes it
 - Notes
 
 Events show up immediately for everyone in the family. If you picked a Google calendar, the event lands on Google within a few seconds and the next sync round-trip cements it. Edits and deletes also propagate.
