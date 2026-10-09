@@ -104,7 +104,7 @@ test("a result with no street or town is written as OpenStreetMap's own name for
 });
 
 test("a state code that is not one is not written", () => {
-  for (const code of ["US", "US-", "US-california", "US-ABCD"]) {
+  for (const code of ["US", "US-", "US-illinois", "US-ABCD"]) {
     expect(
       formatPlace(address({ road: "Main Street", city: "Springfield", "ISO3166-2-lvl4": code, country_code: "us" }), "x"),
       code,
