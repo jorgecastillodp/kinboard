@@ -2,9 +2,10 @@
 
 import { useState, useRef, useEffect } from "react";
 import { MapPin, Loader2, X } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
-import { useLocationSearch, type LocationResult } from "@/hooks";
+import { useHolidayRegion, useLocationSearch, type LocationResult } from "@/hooks";
+import { resolveRegion } from "@/lib/holidays/region";
 import { cn } from "@/lib/utils";
 
 interface LocationAutocompleteProps {
@@ -29,10 +30,17 @@ export function LocationAutocomplete({
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // The family's country (Settings → Holidays, where you live) and the app's
+  // language decide what is searched and how names read; there is no built-in
+  // country. No region picked: the whole world.
+  const locale = useLocale();
+  const { region } = useHolidayRegion();
+
   const { results, isLoading, search, clear, formatLocation } = useLocationSearch({
     debounceMs: 300,
     limit: 5,
-    countryCode: "de",
+    countryCode: resolveRegion(region)?.country,
+    language: locale,
   });
 
   // Sync input value with external value
