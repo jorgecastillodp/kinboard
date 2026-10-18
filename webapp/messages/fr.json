@@ -1569,6 +1569,8 @@
       "snapshotUrlLabel": "URL d'instantané (optionnel)",
       "snapshotUrlPlaceholder": "http://192.168.1.100/snapshot.jpg",
       "snapshotUrlHint": "Facultatif. Utile uniquement si votre caméra publie une image fixe HTTP que vous préférez utiliser — les caméras RTSP tirent leur image du flux.",
+      "scanlinesLabel": "Effet de lignes de balayage",
+      "scanlinesHint": "De fines lignes horizontales sur la vignette de cette caméra, comme sur un moniteur de surveillance. Jamais en plein écran.",
       "authLabel": "Authentification",
       "authTypeLabel": "Type d'authentification",
       "authTypeDigest": "Digest (Hikvision, Amcrest)",
