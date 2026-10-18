@@ -1603,3 +1603,246 @@ test.describe("a script or a scene runs from its tile", () => {
     }
   });
 });
+
+/**
+ * Write the family's Home Assistant settings with its dashboard tabs.
+ *
+ * The same real settings row `connectHomeAssistant` writes, for the same
+ * WebKit reason, plus the tabs and an https address for the browser: an https
+ * stack refuses an http frame, and every frame here goes to `.invalid`, which
+ * `page.route` answers before anything could dial it.
+ */
+async function setDashboardTabs(
+  page: Page,
+  familyId: string,
+  dashboards: { id: string; title: string; path: string; kiosk: boolean }[],
+): Promise<void> {
+  const failure = await page.evaluate(
+    async ({ familyId, dashboards }) => {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          family_id: familyId,
+          key: "home_assistant",
+          value: {
+            url: "http://home-assistant.invalid:8123",
+            access_token: "e2e-not-a-real-token",
+            embed_url: "https://home-assistant.invalid",
+            embedded_dashboards: dashboards,
+          },
+        }),
+      });
+      if (!res.ok) return `${res.status} ${(await res.text()).slice(0, 200)}`;
+      return null;
+    },
+    { familyId, dashboards },
+  );
+  if (failure) throw new Error(`setDashboardTabs: ${failure}`);
+}
+
+/** The household's Home Assistant settings as saved. */
+async function savedHomeAssistant(page: Page, familyId: string): Promise<Record<string, any>> {
+  return page.evaluate(async (familyId) => {
+    const res = await fetch(`/api/settings?family_id=${familyId}&key=home_assistant`, { cache: "no-store" });
+    return (await res.json()).value ?? {};
+  }, familyId);
+}
+
+/** Every page Home Assistant would draw in a tab, answered here: it says where it was opened. */
+async function stubHomeAssistantPages(page: Page): Promise<string[]> {
+  const opened: string[] = [];
+  await page.route(/^https:\/\/home-assistant\.invalid\//, async (route) => {
+    opened.push(route.request().url());
+    await route.fulfill({
+      status: 200,
+      headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+      body: `<!doctype html><title>stub</title><p id="where">${route.request().url()}</p>`,
+    });
+  });
+  return opened;
+}
+
+test.describe("Home Assistant's own dashboards as tabs", () => {
+  /*
+    The stubbed house again, and every page a tab would open answered from
+    here, so no frame can reach a real Home Assistant.
+  */
+  test.skip(!FAMILY_CODE, "needs a running stack");
+  test.use({ serviceWorkers: "block" });
+  test.describe.configure({ timeout: 150_000 });
+
+  test("a dashboard is a tab beside the devices, opened in a frame, and the display comes back to it", async ({
+    page,
+    baseURL,
+  }, testInfo) => {
+    const suffix = `${testInfo.project.name.replace(/[^a-z0-9]/gi, "")}_${Date.now()}`.toLowerCase();
+    const deviceName = `probe-plug-${Date.now()}`;
+    const opened = await stubHomeAssistantPages(page);
+    const house = await stubbedHouse(page, baseURL, testInfo, [
+      { label: deviceName, entity: stubEntity(`switch.probe_plug_${suffix}`, "on") },
+    ]);
+    try {
+      const views = page.getByRole("group", { name: "Devices and dashboards" });
+      const device = tileIn(groupNamed(page, house.roomName), deviceName);
+      // No dashboards, no row: the page is as it always was.
+      await expect(device).toBeVisible({ timeout: 20_000 });
+      await expect(views).toHaveCount(0);
+      await expect(page.locator("iframe")).toHaveCount(0);
+
+      await setDashboardTabs(page, house.familyId, [
+        { id: "probe-tab-garden", title: "Probe garden", path: "dashboard-probe", kiosk: true },
+        { id: "probe-tab-overview", title: "Probe overview", path: "lovelace", kiosk: false },
+      ]);
+      await reloadUntilRendered(page);
+
+      await expect(views).toBeVisible({ timeout: 20_000 });
+      await expect(views.getByRole("radio")).toHaveText(["Devices", "Probe garden", "Probe overview"]);
+      await expect(views.getByRole("radio", { name: "Devices" })).toHaveAttribute("aria-checked", "true");
+      await expect(device).toBeVisible();
+
+      await views.getByRole("radio", { name: "Probe garden" }).click();
+      const garden = page.frameLocator('iframe[title="Probe garden, from Home Assistant"]');
+      await expect(garden.locator("#where")).toHaveText("https://home-assistant.invalid/dashboard-probe/0?kiosk", { timeout: 20_000 });
+      await expect(views.getByRole("radio", { name: "Probe garden" })).toHaveAttribute("aria-checked", "true");
+      // Home Assistant's page and nothing else: the devices are gone from view.
+      await expect(device).toHaveCount(0);
+
+      // A reload comes back to the dashboard, not to the devices.
+      await reloadUntilRendered(page);
+      await expect(views.getByRole("radio", { name: "Probe garden" })).toHaveAttribute("aria-checked", "true", { timeout: 20_000 });
+      await expect(garden.locator("#where")).toHaveText("https://home-assistant.invalid/dashboard-probe/0?kiosk", { timeout: 20_000 });
+
+      await views.getByRole("radio", { name: "Probe overview" }).click();
+      await expect(page.frameLocator('iframe[title="Probe overview, from Home Assistant"]').locator("#where")).toHaveText(
+        "https://home-assistant.invalid/lovelace/0",
+        { timeout: 20_000 },
+      );
+
+      await views.getByRole("radio", { name: "Devices" }).click();
+      await expect(device).toBeVisible();
+      await expect(page.locator("iframe")).toHaveCount(0);
+      expect(opened.every((url) => url.startsWith("https://home-assistant.invalid/"))).toBe(true);
+    } finally {
+      await deleteThrowawayFamily(page, house.familyId, house.familyName);
+    }
+  });
+
+  test("a display whose dashboard was removed comes back to the devices", async ({ page, baseURL }, testInfo) => {
+    const suffix = `${testInfo.project.name.replace(/[^a-z0-9]/gi, "")}_${Date.now()}`.toLowerCase();
+    const deviceName = `probe-plug-${Date.now()}`;
+    await stubHomeAssistantPages(page);
+    const house = await stubbedHouse(page, baseURL, testInfo, [
+      { label: deviceName, entity: stubEntity(`switch.probe_plug_${suffix}`, "on") },
+    ]);
+    try {
+      await setDashboardTabs(page, house.familyId, [
+        { id: "probe-tab-garden", title: "Probe garden", path: "dashboard-probe", kiosk: true },
+        { id: "probe-tab-overview", title: "Probe overview", path: "lovelace", kiosk: false },
+      ]);
+      await reloadUntilRendered(page);
+      const views = page.getByRole("group", { name: "Devices and dashboards" });
+      await views.getByRole("radio", { name: "Probe garden" }).click({ timeout: 20_000 });
+      await expect(page.locator('iframe[title="Probe garden, from Home Assistant"]')).toBeVisible();
+
+      await setDashboardTabs(page, house.familyId, [
+        { id: "probe-tab-overview", title: "Probe overview", path: "lovelace", kiosk: false },
+      ]);
+      await reloadUntilRendered(page);
+      await expect(views.getByRole("radio", { name: "Devices" })).toHaveAttribute("aria-checked", "true", { timeout: 20_000 });
+      await expect(views.getByRole("radio", { name: "Probe garden" })).toHaveCount(0);
+      await expect(tileIn(groupNamed(page, house.roomName), deviceName)).toBeVisible();
+    } finally {
+      await deleteThrowawayFamily(page, house.familyId, house.familyName);
+    }
+  });
+
+  test("the settings pick dashboards from Home Assistant's list or a typed path, and order, change and remove them", async ({
+    page,
+    baseURL,
+  }, testInfo) => {
+    let listStatus = 200;
+    await page.route(/\/api\/homeassistant\/dashboards/, async (route) => {
+      await route.fulfill({
+        status: listStatus,
+        headers: { "content-type": "application/json", "cache-control": "no-store" },
+        body: JSON.stringify(
+          listStatus === 200
+            ? {
+                dashboards: [
+                  { path: "lovelace", title: "Overview", admin_only: false },
+                  { path: "dashboard-probe", title: "Probe garden", admin_only: false },
+                  { path: "dashboard-probe-admin", title: "Probe admin", admin_only: true },
+                ],
+              }
+            : { error: "the stub refused it" },
+        ),
+      });
+    });
+    const house = await stubbedHouse(page, baseURL, testInfo, []);
+    const tabsSaved = async () =>
+      ((await savedHomeAssistant(page, house.familyId)).embedded_dashboards ?? []).map(
+        (d: { title: string; path: string; kiosk: boolean }) => `${d.title}|${d.path}|${d.kiosk}`,
+      );
+    try {
+      await page.goto("/settings/homeassistant/dashboards", { waitUntil: "domcontentloaded" });
+      await expect(page.getByText("No dashboards yet.", { exact: false })).toBeVisible({ timeout: 30_000 });
+
+      // From Home Assistant's own list; the admin-only one says so.
+      await page.locator("#ha-dashboard-pick").click();
+      await expect(page.getByRole("option", { name: /Probe admin\s*admins only/ })).toBeVisible();
+      await page.getByRole("option", { name: "Probe garden", exact: true }).click();
+      await expect(page.locator("#ha-dashboard-title")).toHaveAttribute("placeholder", "Probe garden");
+      await page.getByRole("button", { name: "Add", exact: true }).click();
+      await expect(page.getByText("Probe garden added")).toBeVisible();
+      await expect.poll(tabsSaved, { timeout: 10_000 }).toEqual(["Probe garden|dashboard-probe|true"]);
+
+      // A typed path, cleaned of its slashes, with a name of its own.
+      await page.locator("#ha-dashboard-pick").click();
+      await expect(page.getByRole("option", { name: "Probe garden", exact: true })).toHaveCount(0);
+      await page.getByRole("option", { name: "Another path…" }).click();
+      await page.locator("#ha-dashboard-path").fill("../not-a-dashboard");
+      await page.getByRole("button", { name: "Add", exact: true }).click();
+      await expect(page.getByText("That isn't a dashboard path.", { exact: false })).toBeVisible();
+      await page.locator("#ha-dashboard-path").fill("/dashboard-probe-typed/");
+      await page.locator("#ha-dashboard-title").fill("Probe typed");
+      await page.getByRole("button", { name: "Add", exact: true }).click();
+      await expect
+        .poll(tabsSaved, { timeout: 10_000 })
+        .toEqual(["Probe garden|dashboard-probe|true", "Probe typed|dashboard-probe-typed|true"]);
+
+      await page.getByRole("button", { name: "Move Probe typed up" }).click();
+      await expect
+        .poll(tabsSaved, { timeout: 10_000 })
+        .toEqual(["Probe typed|dashboard-probe-typed|true", "Probe garden|dashboard-probe|true"]);
+      await expect(page.getByRole("button", { name: "Move Probe typed up" })).toBeDisabled();
+
+      const typedRow = page.getByTestId("ha-dashboard-tab").filter({ hasText: "Probe typed" });
+      await typedRow.getByRole("switch").click();
+      await expect
+        .poll(tabsSaved, { timeout: 10_000 })
+        .toEqual(["Probe typed|dashboard-probe-typed|false", "Probe garden|dashboard-probe|true"]);
+
+      await page.getByRole("button", { name: "Remove Probe garden" }).click();
+      await expect.poll(tabsSaved, { timeout: 10_000 }).toEqual(["Probe typed|dashboard-probe-typed|false"]);
+
+      // The address for the browser: only http(s), saved as typed.
+      await page.locator("#ha-embed-url").fill("ftp://home-assistant.invalid");
+      await page.getByRole("button", { name: "Save", exact: true }).click();
+      await expect(page.getByText("Enter an address starting with https:// or http://.")).toBeVisible();
+      await page.locator("#ha-embed-url").fill("https://home-assistant.invalid");
+      await page.getByRole("button", { name: "Save", exact: true }).click();
+      await expect
+        .poll(async () => (await savedHomeAssistant(page, house.familyId)).embed_url, { timeout: 10_000 })
+        .toBe("https://home-assistant.invalid");
+
+      // When Home Assistant won't list its dashboards, the path can still be typed.
+      listStatus = 502;
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await expect(page.getByText("Couldn't get the list from Home Assistant.", { exact: false })).toBeVisible({ timeout: 30_000 });
+      await expect(page.locator("#ha-dashboard-path")).toBeVisible();
+    } finally {
+      await deleteThrowawayFamily(page, house.familyId, house.familyName);
+    }
+  });
+});
