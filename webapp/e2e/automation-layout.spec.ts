@@ -1489,3 +1489,117 @@ test.describe("the detail sheet a tile opens", () => {
     }
   });
 });
+
+test.describe("a script or a scene runs from its tile", () => {
+  /*
+    The same stubbed house as above: a family of its own, Home Assistant at
+    `.invalid`, every state and every service call answered in this file. No
+    tap here can reach a real instance, which matters: a real script may open a
+    real gate.
+  */
+  test.skip(!FAMILY_CODE, "needs a running stack");
+  test.use({ serviceWorkers: "block" });
+  test.describe.configure({ timeout: 120_000 });
+
+  test("one tap runs a script: no sheet, no question, one call, and the button says so", async ({
+    page,
+    baseURL,
+  }, testInfo) => {
+    const suffix = `${testInfo.project.name.replace(/[^a-z0-9]/gi, "")}_${Date.now()}`.toLowerCase();
+    const scriptEntity = `script.probe_routine_${suffix}`;
+    const scriptName = `probe-script-${Date.now()}`;
+    const house = await stubbedHouse(page, baseURL, testInfo, [
+      { label: scriptName, entity: stubEntity(scriptEntity, "off") },
+    ]);
+    try {
+      const tile = tileIn(groupNamed(page, house.roomName), scriptName);
+      const runButton = tile.getByRole("button", { name: "Activate", exact: true });
+      await expect(runButton).toBeEnabled({ timeout: 20_000 });
+
+      await runButton.click();
+      await expect
+        .poll(() => house.serviceCalls.length, { timeout: 10_000, message: "service calls" })
+        .toBe(1);
+      expect(house.serviceCalls[0]).toMatchObject({
+        domain: "script",
+        service: "turn_on",
+        entity_id: scriptEntity,
+      });
+      // Nothing opened over the room: no detail sheet, no confirmation.
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await expect(page.getByRole("alertdialog")).toHaveCount(0);
+      // The tap is acknowledged on the button itself, and it is ready again.
+      await expect(tile.locator("svg.lucide-check")).toBeVisible();
+      await expect(runButton).toBeEnabled();
+      // One tap, one call: a late second one would be a gate opening twice.
+      await page.waitForTimeout(1_000);
+      expect(house.serviceCalls).toHaveLength(1);
+    } finally {
+      await deleteThrowawayFamily(page, house.familyId, house.familyName);
+    }
+  });
+
+  test("a scene that has not run since a restart still offers its button; an unavailable script does not", async ({
+    page,
+    baseURL,
+  }, testInfo) => {
+    const suffix = `${testInfo.project.name.replace(/[^a-z0-9]/gi, "")}_${Date.now()}`.toLowerCase();
+    const sceneEntity = `scene.probe_evening_${suffix}`;
+    const sceneName = `probe-scene-${Date.now()}`;
+    const deadEntity = `script.probe_dead_${suffix}`;
+    const deadName = `probe-dead-${Date.now()}`;
+    const house = await stubbedHouse(page, baseURL, testInfo, [
+      // A scene's state is the last time it ran, and Home Assistant forgets it on a restart.
+      { label: sceneName, entity: stubEntity(sceneEntity, "unknown") },
+      { label: deadName, entity: stubEntity(deadEntity, "unavailable") },
+    ]);
+    try {
+      const room = groupNamed(page, house.roomName);
+      const sceneButton = tileIn(room, sceneName).getByRole("button", { name: "Activate", exact: true });
+      await expect(sceneButton).toBeEnabled({ timeout: 20_000 });
+      await expect(tileIn(room, deadName).getByRole("button", { name: "Activate", exact: true })).toBeDisabled();
+
+      await sceneButton.click();
+      await expect
+        .poll(() => house.serviceCalls.length, { timeout: 10_000, message: "service calls" })
+        .toBe(1);
+      expect(house.serviceCalls[0]).toMatchObject({
+        domain: "scene",
+        service: "turn_on",
+        entity_id: sceneEntity,
+      });
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+    } finally {
+      await deleteThrowawayFamily(page, house.familyId, house.familyName);
+    }
+  });
+
+  test("a refused call says so, and the button is ready again", async ({ page, baseURL }, testInfo) => {
+    const suffix = `${testInfo.project.name.replace(/[^a-z0-9]/gi, "")}_${Date.now()}`.toLowerCase();
+    const scriptEntity = `script.probe_refused_${suffix}`;
+    const scriptName = `probe-refused-${Date.now()}`;
+    const house = await stubbedHouse(
+      page,
+      baseURL,
+      testInfo,
+      [{ label: scriptName, entity: stubEntity(scriptEntity, "off") }],
+      { serviceStatus: 500 },
+    );
+    try {
+      const tile = tileIn(groupNamed(page, house.roomName), scriptName);
+      const runButton = tile.getByRole("button", { name: "Activate", exact: true });
+      await expect(runButton).toBeEnabled({ timeout: 20_000 });
+
+      await runButton.click();
+      await expect
+        .poll(() => house.serviceCalls.length, { timeout: 10_000, message: "service calls" })
+        .toBe(1);
+      await expect(page.getByText("That did not go through")).toBeVisible();
+      await expect(runButton).toBeEnabled();
+      // Ready, not "done": no tick for a call Home Assistant refused.
+      await expect(tile.locator("svg.lucide-check")).toHaveCount(0);
+    } finally {
+      await deleteThrowawayFamily(page, house.familyId, house.familyName);
+    }
+  });
+});

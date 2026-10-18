@@ -10,6 +10,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Scripts and scenes run from their tile, with one tap.** On Home automation a script or a scene had no control on its tile, so running one meant opening its details first: a window over the whole page, which also hid a camera in the same room. Its tile now has an *Activate* button: one tap runs it, with a spinner while it goes out and a tick once Home Assistant has it. A refused call says so and leaves the button ready. The tile's name still opens the details.
 ### Fixed
 
 ### Security

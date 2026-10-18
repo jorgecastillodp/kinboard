@@ -41,7 +41,7 @@ Inside a room tab: one card per entity. Card type adapts to the entity domain:
 | `media_player` | Play/pause/volume, source title, artwork |
 | `lock` | Lock/unlock |
 | `alarm_control_panel` | Arm/disarm with PIN keypad |
-| `scene`, `script` | Activate button |
+| `scene`, `script` | Activate button on the tile itself: one tap runs it, with a spinner while it goes out and a tick once Home Assistant has it (the details still open from the name) |
 | `vacuum` | Start/stop/dock |
 | `weather` | Conditions + forecast |
 | `person`, `device_tracker` | Avatar + location label |
