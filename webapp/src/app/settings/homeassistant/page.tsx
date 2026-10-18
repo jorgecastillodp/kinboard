@@ -19,6 +19,7 @@ import {
   Settings2,
   Zap,
   RefreshCw,
+  LayoutDashboard,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -546,6 +547,32 @@ function HomeAssistantSettingsContent() {
                 <Link href="/settings/homeassistant/rooms">
                   <Button variant="outline" size="sm">
                     {t("roomsManageButton")}
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Home Assistant's own dashboards, as tabs on Home Automation */}
+        {isConnected && (
+          <Card>
+            <div className="p-6">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <LayoutDashboard className="size-5 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="font-medium">{t("embedHeading")}</h2>
+                    <p className="text-sm text-muted-foreground">
+                      {t("embedDescription")}
+                    </p>
+                  </div>
+                </div>
+                <Link href="/settings/homeassistant/dashboards">
+                  <Button variant="outline" size="sm">
+                    {t("embedManageButton")}
                   </Button>
                 </Link>
               </div>

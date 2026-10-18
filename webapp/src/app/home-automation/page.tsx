@@ -24,6 +24,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
+import { HaDashboardFrame } from "@/components/home-assistant/ha-dashboard-frame";
+import { DEVICES_TAB, TAB_STORAGE_KEY, devicesTabLabel, embedBaseUrl, embeddedDashboards, pickTab } from "@/lib/ha-embed";
 import {
   useHomeAssistantStatus,
   useHomeAssistantEntityStates,
@@ -183,6 +186,32 @@ export default function HausautomationPage() {
    * answer is that we could not find out.
    */
   const isConnected = !!settings?.url && !!settings?.access_token;
+
+  /**
+   * Home Assistant's own dashboards, each a tab beside the devices
+   * (lib/ha-embed.ts). The tab a display was on is kept in its own browser,
+   * so the wall panel comes back to the dashboard it shows, and read after
+   * mount because the server's render cannot know it.
+   */
+  const dashboards = useMemo(() => embeddedDashboards(settings), [settings]);
+  const [rememberedTab, setRememberedTab] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      setRememberedTab(window.localStorage.getItem(TAB_STORAGE_KEY));
+    } catch {
+      // No storage (a private window, blocked site data): the devices tab it is.
+    }
+  }, []);
+  const tab = pickTab(rememberedTab, dashboards);
+  const activeDashboard = dashboards.find((d) => d.id === tab) ?? null;
+  const selectTab = (value: string) => {
+    setRememberedTab(value);
+    try {
+      window.localStorage.setItem(TAB_STORAGE_KEY, value);
+    } catch {
+      // As above: the choice holds until the page is reloaded.
+    }
+  };
 
   /**
    * Every entity we need a state for, deduped and stable.
@@ -563,6 +592,74 @@ export default function HausautomationPage() {
     />
   );
 
+  const header = (
+    <PageHeader
+      icon={Home}
+      title={t("title")}
+      subtitle={t("subtitleRooms")}
+      actions={
+        <>
+          {fetchingStates && (
+            <Badge variant="outline" className="text-xs">
+              <RefreshCw className="size-3 mr-1 animate-spin" />
+              {t("refreshingBadge")}
+            </Badge>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => void refetchStates()}
+            disabled={fetchingStates || !isConnected}
+            aria-label={t("refreshAria")}
+          >
+            <RefreshCw className={`size-5 ${fetchingStates ? "animate-spin" : ""}`} />
+          </Button>
+          <Link href="/settings/homeassistant">
+            <Button variant="ghost" size="icon" aria-label={t("settingsAria")}>
+              <Settings className="size-5" />
+            </Button>
+          </Link>
+        </>
+      }
+    />
+  );
+
+  const tabs = dashboards.length > 0 && (
+    <SegmentedControl
+      value={tab}
+      onValueChange={selectTab}
+      aria-label={t("viewsAria")}
+      className="h-auto max-w-full flex-wrap self-start"
+    >
+      <SegmentedControlItem value={DEVICES_TAB} className="min-h-[44px] px-3 sm:min-h-0">
+        {devicesTabLabel(settings, t("tabDevices"))}
+      </SegmentedControlItem>
+      {dashboards.map((dashboard) => (
+        <SegmentedControlItem key={dashboard.id} value={dashboard.id} className="min-h-[44px] px-3 sm:min-h-0">
+          {dashboard.title}
+        </SegmentedControlItem>
+      ))}
+    </SegmentedControl>
+  );
+
+  // A dashboard tab is Home Assistant's page and nothing else: none of the
+  // banners, tiles or dialogs below are about it.
+  if (activeDashboard) {
+    return (
+      <main
+        id="main-content"
+        className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset"
+      >
+        <div className="page-gradient" />
+        <div className="relative z-10 max-w-6xl mx-auto flex flex-col gap-6">
+          {header}
+          {tabs}
+          <HaDashboardFrame dashboard={activeDashboard} baseUrl={embedBaseUrl(settings)} />
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main
       id="main-content"
@@ -570,35 +667,8 @@ export default function HausautomationPage() {
     >
       <div className="page-gradient" />
       <div className="relative z-10 max-w-6xl mx-auto flex flex-col gap-6">
-        <PageHeader
-          icon={Home}
-          title={t("title")}
-          subtitle={t("subtitleRooms")}
-          actions={
-            <>
-              {fetchingStates && (
-                <Badge variant="outline" className="text-xs">
-                  <RefreshCw className="size-3 mr-1 animate-spin" />
-                  {t("refreshingBadge")}
-                </Badge>
-              )}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => void refetchStates()}
-                disabled={fetchingStates || !isConnected}
-                aria-label={t("refreshAria")}
-              >
-                <RefreshCw className={`size-5 ${fetchingStates ? "animate-spin" : ""}`} />
-              </Button>
-              <Link href="/settings/homeassistant">
-                <Button variant="ghost" size="icon" aria-label={t("settingsAria")}>
-                  <Settings className="size-5" />
-                </Button>
-              </Link>
-            </>
-          }
-        />
+        {header}
+        {tabs}
 
         {/*
           We could not read the settings at all.

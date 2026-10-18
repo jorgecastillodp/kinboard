@@ -13,6 +13,7 @@ import type {
   TeslaConfig,
   EntityHistory,
   StatisticsPeriod,
+  HaDashboardChoice,
 } from "@/types/home-assistant";
 
 // ============================================================================
@@ -152,6 +153,29 @@ export function useTestHomeAssistantConnection() {
 }
 
 // Hook to save Home Assistant settings
+/**
+ * The household's Home Assistant dashboards, for picking which become tabs on
+ * Home Automation. Asked of Home Assistant through Kinboard's server; no retry,
+ * since a failure here means the page offers typing a path instead.
+ */
+export function useHaDashboardChoices(enabled: boolean) {
+  const { family } = useFamilyStore();
+
+  return useQuery({
+    queryKey: ["ha-dashboard-choices", family?.id],
+    enabled: enabled && !!family?.id,
+    retry: false,
+    staleTime: 60_000,
+    queryFn: async (): Promise<HaDashboardChoice[]> => {
+      if (!family?.id) return [];
+      const response = await fetch(`/api/homeassistant/dashboards?family_id=${family.id}`);
+      if (!response.ok) throw new Error(`listing dashboards failed (${response.status})`);
+      const data = await response.json();
+      return Array.isArray(data?.dashboards) ? data.dashboards : [];
+    },
+  });
+}
+
 export function useSaveHomeAssistantSettings() {
   const queryClient = useQueryClient();
   const { family } = useFamilyStore();

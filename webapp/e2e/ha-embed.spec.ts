@@ -1,0 +1,234 @@
+import { expect, test } from "@playwright/test";
+import { readFileSync } from "fs";
+import { join } from "path";
+import {
+  DEVICES_TAB,
+  EMBED_HELP_URL,
+  TAB_NAME_MAX,
+  blockedAsMixedContent,
+  choicesNotAdded,
+  cleanDashboardPath,
+  dashboardFrameUrl,
+  devicesTabLabel,
+  embedBaseUrl,
+  embeddedDashboards,
+  moveDashboard,
+  pickTab,
+} from "../src/lib/ha-embed";
+import { codeOnly } from "./source-helpers";
+
+/**
+ * The household's own Home Assistant dashboards as tabs on Home Automation:
+ * where each tab's frame points, which tab a display comes back to, and the
+ * wiring around them. Home Assistant draws the dashboard; Kinboard only picks
+ * the address, so most of what can go wrong is in these pure functions. No stack.
+ */
+
+const read = (file: string) => readFileSync(join(process.cwd(), file), "utf8");
+
+test("a dashboard opens at its first view, with ?kiosk when asked, under any base path", () => {
+  const kitchen = { path: "dashboard-kitchen", kiosk: true };
+  expect(dashboardFrameUrl("https://ha.example", kitchen)).toBe("https://ha.example/dashboard-kitchen/0?kiosk");
+  expect(dashboardFrameUrl("https://ha.example", { ...kitchen, kiosk: false })).toBe("https://ha.example/dashboard-kitchen/0");
+  // Slashes at either end of the base and the path make no difference.
+  expect(dashboardFrameUrl("https://ha.example/", { ...kitchen, path: "/dashboard-kitchen/" })).toBe(
+    "https://ha.example/dashboard-kitchen/0?kiosk",
+  );
+  // A base path a reverse proxy put Home Assistant under is kept.
+  expect(dashboardFrameUrl("https://example.org/ha/", kitchen)).toBe("https://example.org/ha/dashboard-kitchen/0?kiosk");
+  // A view named with the dashboard is opened as named.
+  expect(dashboardFrameUrl("https://ha.example", { ...kitchen, path: "dashboard-kitchen/garden" })).toBe(
+    "https://ha.example/dashboard-kitchen/garden?kiosk",
+  );
+  expect(dashboardFrameUrl("http://homeassistant.local:8123", { path: "lovelace", kiosk: false })).toBe(
+    "http://homeassistant.local:8123/lovelace/0",
+  );
+  // Nothing of the base's own query or fragment rides along.
+  expect(dashboardFrameUrl("https://ha.example/?x=1#y", kitchen)).toBe("https://ha.example/dashboard-kitchen/0?kiosk");
+});
+
+test("no frame for an address a browser can't open, or a path that would point anywhere else", () => {
+  const ok = { path: "dashboard-kitchen", kiosk: true };
+  for (const base of [undefined, "", "   ", "not an address", "ftp://ha.example", "javascript:alert(1)", "file:///etc/passwd"]) {
+    expect(dashboardFrameUrl(base, ok), String(base)).toBeNull();
+  }
+  for (const path of ["", "/", "..", "../admin", "a/b/c", "//evil.example", "https://evil.example", "dash board", "x?y", "x#y", "%2e%2e"]) {
+    expect(cleanDashboardPath(path), path).toBeNull();
+    expect(dashboardFrameUrl("https://ha.example", { path, kiosk: false }), path).toBeNull();
+  }
+  expect(cleanDashboardPath("  /dashboard-kitchen/garden/ ")).toBe("dashboard-kitchen/garden");
+});
+
+test("an https page says why it can't show an http dashboard", () => {
+  expect(blockedAsMixedContent("https:", "http://ha.example/lovelace/0")).toBe(true);
+  expect(blockedAsMixedContent("https:", "https://ha.example/lovelace/0")).toBe(false);
+  expect(blockedAsMixedContent("http:", "http://ha.example/lovelace/0")).toBe(false);
+  expect(blockedAsMixedContent("http:", "https://ha.example/lovelace/0")).toBe(false);
+});
+
+test("the tabs come from the settings in their order, without broken entries; a browser address wins", () => {
+  expect(embeddedDashboards(undefined)).toEqual([]);
+  expect(embeddedDashboards(null)).toEqual([]);
+  expect(embeddedDashboards({ embedded_dashboards: "nope" as never })).toEqual([]);
+  const good = [
+    { id: "b", title: "Garden", path: "dashboard-garden", kiosk: true },
+    { id: "a", title: "Overview", path: "lovelace", kiosk: false },
+  ];
+  const mixed = [
+    good[0],
+    null,
+    { id: "", title: "No id", path: "dashboard-x", kiosk: true },
+    { id: "c", title: "Bad path", path: "../admin", kiosk: true },
+    { id: "d", path: "dashboard-y", kiosk: true },
+    good[1],
+  ];
+  expect(embeddedDashboards({ embedded_dashboards: mixed as never })).toEqual(good);
+
+  expect(embedBaseUrl({ url: "http://homeassistant:8123", embed_url: "https://ha.example" })).toBe("https://ha.example");
+  expect(embedBaseUrl({ url: "https://ha.example", embed_url: "   " })).toBe("https://ha.example");
+  expect(embedBaseUrl({ url: "https://ha.example" })).toBe("https://ha.example");
+  expect(embedBaseUrl({ url: "" })).toBeUndefined();
+  expect(embedBaseUrl(null)).toBeUndefined();
+});
+
+test("the first tab takes the household's name, trimmed and capped; empty is the app's own word", () => {
+  expect(devicesTabLabel(undefined, "Devices")).toBe("Devices");
+  expect(devicesTabLabel(null, "Geräte")).toBe("Geräte");
+  expect(devicesTabLabel({}, "Devices")).toBe("Devices");
+  expect(devicesTabLabel({ devices_tab_title: "   " }, "Devices")).toBe("Devices");
+  expect(devicesTabLabel({ devices_tab_title: "  Our house " }, "Devices")).toBe("Our house");
+  expect(TAB_NAME_MAX).toBe(40);
+  expect(devicesTabLabel({ devices_tab_title: "x".repeat(60) }, "Devices")).toBe("x".repeat(TAB_NAME_MAX));
+});
+
+test("a display comes back to its tab while that still exists; picking and moving", () => {
+  const tabs = [{ id: "a" }, { id: "b" }];
+  expect(pickTab(null, tabs)).toBe(DEVICES_TAB);
+  expect(pickTab("b", tabs)).toBe("b");
+  expect(pickTab("gone", tabs)).toBe(DEVICES_TAB);
+  expect(pickTab(DEVICES_TAB, tabs)).toBe(DEVICES_TAB);
+  expect(pickTab("a", [])).toBe(DEVICES_TAB);
+
+  const choices = [
+    { path: "lovelace", title: "Overview", admin_only: false },
+    { path: "dashboard-garden", title: "Garden", admin_only: false },
+    { path: "dashboard-admin", title: "Admin", admin_only: true },
+  ];
+  // Already a tab, however its path was written.
+  expect(choicesNotAdded(choices, [{ path: "/dashboard-garden/" }]).map((c) => c.path)).toEqual(["lovelace", "dashboard-admin"]);
+
+  const list = ["a", "b", "c"];
+  expect(moveDashboard(list, 1, -1)).toEqual(["b", "a", "c"]);
+  expect(moveDashboard(list, 1, 1)).toEqual(["a", "c", "b"]);
+  expect(moveDashboard(list, 0, -1)).toEqual(list);
+  expect(moveDashboard(list, 2, 1)).toEqual(list);
+  expect(moveDashboard(list, 7, 1)).toEqual(list);
+  expect(moveDashboard(list, 0, 1)).not.toBe(list);
+  expect(list).toEqual(["a", "b", "c"]);
+});
+
+test("the page has tabs only when there are dashboards, keeps the display's choice, and a dashboard tab is Home Assistant's page alone", () => {
+  const page = codeOnly(read("src/app/home-automation/page.tsx"));
+  expect(page).toContain("const dashboards = useMemo(() => embeddedDashboards(settings), [settings]);");
+  expect(page).toContain("const tab = pickTab(rememberedTab, dashboards);");
+  expect(page).toMatch(/try \{\s*setRememberedTab\(window\.localStorage\.getItem\(TAB_STORAGE_KEY\)\);\s*\} catch/);
+  expect(page).toMatch(/try \{\s*window\.localStorage\.setItem\(TAB_STORAGE_KEY, value\);\s*\} catch/);
+  expect(page).toContain("const tabs = dashboards.length > 0 && (");
+  expect(page).toMatch(/<SegmentedControlItem value=\{DEVICES_TAB\}[^>]*>\s*\{devicesTabLabel\(settings, t\("tabDevices"\)\)\}/);
+  // The dashboard tab returns before the devices, their banners and dialogs.
+  const early = page.slice(page.indexOf("if (activeDashboard) {"), page.indexOf("if (activeDashboard) {") + 700);
+  expect(early).toContain("<HaDashboardFrame dashboard={activeDashboard} baseUrl={embedBaseUrl(settings)} />");
+  expect(early).toContain("{header}");
+  expect(early).toContain("{tabs}");
+  expect(early).not.toContain("EntityDetailSheet");
+  // The devices view shows the same header and tabs.
+  expect(page.match(/\{header\}\s*\{tabs\}/g)?.length).toBe(2);
+});
+
+test("the frame: Home Assistant's address, a name, no sandbox, and a message instead of a blank tab", () => {
+  const frame = codeOnly(read("src/components/home-assistant/ha-dashboard-frame.tsx"));
+  expect(frame).toContain("const src = dashboardFrameUrl(baseUrl, dashboard);");
+  expect(frame).toMatch(/<iframe[\s\S]*?src=\{src\}[\s\S]*?title=\{t\("dashboardFrameTitle", \{ name: dashboard\.title \}\)\}/);
+  expect(frame).not.toMatch(/sandbox/);
+  // Only the browser knows the page's protocol: checked after mount.
+  expect(frame).toMatch(/useEffect\(\(\) => \{[\s\S]*?setMixed\(src !== null && blockedAsMixedContent\(window\.location\.protocol, src\)\);/);
+  expect(frame).toContain("if (src === null || mixed) {");
+  expect(frame).toContain('role="alert"');
+  expect(frame).toContain("setTimeout(() => setSlow(true), FRAME_SLOW_MS)");
+  expect(frame).toContain("href={EMBED_HELP_URL}");
+});
+
+test("focus moving into a frame counts as activity for the screensaver", () => {
+  const idle = codeOnly(read("src/hooks/use-idle-timeout.ts"));
+  expect(idle).toContain('window.addEventListener("blur", handleBlur);');
+  expect(idle).toContain('window.removeEventListener("blur", handleBlur);');
+  expect(idle).toMatch(/setTimeout\(\(\) => \{\s*if \(!disposed && document\.activeElement instanceof HTMLIFrameElement\) handleActivity\(e\);/);
+  expect(idle).toMatch(/return \(\) => \{\s*disposed = true;/);
+});
+
+test("Home Assistant's list of dashboards comes through Kinboard's server, for the family's own session", () => {
+  const route = codeOnly(read("src/app/api/homeassistant/dashboards/route.ts"));
+  expect(route).toContain("const auth = await requireSession(request);");
+  expect(route).toContain("if (!familyMatchesSession(auth.session, familyId)) {");
+  expect(route).toContain("getMergedSetting<HomeAssistantSettings>(familyId, SETTINGS_KEYS.homeAssistant)");
+  expect(route).toContain('type: "lovelace/dashboards/list",');
+  // Home Assistant leaves its default dashboard out of the list.
+  expect(route).toContain("const dashboards: HaDashboardChoice[] = [OVERVIEW];");
+  expect(route).toContain('const OVERVIEW: HaDashboardChoice = { path: "lovelace", title: "Overview", admin_only: false };');
+  expect(route).toContain("admin_only: item.require_admin === true,");
+  expect(route).toContain("{ status: 502 }");
+});
+
+test("the settings page saves each change with the Home Assistant settings and takes a typed path when the list fails", () => {
+  const settings = codeOnly(read("src/app/settings/homeassistant/dashboards/page.tsx"));
+  expect(settings).toContain("const saveSettings = useSaveHomeAssistantSettings();");
+  expect(settings).toContain("const choicesQuery = useHaDashboardChoices(isConnected);");
+  expect(settings).toContain("const typing = picked === OTHER_PATH || choicesQuery.isError;");
+  expect(settings).toContain("{ id: safeRandomUUID(), title: name, path: cleanPath, kiosk: true },");
+  expect(settings).toContain("embedded_dashboards: moveDashboard(dashboards, index, -1)");
+  expect(settings).toContain("embedded_dashboards: moveDashboard(dashboards, index, 1)");
+  expect(settings).toContain("if (dashboards.some((d) => cleanDashboardPath(d.path) === cleanPath)) {");
+  expect(settings).toContain("await save({ embed_url: value })");
+  // The first tab: renamed here, named in the app's language when left empty, as long as a tab may be.
+  expect(settings).toContain("await save({ devices_tab_title: devicesTitle.trim() })");
+  expect(settings).toContain('placeholder={tPage("tabDevices")}');
+  expect(settings.match(/maxLength=\{TAB_NAME_MAX\}/g)?.length).toBe(2);
+  expect(settings).toMatch(/role="status"[\s\S]{0,160}tSettings\("loadingHint"\)/);
+  const main = codeOnly(read("src/app/settings/homeassistant/page.tsx"));
+  expect(main).toContain('<Link href="/settings/homeassistant/dashboards">');
+});
+
+test("every new string is there in every language, with the same placeholders", () => {
+  const load = (lang: string) => JSON.parse(read(`messages/${lang}.json`));
+  const [en, de, fr] = ["en", "de", "fr"].map(load);
+  const groups: Array<[string, (m: Record<string, any>) => Record<string, string>, string[]]> = [
+    ["homeAutomation", (m) => m.homeAutomation, ["viewsAria", "tabDevices", "dashboardFrameTitle", "dashboardLoading", "dashboardSlowHint", "dashboardHelpLink", "dashboardNoAddress", "dashboardMixedContent", "dashboardSettingsLink"]],
+    ["settings.homeassistant", (m) => m.settings.homeassistant, ["embedHeading", "embedDescription", "embedManageButton"]],
+    ["settings.homeassistantDashboards", (m) => m.settings.homeassistantDashboards, Object.keys(en.settings.homeassistantDashboards)],
+  ];
+  expect(Object.keys(en.settings.homeassistantDashboards).length).toBeGreaterThan(30);
+  for (const [name, pick, keys] of groups) {
+    for (const key of keys) {
+      const english = pick(en)[key];
+      expect(typeof english, `${name}.${key}`).toBe("string");
+      const placeholders = (english.match(/\{\w+\}/g) ?? []).sort();
+      for (const [lang, messages] of [["de", de], ["fr", fr]] as const) {
+        const text = pick(messages)[key];
+        expect(typeof text === "string" && text.trim() !== "", `${lang} ${name}.${key}`).toBe(true);
+        expect((text.match(/\{\w+\}/g) ?? []).sort(), `${lang} ${name}.${key}`).toEqual(placeholders);
+      }
+    }
+  }
+  expect(Object.keys(de.settings.homeassistantDashboards).sort()).toEqual(Object.keys(en.settings.homeassistantDashboards).sort());
+  expect(Object.keys(fr.settings.homeassistantDashboards).sort()).toEqual(Object.keys(en.settings.homeassistantDashboards).sort());
+});
+
+test("the wiki section every hint links to exists", () => {
+  expect(EMBED_HELP_URL).toBe("https://github.com/svenger87/kinboard/wiki/Home-Assistant#home-assistant-dashboards-as-tabs");
+  const wiki = readFileSync(join(process.cwd(), "..", "docs", "wiki", "Home-Assistant.md"), "utf8");
+  expect(wiki).toContain("\n## Home Assistant dashboards as tabs\n");
+  expect(wiki).toContain("Send X-Frame-Options");
+  expect(readFileSync(join(process.cwd(), "..", "docs", "wiki", "Smart-Home.md"), "utf8")).toContain(
+    "(Home-Assistant#home-assistant-dashboards-as-tabs)",
+  );
+});

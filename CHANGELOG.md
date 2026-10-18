@@ -8,6 +8,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Your own Home Assistant dashboards as tabs on Home automation.** Settings → Home Assistant → Home Assistant dashboards picks any of the household's dashboards from Home Assistant's own list (or takes a path), and each becomes a tab beside the devices, drawn by Home Assistant in a frame so custom cards and themes look as they do there. Tabs can be reordered, each can hide Home Assistant's header and sidebar (kiosk-mode), the first tab (the devices) can be renamed, and a display comes back to the tab it was on. An optional address for the browser covers a Home Assistant that Kinboard's server reaches by a name a tablet cannot; an http address under an https Kinboard gets a message instead of a blank tab. Home Assistant has to allow being shown inside another page, and the display signs in once inside the tab (wiki: Home-Assistant). Focus moving into the frame counts as activity for the screensaver, since taps inside it never reach Kinboard.
+
 ### Changed
 
 ### Fixed

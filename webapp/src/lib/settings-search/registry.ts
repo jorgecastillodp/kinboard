@@ -11,6 +11,7 @@ import {
   Car,
   DatabaseBackup,
   DoorOpen,
+  LayoutDashboard,
   GraduationCap,
   History,
   Home,
@@ -150,6 +151,7 @@ const ics = page({ id: "ics", href: "/settings/ics", section: "sectionIntegratio
 const caldav = page({ id: "caldav", href: "/settings/caldav", section: "sectionIntegrations", labelKey: "settings.caldav.title", descriptionKey: "settings.caldav.subtitle", icon: Server });
 const localCalendars = page({ id: "local-calendars", href: "/settings/local-calendars", section: "sectionIntegrations", labelKey: "settings.localCalendars.title", descriptionKey: "settings.localCalendars.subtitle", icon: CalendarPlus });
 const haRooms = page({ id: "homeassistant-rooms", href: "/settings/homeassistant/rooms", section: "sectionIntegrations", labelKey: "settings.homeassistantRooms.headerTitle", descriptionKey: "settings.homeassistantRooms.headerSubtitle", icon: DoorOpen });
+const haDashboards = page({ id: "homeassistant-dashboards", href: "/settings/homeassistant/dashboards", section: "sectionIntegrations", labelKey: "settings.homeassistantDashboards.headerTitle", descriptionKey: "settings.homeassistantDashboards.headerSubtitle", icon: LayoutDashboard });
 
 /** The index itself: not a result of its own, but its cards are. */
 const index = { id: "index", href: "/settings", section: "sectionFamily" as const, icon: Lock, labelKey: "settings.title" };
@@ -191,6 +193,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   caldav,
   localCalendars,
   haRooms,
+  haDashboards,
 
   // The index's own cards: the join code and the data tools sit in the
   // family group, the PIN under its "Security" heading.
