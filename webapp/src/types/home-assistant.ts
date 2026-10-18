@@ -576,6 +576,11 @@ export interface CameraConfig {
     turn_username?: string;
     turn_password?: string;
   };
+  /**
+   * Faint horizontal scanlines over the camera's tile (never in fullscreen),
+   * like a security monitor. Off unless ticked in the camera's settings.
+   */
+  scanlines?: boolean;
   enabled: boolean;
   position: number;
   created_at: string;

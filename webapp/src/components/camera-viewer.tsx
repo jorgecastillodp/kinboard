@@ -126,6 +126,8 @@ export function CameraViewer({
   }, []);
 
   const { stream_type, stream_url, snapshot_url, name, id: cameraId } = camera;
+  // The scanline look is each camera's own choice, off unless ticked.
+  const showScanlines = camera.scanlines === true;
 
   // Always proxy through the webapp's /api/cameras endpoint when we
   // have a family context. Two reasons:
@@ -496,7 +498,7 @@ export function CameraViewer({
                 <Video className="size-8 text-white/30" />
               </div>
             )}
-            {!isFullscreen && <ScanlineOverlay />}
+            {showScanlines && !isFullscreen && <ScanlineOverlay />}
           </div>
         );
 
@@ -516,7 +518,7 @@ export function CameraViewer({
               onLoad={handleImageLoaded}
               onError={() => handleError(t("errorStreamLoad"))}
             />
-            {!isFullscreen && <ScanlineOverlay />}
+            {showScanlines && !isFullscreen && <ScanlineOverlay />}
           </div>
         );
 
@@ -535,6 +537,7 @@ export function CameraViewer({
             alt={name}
             containerClass={containerClass}
             isFullscreen={isFullscreen}
+            showScanlines={showScanlines}
             onLoad={handleImageLoaded}
             onError={() => handleError(t("errorSnapshotLoad"))}
           />
@@ -579,7 +582,7 @@ export function CameraViewer({
                     <Video className="size-8 text-white/30" />
                   </div>
                 )}
-                {!fullscreenOpen && <ScanlineOverlay />}
+                {showScanlines && !fullscreenOpen && <ScanlineOverlay />}
               </div>
             ) : (
               renderStream(false)
@@ -695,6 +698,7 @@ function AutoRefreshSnapshot({
   alt,
   containerClass,
   isFullscreen,
+  showScanlines,
   onLoad,
   onError,
 }: {
@@ -702,6 +706,7 @@ function AutoRefreshSnapshot({
   alt: string;
   containerClass: string;
   isFullscreen: boolean;
+  showScanlines: boolean;
   onLoad: () => void;
   onError: () => void;
 }) {
@@ -749,7 +754,7 @@ function AutoRefreshSnapshot({
           }}
         />
       )}
-      {!isFullscreen && <ScanlineOverlay />}
+      {showScanlines && !isFullscreen && <ScanlineOverlay />}
       <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/70 text-white text-xs flex items-center gap-1">
         <RefreshCw className="size-3" />
         {t("autoRefresh")}

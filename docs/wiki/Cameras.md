@@ -29,6 +29,7 @@ Open Settings → Cameras → **+ Camera**. For each camera:
 - **Stream type** — `rtsp`, `webrtc`, or `mjpeg`
 - **Stream URL** — varies by type (see below)
 - **Snapshot URL** (optional) — HTTP image URL for thumbnail
+- **Scanline effect** (off by default) — faint horizontal lines over the camera's tile, like a security monitor; the full-screen view never has them
 - **Authentication** (optional) — Digest (Hikvision, Amcrest) or Basic, with username/password
 
 <img src="images/settings-cameras.png" alt="Settings — cameras: camera list with stream type, position and edit controls" width="420"/>

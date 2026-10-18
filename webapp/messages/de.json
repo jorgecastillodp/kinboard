@@ -1569,6 +1569,8 @@
       "snapshotUrlLabel": "Snapshot URL (optional)",
       "snapshotUrlPlaceholder": "http://192.168.1.100/snapshot.jpg",
       "snapshotUrlHint": "Optional. Nur nötig, wenn deine Kamera ein HTTP-Standbild liefert, das du lieber verwenden möchtest — RTSP-Kameras beziehen ihr Bild aus dem Stream.",
+      "scanlinesLabel": "Scanline-Effekt",
+      "scanlinesHint": "Feine waagerechte Linien über der Kachel dieser Kamera, wie bei einem Überwachungsmonitor. In der Vollbildansicht nie.",
       "authLabel": "Authentifizierung",
       "authTypeLabel": "Auth-Typ",
       "authTypeDigest": "Digest (Hikvision, Amcrest)",

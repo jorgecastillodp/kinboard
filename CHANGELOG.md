@@ -10,6 +10,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Camera tiles show the plain picture; the scanline look is an option, off by default.** Every camera tile had faint horizontal lines drawn over it, like a security monitor, with no way to turn them off, and they were easy to take for a fault in the picture. Each camera now has a *Scanline effect* switch in its settings (Settings → Cameras); it is off unless ticked, including for cameras added before. The full-screen view never had the lines and still doesn't.
 - **Scripts and scenes run from their tile, with one tap.** On Home automation a script or a scene had no control on its tile, so running one meant opening its details first: a window over the whole page, which also hid a camera in the same room. Its tile now has an *Activate* button: one tap runs it, with a spinner while it goes out and a tick once Home Assistant has it. A refused call says so and leaves the button ready. The tile's name still opens the details.
 ### Fixed
 
