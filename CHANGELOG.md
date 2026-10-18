@@ -8,6 +8,16 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Security
+
+## [1.13.0] - 2026-10-16
+
+### Added
+
 - **Parents can add or remove a child's points by hand.** Settings → Creatures & rewards now has a **Points** section on every child's card, with or without a creature: a number, an optional note, then **Add** for a bonus or **Remove** to correct a task that was given the wrong points. It needs the settings PIN. The change counts like task points everywhere (the balance, rewards, the shop, the creature's growth, Home Assistant and the assistants), and removing points a child already spent takes the difference off their next points instead of showing a negative balance. The last ten changes are listed with **Undo**. **Operators:** one migration, `migration_zzzzzzzzzzzz_point_adjustments.sql`, applies on start. A child's points now reach other screens through live updates, and the realtime container picks up a newly added table only when it restarts, so restart it after upgrading: `docker restart kinboard-realtime`.
 - **Ask ChatGPT or Claude how your week went.** "How did our week go?" now gets a real answer: who ticked off how many tasks (a chore the kids take turns at counts for whoever's turn it was, and a tick taken back doesn't count), how many points each child earned and spent, which creatures grew a stage, what you planned to eat, and which events took place, followed by a short look at the next seven days: events, birthdays and countdowns. It covers the last seven days unless you name others, up to a month, in your family's time zone. It only reads; if you'd like it on the screens, ask and the assistant sends it as a message. It comes with the permission to read the family's data that every connected assistant already has, so nothing needs reconnecting.
 - **Plan the school holidays with ChatGPT or Claude.** "When are the autumn holidays?" and "Plan the autumn break" now have something to work from: a connected assistant can read your school holidays and your region's public holidays for the coming year (or any dates you name), each with its first and last day, the same days the timetable already treats as no school. Holidays you typed in, synced from OpenHolidays or keep on a holiday calendar all count, and a break you have twice is listed once. Kinboard keeps one set of school holidays per family, so a break applies to all the children. With the permissions you already gave it, the assistant can then put the trip in the calendar as one event from the first to the last day, add a countdown, and check the weather once it's close. It comes with the permission to read the family's data that every connected assistant already has, so nothing needs reconnecting.
@@ -86,6 +96,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The Integration API's energy reading covers every energy sensor, and is gentler when one is missing.** `/energy/current` now returns every sensor set up under Energy — solar, battery, grid, consumption and the battery's charge — alongside the `solar_power` and `solar_energy_today` keys, which keep their old fields. Two things behave differently for existing clients: a configured sensor that Home Assistant no longer reports now comes back as `null` in a normal answer, where it used to fail the whole request with 502; and "not configured" (404) now means no energy sensor is set up at all, so a household with a battery but no solar sensor gets an answer instead of a 404. Home Assistant being unreachable is still a 502.
 
 ### Fixed
+
+- **Bring! sync now works both ways (#407).** Items added in the Bring! app now show up on Kinboard's shopping list, and items bought in Bring! get ticked off in Kinboard. Until now only Kinboard → Bring! worked, even though Settings → Bring! showed the list's items. The server reads your selected Bring! list every two minutes while *Auto sync* is on, again when you open the shopping page, and when you tap *Sync now*. Ticks and deletes made in shop mode or by an assistant now reach Bring! as well. Bring! catalogue items show in your family's language and are matched by Bring!'s own name, so ticking off "Milk" also ticks off "Milch" in Bring!. The Bring! sign-in also renews itself now: before, it ran out after about a week and pushes failed without any message until you signed in again. With *Two-way sync* off, Kinboard only mirrors the Bring! list. The first sync after the update links the items that are already on both lists. With two-way sync on, open Kinboard items that aren't on Bring! yet are added there. Picking a different Bring! list doesn't tick off what's on Kinboard's list just because it isn't on the new one.
 
 - **A child's points on the tasks page and the tasks widget are what they can still spend.** They showed every point ever earned, so a child who had bought something for 50 points still saw those 50 and thought they could spend them again. They now show the balance, as the child's profile already did; hovering shows both numbers. The creature still grows with the points earned, so buying never shrinks it.
 - **Pocket money updates on every screen as soon as it changes.** When a parent allowed an assistant's booking on the wall display, the balance on their phone stayed at the old amount until the page was reloaded, so it looked as if nothing had happened, although the booking was there. The same went for a spend request decided, or the allowance paid, on another screen. The balance, the history, goals and spend requests now follow on every open screen within a second or two, and the screen where the booking or reward decision was allowed updates straight away. **Operators:** this comes through four tables that live updates now stream, and the realtime container picks up a newly published table only when it restarts, so restart it after upgrading: `docker restart kinboard-realtime`, or `docker compose restart realtime` with the `-f` files you normally use. Diun's self-update does not restart realtime for you.
@@ -979,7 +991,8 @@ Initial public release.
 
 ---
 
-[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.12.1...HEAD
+[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.13.0...HEAD
+[1.13.0]: https://github.com/svenger87/kinboard/compare/v1.12.1...v1.13.0
 [1.12.1]: https://github.com/svenger87/kinboard/compare/v1.12.0...v1.12.1
 [1.12.0]: https://github.com/svenger87/kinboard/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/svenger87/kinboard/compare/v1.10.0...v1.11.0
