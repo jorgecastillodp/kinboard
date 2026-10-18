@@ -4,10 +4,12 @@ import { join } from "path";
 import {
   DEVICES_TAB,
   EMBED_HELP_URL,
+  TAB_NAME_MAX,
   blockedAsMixedContent,
   choicesNotAdded,
   cleanDashboardPath,
   dashboardFrameUrl,
+  devicesTabLabel,
   embedBaseUrl,
   embeddedDashboards,
   moveDashboard,
@@ -89,6 +91,16 @@ test("the tabs come from the settings in their order, without broken entries; a 
   expect(embedBaseUrl(null)).toBeUndefined();
 });
 
+test("the first tab takes the household's name, trimmed and capped; empty is the app's own word", () => {
+  expect(devicesTabLabel(undefined, "Devices")).toBe("Devices");
+  expect(devicesTabLabel(null, "Geräte")).toBe("Geräte");
+  expect(devicesTabLabel({}, "Devices")).toBe("Devices");
+  expect(devicesTabLabel({ devices_tab_title: "   " }, "Devices")).toBe("Devices");
+  expect(devicesTabLabel({ devices_tab_title: "  Our house " }, "Devices")).toBe("Our house");
+  expect(TAB_NAME_MAX).toBe(40);
+  expect(devicesTabLabel({ devices_tab_title: "x".repeat(60) }, "Devices")).toBe("x".repeat(TAB_NAME_MAX));
+});
+
 test("a display comes back to its tab while that still exists; picking and moving", () => {
   const tabs = [{ id: "a" }, { id: "b" }];
   expect(pickTab(null, tabs)).toBe(DEVICES_TAB);
@@ -122,7 +134,7 @@ test("the page has tabs only when there are dashboards, keeps the display's choi
   expect(page).toMatch(/try \{\s*setRememberedTab\(window\.localStorage\.getItem\(TAB_STORAGE_KEY\)\);\s*\} catch/);
   expect(page).toMatch(/try \{\s*window\.localStorage\.setItem\(TAB_STORAGE_KEY, value\);\s*\} catch/);
   expect(page).toContain("const tabs = dashboards.length > 0 && (");
-  expect(page).toMatch(/<SegmentedControlItem value=\{DEVICES_TAB\}/);
+  expect(page).toMatch(/<SegmentedControlItem value=\{DEVICES_TAB\}[^>]*>\s*\{devicesTabLabel\(settings, t\("tabDevices"\)\)\}/);
   // The dashboard tab returns before the devices, their banners and dialogs.
   const early = page.slice(page.indexOf("if (activeDashboard) {"), page.indexOf("if (activeDashboard) {") + 700);
   expect(early).toContain("<HaDashboardFrame dashboard={activeDashboard} baseUrl={embedBaseUrl(settings)} />");
@@ -177,6 +189,11 @@ test("the settings page saves each change with the Home Assistant settings and t
   expect(settings).toContain("embedded_dashboards: moveDashboard(dashboards, index, 1)");
   expect(settings).toContain("if (dashboards.some((d) => cleanDashboardPath(d.path) === cleanPath)) {");
   expect(settings).toContain("await save({ embed_url: value })");
+  // The first tab: renamed here, named in the app's language when left empty, as long as a tab may be.
+  expect(settings).toContain("await save({ devices_tab_title: devicesTitle.trim() })");
+  expect(settings).toContain('placeholder={tPage("tabDevices")}');
+  expect(settings.match(/maxLength=\{TAB_NAME_MAX\}/g)?.length).toBe(2);
+  expect(settings).toMatch(/role="status"[\s\S]{0,160}tSettings\("loadingHint"\)/);
   const main = codeOnly(read("src/app/settings/homeassistant/page.tsx"));
   expect(main).toContain('<Link href="/settings/homeassistant/dashboards">');
 });

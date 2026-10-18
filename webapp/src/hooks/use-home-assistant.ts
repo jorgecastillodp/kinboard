@@ -167,7 +167,8 @@ export function useHaDashboardChoices(enabled: boolean) {
     retry: false,
     staleTime: 60_000,
     queryFn: async (): Promise<HaDashboardChoice[]> => {
-      const response = await fetch(`/api/homeassistant/dashboards?family_id=${family!.id}`);
+      if (!family?.id) return [];
+      const response = await fetch(`/api/homeassistant/dashboards?family_id=${family.id}`);
       if (!response.ok) throw new Error(`listing dashboards failed (${response.status})`);
       const data = await response.json();
       return Array.isArray(data?.dashboards) ? data.dashboards : [];

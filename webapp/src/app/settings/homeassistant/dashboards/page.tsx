@@ -37,6 +37,7 @@ import {
   EMBED_HELP_URL,
   embeddedDashboards,
   moveDashboard,
+  TAB_NAME_MAX,
 } from "@/lib/ha-embed";
 import { safeRandomUUID } from "@/lib/uuid";
 import type { HaDashboardChoice, HomeAssistantSettings } from "@/types/home-assistant";
@@ -53,6 +54,8 @@ const OTHER_PATH = "__other__";
  */
 export default function HaDashboardsSettingsPage() {
   const t = useTranslations("settings.homeassistantDashboards");
+  const tPage = useTranslations("homeAutomation");
+  const tSettings = useTranslations("settings.homeassistant");
   const { data: settings, isLoading } = useHomeAssistantStatus();
   const isConnected = !!settings?.url && !!settings?.access_token;
   const saveSettings = useSaveHomeAssistantSettings();
@@ -69,8 +72,13 @@ export default function HaDashboardsSettingsPage() {
   useEffect(() => {
     setAddress(settings?.embed_url ?? "");
   }, [settings?.embed_url]);
+  const [devicesTitle, setDevicesTitle] = useState("");
+  useEffect(() => {
+    setDevicesTitle(settings?.devices_tab_title ?? "");
+  }, [settings?.devices_tab_title]);
 
-  // Home Assistant's default dashboard is called Overview in every language.
+  // Home Assistant's own list leaves out its default dashboard; the server adds
+  // it as "lovelace", and it is named here in the app's language.
   const labelFor = (choice: HaDashboardChoice) =>
     choice.path === "lovelace" ? t("overview") : choice.title;
   // A path is typed when asked for, or when Home Assistant would not list its dashboards.
@@ -110,6 +118,10 @@ export default function HaDashboardsSettingsPage() {
       setTitle("");
       toast.success(t("toastAdded", { name }));
     }
+  };
+
+  const saveDevicesTitle = async () => {
+    if (await save({ devices_tab_title: devicesTitle.trim() })) toast.success(t("toastNameSaved"));
   };
 
   const saveAddress = async () => {
@@ -170,8 +182,9 @@ export default function HaDashboardsSettingsPage() {
         </div>
 
         {isLoading ? (
-          <div className="flex items-center gap-3 text-muted-foreground">
-            <Loader2 className="size-5 animate-spin" />
+          <div className="flex items-center gap-3 text-muted-foreground" role="status">
+            <Loader2 className="size-5 animate-spin" aria-hidden="true" />
+            <span>{tSettings("loadingHint")}</span>
           </div>
         ) : !isConnected ? (
           <Card className="p-6 flex flex-col gap-3">
@@ -185,6 +198,27 @@ export default function HaDashboardsSettingsPage() {
             {/* The tabs, in the order Home Automation shows them */}
             <section className="flex flex-col gap-3" aria-labelledby="ha-tabs-heading">
               <h2 id="ha-tabs-heading" className="font-medium">{t("listHeading")}</h2>
+              {/* The page's own tab is always first: it can be renamed, not moved or removed. */}
+              <Card className="p-4 flex flex-col gap-2" data-testid="ha-devices-tab">
+                <Label htmlFor="ha-devices-tab-title">{t("devicesTabLabel")}</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="ha-devices-tab-title"
+                    value={devicesTitle}
+                    onChange={(e) => setDevicesTitle(e.target.value)}
+                    placeholder={tPage("tabDevices")}
+                    maxLength={TAB_NAME_MAX}
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => void saveDevicesTitle()}
+                    disabled={busy || devicesTitle.trim() === (settings?.devices_tab_title ?? "").trim()}
+                  >
+                    {t("devicesTabSave")}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">{t("devicesTabHint", { name: tPage("tabDevices") })}</p>
+              </Card>
               {dashboards.length === 0 ? (
                 <p className="text-sm text-muted-foreground">{t("listEmpty")}</p>
               ) : (
@@ -300,6 +334,7 @@ export default function HaDashboardsSettingsPage() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder={choice ? labelFor(choice) : undefined}
+                  maxLength={TAB_NAME_MAX}
                 />
               </div>
               <Button
@@ -313,7 +348,7 @@ export default function HaDashboardsSettingsPage() {
             </Card>
 
             {/* The address the wall display opens Home Assistant at, when it is not Kinboard's own */}
-            <Card className="p-4 flex flex-col gap-2">
+            <Card className="p-4 flex flex-col gap-2" data-testid="ha-embed-address">
               <Label htmlFor="ha-embed-url">{t("addressLabel")}</Label>
               <Input
                 id="ha-embed-url"

@@ -29,7 +29,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { HaDashboardFrame } from "@/components/home-assistant/ha-dashboard-frame";
-import { DEVICES_TAB, TAB_STORAGE_KEY, embedBaseUrl, embeddedDashboards, pickTab } from "@/lib/ha-embed";
+import { DEVICES_TAB, TAB_STORAGE_KEY, devicesTabLabel, embedBaseUrl, embeddedDashboards, pickTab } from "@/lib/ha-embed";
 import {
   useHomeAssistantStatus,
   useHomeAssistantEntityStates,
@@ -658,7 +658,7 @@ export default function HausautomationPage() {
       className="h-auto max-w-full flex-wrap self-start"
     >
       <SegmentedControlItem value={DEVICES_TAB} className="min-h-[44px] px-3 sm:min-h-0">
-        {t("tabDevices")}
+        {devicesTabLabel(settings, t("tabDevices"))}
       </SegmentedControlItem>
       {dashboards.map((dashboard) => (
         <SegmentedControlItem key={dashboard.id} value={dashboard.id} className="min-h-[44px] px-3 sm:min-h-0">

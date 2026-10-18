@@ -317,6 +317,9 @@ export interface HomeAssistantSettings {
   // Home Assistant's own dashboards, each a tab on Home Automation
   embedded_dashboards?: HaEmbeddedDashboard[];
 
+  /** The name of the page's own first tab, the rooms and devices; empty means "Devices" in the app's language. */
+  devices_tab_title?: string;
+
   /**
    * The address a browser opens Home Assistant at, for those tabs. Only set
    * when it differs from `url`, which is the address Kinboard's server uses

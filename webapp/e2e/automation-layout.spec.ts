@@ -1827,14 +1827,27 @@ test.describe("Home Assistant's own dashboards as tabs", () => {
       await expect.poll(tabsSaved, { timeout: 10_000 }).toEqual(["Probe typed|dashboard-probe-typed|false"]);
 
       // The address for the browser: only http(s), saved as typed.
+      const addressCard = page.getByTestId("ha-embed-address");
       await page.locator("#ha-embed-url").fill("ftp://home-assistant.invalid");
-      await page.getByRole("button", { name: "Save", exact: true }).click();
+      await addressCard.getByRole("button", { name: "Save", exact: true }).click();
       await expect(page.getByText("Enter an address starting with https:// or http://.")).toBeVisible();
       await page.locator("#ha-embed-url").fill("https://home-assistant.invalid");
-      await page.getByRole("button", { name: "Save", exact: true }).click();
+      await addressCard.getByRole("button", { name: "Save", exact: true }).click();
       await expect
         .poll(async () => (await savedHomeAssistant(page, house.familyId)).embed_url, { timeout: 10_000 })
         .toBe("https://home-assistant.invalid");
+
+      // The page's own first tab takes a name of its own, shown on Home Automation.
+      await expect(page.locator("#ha-devices-tab-title")).toHaveAttribute("placeholder", "Devices");
+      await page.locator("#ha-devices-tab-title").fill("  Probe rooms ");
+      await page.getByTestId("ha-devices-tab").getByRole("button", { name: "Save", exact: true }).click();
+      await expect
+        .poll(async () => (await savedHomeAssistant(page, house.familyId)).devices_tab_title, { timeout: 10_000 })
+        .toBe("Probe rooms");
+      await page.goto("/home-automation", { waitUntil: "domcontentloaded" });
+      const views = page.getByRole("group", { name: "Devices and dashboards" });
+      await expect(views.getByRole("radio")).toHaveText(["Probe rooms", "Probe typed"], { timeout: 30_000 });
+      await page.goto("/settings/homeassistant/dashboards", { waitUntil: "domcontentloaded" });
 
       // When Home Assistant won't list its dashboards, the path can still be typed.
       listStatus = 502;

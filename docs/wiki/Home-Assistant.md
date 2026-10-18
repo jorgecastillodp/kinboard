@@ -82,7 +82,7 @@ It takes three things, and the first two happen in Home Assistant:
              contentSecurityPolicy: "frame-ancestors 'self' https://kinboard.example"
      ```
 2. **A sign-in for the wall display.** Kinboard never signs in to Home Assistant for you: Home Assistant's own sign-in page shows inside the tab the first time. Give the display a user of its own (**Settings → People → Add person**, **Allow login** on, **Administrator** off), open the tab on the display and sign in with **Keep me logged in**. Dashboards that need an administrator won't open for it; the picker marks them "admins only". Signing the display in by its address (`trusted_networks`) works too, but behind a reverse proxy Home Assistant sees the proxy's address, and a mistake there lets in everyone who comes through it.
-3. **Pick the dashboards** in Settings → Home Assistant → **Home Assistant dashboards** → **Manage**. The tabs come in the order shown there, and each display comes back to the tab it was on.
+3. **Pick the dashboards** in Settings → Home Assistant → **Home Assistant dashboards** → **Manage**. The tabs come in the order shown there, and each display comes back to the tab it was on. The first tab, with your rooms and devices, can be renamed on the same page.
 
 The [kiosk-mode](https://github.com/NemesisRE/kiosk-mode) card (HACS) hides Home Assistant's header and sidebar inside the tab. Each tab has a switch for it, on by default; without the card it does nothing.
 

@@ -24,6 +24,9 @@ export const TAB_STORAGE_KEY = "kinboard:home-automation:tab";
 /** How long a frame may take before its tab says what Home Assistant needs. */
 export const FRAME_SLOW_MS = 10_000;
 
+/** The longest name a tab takes; the row of tabs has to fit on a wall display. */
+export const TAB_NAME_MAX = 40;
+
 /** The wiki section the hints link to. */
 export const EMBED_HELP_URL =
   "https://github.com/svenger87/kinboard/wiki/Home-Assistant#home-assistant-dashboards-as-tabs";
@@ -80,6 +83,14 @@ export function embedBaseUrl(
   settings: Pick<HomeAssistantSettings, "url" | "embed_url"> | null | undefined,
 ): string | undefined {
   return settings?.embed_url?.trim() || settings?.url?.trim() || undefined;
+}
+
+/** The first tab's name: the household's own, or the app's word for the devices when none is set. */
+export function devicesTabLabel(
+  settings: Pick<HomeAssistantSettings, "devices_tab_title"> | null | undefined,
+  fallback: string,
+): string {
+  return settings?.devices_tab_title?.trim().slice(0, TAB_NAME_MAX) || fallback;
 }
 
 /** The household's dashboard tabs, in their order, without any entry a frame could not open. */
