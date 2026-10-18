@@ -16,6 +16,9 @@ import {
   LockOpen,
   ArrowUp,
   ArrowDown,
+  Play,
+  Loader2,
+  Check,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -59,6 +62,18 @@ import type { CameraConfig, HAEntity, HAServiceCall } from "@/types/home-assista
 const TOGGLE_DOMAINS = new Set(["light", "switch", "input_boolean", "fan"]);
 
 /**
+ * Domains whose tile runs them with one tap: a script or a scene has one
+ * thing to do, so opening the detail sheet to find its Activate button was a
+ * second step for nothing, and the sheet covers the page (a camera in the same
+ * room included) while it is open. Neither is in `DANGEROUS_ACTIONS`, so the
+ * tap fires at once, as the sheet's own button does.
+ */
+const RUN_DOMAINS = new Set(["script", "scene"]);
+
+/** How long the run button shows its tick after Home Assistant took the call. */
+const RUN_DONE_MS = 2_000;
+
+/**
  * Domains with too many meaningful actions for one tap to be unambiguous, so
  * the tile carries no inline control at all and the detail sheet is the whole
  * interaction: there is no honest guess between play and pause, heat and cool,
@@ -81,10 +96,11 @@ const SHEET_ONLY_DOMAINS = new Set(["media_player", "climate", "vacuum"]);
  * one of them is later added to a control set above — their tiles are quiet by
  * decision, not by omission.
  */
-function inlineControlFor(domain: string | null): "toggle" | "lock" | "cover" | null {
+function inlineControlFor(domain: string | null): "toggle" | "lock" | "cover" | "run" | null {
   if (domain === null || SHEET_ONLY_DOMAINS.has(domain)) return null;
   if (TOGGLE_DOMAINS.has(domain)) return "toggle";
   if (domain === "lock" || domain === "cover") return domain;
+  if (RUN_DOMAINS.has(domain)) return "run";
   return null;
 }
 
@@ -337,7 +353,7 @@ export default function HausautomationPage() {
       call: HAServiceCall,
       displayName: string,
       via?: () => Promise<void>
-    ) => {
+    ): Promise<boolean> => {
       const polled = stateByEntity.get(entityId);
       const seen = { state: polled?.state, changedAt: polled?.last_changed };
       const asksFirst = dangerousAction(call) !== undefined;
@@ -345,6 +361,8 @@ export default function HausautomationPage() {
       const fired = await runGuarded(call, via, displayName);
       if (!fired) forget(entityId);
       else if (expected !== null && asksFirst) expectState(entityId, expected, seen);
+      // Whether it went out: the run button's tick waits for this.
+      return fired;
     },
     [expectState, forget, runGuarded, stateByEntity]
   );
@@ -556,6 +574,14 @@ export default function HausautomationPage() {
           { domain: "cover", service: "close_cover", entity_id: entityId },
           item.name,
           () => closeCover(entityId)
+        )
+      }
+      onRun={(entityId) =>
+        run(
+          entityId,
+          null,
+          { domain: domainOf(entityId), service: "turn_on", entity_id: entityId },
+          item.name
         )
       }
       onDetail={hasEntity(item) ? () => setDetailFor(item) : undefined}
@@ -874,6 +900,7 @@ function DeviceTile({
   onUnlock,
   onOpen,
   onClose,
+  onRun,
   onDetail,
   t,
 }: {
@@ -887,6 +914,8 @@ function DeviceTile({
   onUnlock: (entityId: string) => void;
   onOpen: (entityId: string) => void;
   onClose: (entityId: string) => void;
+  /** Runs a script or a scene; resolves to whether the call went out. */
+  onRun: (entityId: string) => Promise<boolean>;
   /** Absent for a catalogue row with no entity behind it — there is nothing to open. */
   onDetail?: () => void;
   t: ReturnType<typeof useTranslations>;
@@ -900,6 +929,28 @@ function DeviceTile({
    * second half is not optional — see `hasReading`.
    */
   const canDrive = !controlsDisabled && hasReading(domain, state);
+  /*
+    The run button answers on the button itself, at once: a spinner while the
+    call is on its way, a tick for a moment once Home Assistant has it, and back
+    to ready. A refused call goes back to ready (the runner's toast says why).
+  */
+  const [runPhase, setRunPhase] = useState<"idle" | "sending" | "done">("idle");
+  const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (doneTimer.current) clearTimeout(doneTimer.current);
+  }, []);
+  const runNow = async (id: string) => {
+    if (runPhase === "sending") return;
+    setRunPhase("sending");
+    const fired = await onRun(id);
+    if (doneTimer.current) clearTimeout(doneTimer.current);
+    if (!fired) {
+      setRunPhase("idle");
+      return;
+    }
+    setRunPhase("done");
+    doneTimer.current = setTimeout(() => setRunPhase("idle"), RUN_DONE_MS);
+  };
 
   const picture = (
     <div className="relative size-12 shrink-0 overflow-hidden rounded-xl bg-muted">
@@ -1020,6 +1071,25 @@ function DeviceTile({
             {t("close")}
           </Button>
         </div>
+      )}
+      {entityId && inlineControl === "run" && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          disabled={!canDrive || runPhase === "sending"}
+          aria-busy={runPhase === "sending"}
+          onClick={() => void runNow(entityId)}
+        >
+          {runPhase === "sending" ? (
+            <Loader2 className="mr-1.5 size-3.5 animate-spin" aria-hidden="true" />
+          ) : runPhase === "done" ? (
+            <Check className="mr-1.5 size-3.5" aria-hidden="true" />
+          ) : (
+            <Play className="mr-1.5 size-3.5" aria-hidden="true" />
+          )}
+          {t("entityDetail.activateButton")}
+        </Button>
       )}
     </Card>
   );
