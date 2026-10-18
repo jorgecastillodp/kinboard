@@ -19,7 +19,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useFamilyStore } from "@/stores/family-store";
-import { showsLivePill, trackRtspLive, type RtspLiveTracker } from "@/lib/camera-live";
+import {
+  createRtspRecovery,
+  DISCONNECTED_GRACE_MS,
+  FROZEN_CHECK_MS,
+  showsLivePill,
+  trackRtspLive,
+  type RtspLiveTracker,
+  type RtspRecovery,
+} from "@/lib/camera-live";
 import type { CameraConfig } from "@/types/home-assistant";
 
 interface CameraViewerProps {
@@ -103,6 +111,11 @@ export function CameraViewer({
   const streamRef = useRef<MediaStream | null>(null);
   // The current RTSP attempt's LIVE tracking, so cleanup can stop its wait.
   const liveTrackerRef = useRef<RtspLiveTracker | null>(null);
+  // Gets an RTSP camera's picture back by itself after a failed, lost or frozen
+  // attempt (lib/camera-live.ts), so a wall display does not sit on the stills.
+  const recoveryRef = useRef<RtspRecovery | null>(null);
+  const initWebRTCRef = useRef<() => void>(() => {});
+  const rtspLiveRef = useRef(false);
 
   // Callback ref to attach stream when video element mounts
   const setVideoRef = useCallback((el: HTMLVideoElement | null) => {
@@ -181,6 +194,7 @@ export function CameraViewer({
     // "is it mounted yet" cannot be the precondition it used to be; the track
     // is parked in streamRef and attached by setVideoRef when it mounts.
     const isFallbackCapable = stream_type === "rtsp";
+    let attempt: RTCPeerConnection | null = null;
 
     try {
       if (!isFallbackCapable) setIsLoading(true);
@@ -193,6 +207,7 @@ export function CameraViewer({
         ],
       });
       pcRef.current = pc;
+      attempt = pc;
 
       pc.ontrack = (event) => {
         if (event.streams[0]) {
@@ -211,6 +226,21 @@ export function CameraViewer({
         if (!isFallbackCapable && (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected")) {
           setError(t("errorConnectionLost"));
         }
+        // A lost RTSP attempt goes back to the stills and tries again by itself.
+        // `disconnected` often recovers on its own, so it gets a few seconds first.
+        if (isFallbackCapable && pcRef.current === pc) {
+          if (pc.iceConnectionState === "failed" || pc.iceConnectionState === "closed") {
+            cleanupWebRTC();
+            recoveryRef.current?.failed();
+          } else if (pc.iceConnectionState === "disconnected") {
+            setTimeout(() => {
+              if (pcRef.current === pc && pc.iceConnectionState === "disconnected") {
+                cleanupWebRTC();
+                recoveryRef.current?.failed();
+              }
+            }, DISCONNECTED_GRACE_MS);
+          }
+        }
       };
 
       // An RTSP tile goes live only through trackRtspLive, which listens to
@@ -224,6 +254,7 @@ export function CameraViewer({
             giveUp: () => {
               console.log("[WebRTC] Connected, but no video arrived; keeping the snapshot");
               cleanupWebRTC();
+              recoveryRef.current?.failed();
             },
           })
         : null;
@@ -277,6 +308,12 @@ export function CameraViewer({
       console.error("WebRTC error:", err);
       if (isFallbackCapable) {
         setRtspLive(false);
+        // Only for the attempt still current: one replaced or torn down meanwhile
+        // has nobody left to try again for.
+        if (attempt && pcRef.current === attempt) {
+          cleanupWebRTC();
+          recoveryRef.current?.failed();
+        }
       } else {
         setError(err instanceof Error ? err.message : t("errorWebRTC"));
         setIsLoading(false);
@@ -329,6 +366,80 @@ export function CameraViewer({
     };
   }, [stream_type, signalingUrl, autoPlay, initWebRTC, cleanupWebRTC]);
 
+  useEffect(() => {
+    initWebRTCRef.current = () => {
+      void initWebRTC();
+    };
+  }, [initWebRTC]);
+
+  // One recovery per mounted viewer of an RTSP camera that plays by itself.
+  useEffect(() => {
+    if (stream_type !== "rtsp" || !autoPlay) return;
+    const recovery = createRtspRecovery({
+      start: () => initWebRTCRef.current(),
+      drop: () => {
+        setRtspLive(false);
+        cleanupWebRTC();
+      },
+    });
+    recoveryRef.current = recovery;
+    return () => {
+      recovery.dispose();
+      if (recoveryRef.current === recovery) recoveryRef.current = null;
+    };
+  }, [stream_type, autoPlay, cleanupWebRTC]);
+
+  // While the picture is live, check every few seconds that it is still moving.
+  // A hidden page paints nothing, so the check only runs on a visible one.
+  useEffect(() => {
+    rtspLiveRef.current = rtspLive;
+    if (!rtspLive) return;
+    recoveryRef.current?.live();
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") recoveryRef.current?.check();
+    }, FROZEN_CHECK_MS);
+    return () => clearInterval(timer);
+  }, [rtspLive]);
+
+  // Each painted frame, from whichever <video> is showing (the tile, or the
+  // fullscreen dialog's). `timeupdate` where frame callbacks are missing.
+  useEffect(() => {
+    if (!rtspLive) return;
+    const video = videoRef.current;
+    if (!video) return;
+    const frame = () => recoveryRef.current?.frame();
+    if (typeof video.requestVideoFrameCallback === "function") {
+      let handle = 0;
+      let stopped = false;
+      const onFrame = () => {
+        if (stopped) return;
+        frame();
+        handle = video.requestVideoFrameCallback(onFrame);
+      };
+      handle = video.requestVideoFrameCallback(onFrame);
+      return () => {
+        stopped = true;
+        video.cancelVideoFrameCallback(handle);
+      };
+    }
+    video.addEventListener("timeupdate", frame);
+    return () => video.removeEventListener("timeupdate", frame);
+  }, [rtspLive, fullscreenOpen]);
+
+  // Back on the page, or back online: try again at once rather than wait out the delay.
+  useEffect(() => {
+    if (stream_type !== "rtsp" || !autoPlay) return;
+    const wake = () => {
+      if (document.visibilityState === "visible") recoveryRef.current?.wake(rtspLiveRef.current);
+    };
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("online", wake);
+    return () => {
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("online", wake);
+    };
+  }, [stream_type, autoPlay]);
+
   // True when a <video> element is carrying the picture, as opposed to the
   // polled still image.
   const showsLiveVideo = stream_type === "webrtc" || rtspLive;
@@ -347,6 +458,7 @@ export function CameraViewer({
           <span className="text-sm font-medium text-white/80">{name}</span>
           <span className="text-xs text-white/50 text-center px-4">{error}</span>
           <Button variant="outline" size="sm" className="mt-1" onClick={() => {
+            recoveryRef.current?.reset();
             if (signalingUrl) {
               initWebRTC();
             }
@@ -529,6 +641,7 @@ export function CameraViewer({
                   variant="outline"
                   size="sm"
                   onClick={() => {
+                    recoveryRef.current?.reset();
                     if (signalingUrl) {
                       initWebRTC();
                     }

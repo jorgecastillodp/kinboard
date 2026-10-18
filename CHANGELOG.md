@@ -13,6 +13,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Scripts and scenes run from their tile, with one tap.** On Home automation a script or a scene had no control on its tile, so running one meant opening its details first: a window over the whole page, which also hid a camera in the same room. Its tile now has an *Activate* button: one tap runs it, with a spinner while it goes out and a tick once Home Assistant has it. A refused call says so and leaves the button ready. The tile's name still opens the details.
 ### Fixed
 
+- **A camera's live picture comes back by itself.** An RTSP camera tile went back to still images when its connection failed, dropped or sent no video, and stayed there until someone tapped Retry or reloaded the page; a picture that stopped moving was never noticed at all. On a wall display that runs for days, that meant a slow slideshow. It now tries again by itself (after 2, 4, 8 and 15 seconds, then every 30), treats a picture with no new frame for 8 seconds as lost, and tries at once when the page is shown again or comes back online. The stills stay on screen in between.
 ### Security
 
 ## [1.13.0] - 2026-10-16
