@@ -10,6 +10,7 @@ Live security-camera streams from RTSP / WebRTC / MJPEG sources, displayed on th
 - Bridge RTSP streams (typical IP camera output) → WebRTC via go2rtc
 - Render MJPEG streams (legacy IP cameras) as `<img>`
 - Show snapshot thumbnails (HTTP image URL) when WebRTC isn't established yet
+- Get an RTSP camera's live picture back by itself: a failed or lost connection, no video, or a picture that stops moving for 8 seconds goes back to the stills and tries again (after 2, 4, 8, 15, then every 30 seconds), and at once when the page is shown again or comes back online
 - Digest + Basic auth for cameras that need credentials
 
 ## What it does not
@@ -150,6 +151,7 @@ If the device isn't present, ffmpeg silently falls back to software encode and t
 | Symptom | Likely cause |
 |---|---|
 | **Black tile, snapshot works** | WebRTC ICE failure. Check `WEBRTC_LAN_IP` matches your LAN IP, and UDP 8555 isn't blocked by firewall. |
+| **Slow to start, stutters or freezes on a tablet** | The stream is probably too big for it. A 4K main stream is hard work for a wall tablet over Wi-Fi: use the camera's lower-resolution stream instead (UniFi Protect: enable RTSP for the *Medium* quality, 1280x720, and paste that address). The tile now reconnects by itself, but a lighter stream is what makes it quick |
 | **Stream lags by 5-15 seconds** | Probably transcoding bottleneck — check go2rtc CPU. Try the sub-stream (lower resolution) or attach a hardware encoder (see Performance section above). |
 | **Stream loads in `/api/streams` probe but no video in browser** | WebRTC ICE is failing. Likely cause: the host port mapped to go2rtc's UDP 8555 doesn't match what go2rtc.yaml advertises in `webrtc.candidates`. Both must be `8555` end-to-end on the LAN path, or you need to edit the candidate to match the mapped host port. |
 | **HEVC/H.265 stream returns 200 over HTTP but the page tile stays black** | VAAPI hardware-encoder isn't reachable inside the container. `docker exec kinboard-go2rtc ls /dev/dri` should list `renderD128`; if not, the override file isn't loaded — check `docker-compose.override.yml` exists alongside `docker-compose.yml`. |

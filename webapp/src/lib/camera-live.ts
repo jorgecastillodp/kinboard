@@ -178,3 +178,143 @@ export function trackRtspLive(pc: LiveConnection, hooks: RtspLiveHooks, graceMs:
 }
 
 export type RtspLiveTracker = ReturnType<typeof trackRtspLive>;
+
+/*
+ * Getting the picture back by itself (RTSP cameras).
+ *
+ * A wall display runs for days. A connection that never came up, one that
+ * dropped, a stream that sent no video, or a picture that stopped moving used
+ * to leave the tile on the stills until somebody tapped Retry or reloaded the
+ * page. Every one of those now schedules the next attempt: soon at first, then
+ * every 30 seconds, with the stills on screen in between. Waking the page or
+ * coming back online tries again at once.
+ */
+
+/** The waits before the next attempt after one, two, three... failures in a row; the last repeats. */
+export const RETRY_DELAYS_MS: readonly number[] = [2_000, 4_000, 8_000, 15_000, 30_000];
+
+/** How long a connection may sit in `disconnected` before it counts as lost: it often recovers by itself. */
+export const DISCONNECTED_GRACE_MS = 4_000;
+
+/** A live picture with no new frame for this long is frozen. */
+export const FROZEN_AFTER_MS = 8_000;
+
+/** How often the frozen check runs while the picture is live. */
+export const FROZEN_CHECK_MS = 2_000;
+
+/** Live and moving for this long, and the next failure starts again from the shortest wait. */
+export const STABLE_AFTER_MS = 30_000;
+
+/** The wait before the next attempt, after `failures` failed attempts in a row. */
+export function retryDelay(failures: number): number {
+  const index = Math.min(Math.max(Math.floor(failures), 0), RETRY_DELAYS_MS.length - 1);
+  return RETRY_DELAYS_MS[index];
+}
+
+/** Whether a live picture whose last frame was painted at `lastFrameAt` has frozen by `now`. */
+export function isFrozen(lastFrameAt: number | null, now: number, frozenAfter: number = FROZEN_AFTER_MS): boolean {
+  return lastFrameAt !== null && now - lastFrameAt >= frozenAfter;
+}
+
+export interface RecoveryHooks {
+  /** Start a fresh attempt (the viewer's WebRTC setup). */
+  start(): void;
+  /** Drop the current attempt and go back to the stills. */
+  drop(): void;
+  setTimer?(callback: () => unknown, ms: number): unknown;
+  clearTimer?(handle: unknown): void;
+  now?(): number;
+}
+
+export interface RtspRecovery {
+  /** An attempt ended without a picture: signalling failed, the connection was lost, or no video came. */
+  failed(): void;
+  /** The picture went live. */
+  live(): void;
+  /** A new frame was painted. */
+  frame(): void;
+  /** The periodic check while live (on a visible page). True when it dropped a frozen picture. */
+  check(): boolean;
+  /** The page became visible again, or came back online. */
+  wake(isLive: boolean): void;
+  /** A manual retry: forget the failures and any pending attempt. */
+  reset(): void;
+  dispose(): void;
+  /** Failed attempts in a row (for tests). */
+  readonly failures: number;
+}
+
+/** The retry and frozen-picture rules, with the clock and timers injectable so they can be tested exactly. */
+export function createRtspRecovery(hooks: RecoveryHooks): RtspRecovery {
+  const setTimer = hooks.setTimer ?? ((callback: () => unknown, ms: number) => setTimeout(callback, ms));
+  const clearTimer = hooks.clearTimer ?? ((handle: unknown) => clearTimeout(handle as ReturnType<typeof setTimeout>));
+  const now = hooks.now ?? (() => performance.now());
+  let failures = 0;
+  let retryTimer: unknown = null;
+  let liveSince: number | null = null;
+  let lastFrameAt: number | null = null;
+  let disposed = false;
+
+  const cancelRetry = () => {
+    if (retryTimer === null) return;
+    clearTimer(retryTimer);
+    retryTimer = null;
+  };
+  const failed = () => {
+    liveSince = null;
+    lastFrameAt = null;
+    // One attempt pending at a time: several signals about one lost connection are one failure.
+    if (disposed || retryTimer !== null) return;
+    const delay = retryDelay(failures);
+    failures += 1;
+    // dispose() cancels this timer, and nothing schedules one after it.
+    retryTimer = setTimer(() => {
+      retryTimer = null;
+      hooks.start();
+    }, delay);
+  };
+
+  return {
+    failed,
+    live() {
+      if (disposed) return;
+      cancelRetry();
+      liveSince = now();
+      lastFrameAt = liveSince;
+    },
+    frame() {
+      if (liveSince !== null) lastFrameAt = now();
+    },
+    check() {
+      if (disposed || liveSince === null) return false;
+      const t = now();
+      if (t - liveSince >= STABLE_AFTER_MS) failures = 0;
+      if (!isFrozen(lastFrameAt, t)) return false;
+      hooks.drop();
+      failed();
+      return true;
+    },
+    wake(isLive: boolean) {
+      if (disposed) return;
+      if (isLive) {
+        // Nothing is painted on a hidden page, so the frozen clock restarts rather than firing at once.
+        if (liveSince !== null) lastFrameAt = now();
+        return;
+      }
+      cancelRetry();
+      failures = 0;
+      hooks.start();
+    },
+    reset() {
+      cancelRetry();
+      failures = 0;
+    },
+    dispose() {
+      disposed = true;
+      cancelRetry();
+    },
+    get failures() {
+      return failures;
+    },
+  };
+}
