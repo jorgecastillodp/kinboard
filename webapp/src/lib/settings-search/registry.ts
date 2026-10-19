@@ -278,6 +278,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   ]),
   ...sectionsOf(homeassistant, [
     { anchor: "dashboard-cards", labelKey: "settings.homeassistant.cardsHeading" },
+    { anchor: "tile-run", labelKey: "settings.homeassistant.tileRunHeading" },
   ]),
   ...sectionsOf(integrations, [
     { anchor: "assistants", labelKey: "settings.integrations.assistantsHeading" },

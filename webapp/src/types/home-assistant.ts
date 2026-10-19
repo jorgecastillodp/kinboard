@@ -321,6 +321,13 @@ export interface HomeAssistantSettings {
   devices_tab_title?: string;
 
   /**
+   * A script or scene tile asks for a second tap before it runs (the first
+   * arms it for a moment), so a stray tap on a wall display can't open a gate.
+   * On unless switched off: missing means on.
+   */
+  tile_run_tap_twice?: boolean;
+
+  /**
    * The address a browser opens Home Assistant at, for those tabs. Only set
    * when it differs from `url`, which is the address Kinboard's server uses
    * and may be one a tablet cannot reach (a Docker service name, say).

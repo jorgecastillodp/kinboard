@@ -1698,7 +1698,11 @@
       "savedToast": "Mit Home Assistant neu synchronisiert",
       "embedHeading": "Home-Assistant-Dashboards",
       "embedDescription": "Deine eigenen Home-Assistant-Dashboards als Tabs unter Hausautomation zeigen",
-      "embedManageButton": "Verwalten"
+      "embedManageButton": "Verwalten",
+      "tileRunHeading": "Skripte und Szenen auf Kacheln",
+      "tileRunLabel": "Zweimal tippen",
+      "tileRunHint": "Der erste Tipp macht die Schaltfläche für 3 Sekunden bereit, der zweite führt aus. So öffnet ein versehentlicher Tipp kein Tor und keine Tür. Aus: Ein Tipp führt aus.",
+      "tileRunSaveFailed": "Speichern fehlgeschlagen. Versuch es noch einmal."
     },
     "homeassistantRooms": {
       "backAria": "Zurück",
@@ -3057,6 +3061,7 @@
       "photos_albums": "Alben, Album, Immich, Fotos auswählen",
       "photos_search-terms": "Suchbegriffe, monatlich, Unsplash, Themen, Stichwörter",
       "homeassistant_dashboard-cards": "Dashboard-Karten, Karten, Lovelace, Home-Assistant-Dashboard",
+      "homeassistant_tile-run": "zweimal tippen, zweiter Tipp, bestätigen, Skript, Szene, Tor, versehentlich, ausführen",
       "integrations_assistants": "KI-Assistenten, KI, ChatGPT, Claude, MCP, OAuth, Assistent verbinden",
       "integrations_create-token": "neues Token, Token erstellen, API-Schlüssel, Zugriff",
       "integrations_tokens": "vorhandene Tokens, widerrufen, API-Schlüssel, Zugriff",
@@ -3838,7 +3843,8 @@
     "dashboardHelpLink": "So erlaubst du es",
     "dashboardNoAddress": "Dieses Dashboard hat keine Adresse, die ein Browser öffnen kann. Prüfe in den Einstellungen seinen Pfad und die Adresse von Home Assistant.",
     "dashboardMixedContent": "Kinboard ist über https:// geöffnet, die Adresse von Home Assistant beginnt aber mit http://, deshalb zeigt der Browser es hier nicht an. Hinterlege in den Einstellungen eine https://-Adresse für den Browser.",
-    "dashboardSettingsLink": "Einstellungen öffnen"
+    "dashboardSettingsLink": "Einstellungen öffnen",
+    "tapAgain": "Nochmal tippen"
   },
   "catalogue": {
     "title": "Dinge im Haus",
