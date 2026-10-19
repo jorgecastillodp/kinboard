@@ -15,6 +15,7 @@ import {
   kioskQuery,
   moveDashboard,
   pickTab,
+  renameDashboard,
 } from "../src/lib/ha-embed";
 import { codeOnly } from "./source-helpers";
 
@@ -144,6 +145,14 @@ test("a display comes back to its tab while that still exists; picking and movin
   // Already a tab, however its path was written.
   expect(choicesNotAdded(choices, [{ path: "/dashboard-garden/" }]).map((c) => c.path)).toEqual(["lovelace", "dashboard-admin"]);
 
+  const named = [{ id: "a", title: "Garden" }, { id: "b", title: "Overview" }];
+  expect(renameDashboard(named, "b", "  Our music ")).toEqual([{ id: "a", title: "Garden" }, { id: "b", title: "Our music" }]);
+  expect(renameDashboard(named, "a", "y".repeat(60))?.[0].title).toBe("y".repeat(TAB_NAME_MAX));
+  // A dashboard's tab keeps a name.
+  expect(renameDashboard(named, "a", "   ")).toBeNull();
+  expect(renameDashboard(named, "missing", "x")).toEqual(named);
+  expect(named[1].title).toBe("Overview");
+
   const list = ["a", "b", "c"];
   expect(moveDashboard(list, 1, -1)).toEqual(["b", "a", "c"]);
   expect(moveDashboard(list, 1, 1)).toEqual(["a", "c", "b"]);
@@ -221,7 +230,11 @@ test("the settings page saves each change with the Home Assistant settings and t
   expect(settings).toContain("if (dashboards.some((d) => cleanDashboardPath(d.path) === cleanPath)) {");
   expect(settings).toContain("await save({ embed_url: value })");
   // The first tab: renamed here, named in the app's language when left empty, as long as a tab may be.
-  expect(settings).toContain("await save({ devices_tab_title: devicesTitle.trim() })");
+  expect(settings).toContain("onSave={(name) => saveName({ devices_tab_title: name })}");
+  // Every dashboard's tab is renamed in place, and never to nothing.
+  expect(settings).toMatch(/<TabNameField\s+id=\{`ha-tab-name-\$\{dashboard\.id\}`\}[\s\S]*?allowEmpty=\{false\}[\s\S]*?renameDashboard\(dashboards, dashboard\.id, name\)/);
+  expect(settings).toContain('const canSave = !busy && name !== value.trim() && (allowEmpty || name !== "");');
+  expect(settings).toContain('if (e.key === "Enter") submit();');
   expect(settings).toContain('placeholder={tPage("tabDevices")}');
   expect(settings.match(/maxLength=\{TAB_NAME_MAX\}/g)?.length).toBe(2);
   expect(settings).toMatch(/role="status"[\s\S]{0,160}tSettings\("loadingHint"\)/);

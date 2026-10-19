@@ -1827,15 +1827,27 @@ test.describe("Home Assistant's own dashboards as tabs", () => {
         .toEqual(["Probe typed|dashboard-probe-typed|true|true", "Probe garden|dashboard-probe|true|true"]);
       await expect(page.getByRole("button", { name: "Move Probe typed up" })).toBeDisabled();
 
-      const typedRow = page.getByTestId("ha-dashboard-tab").filter({ hasText: "Probe typed" });
+      // A row is found by its path: its name is in a field now, not in its text.
+      const typedRow = page.getByTestId("ha-dashboard-tab").filter({ hasText: "/dashboard-probe-typed" });
       // The header holds a dashboard's own tabs: turned back on for this one, the sidebar stays hidden.
       await typedRow.getByRole("switch", { name: "Hide Home Assistant's header" }).click();
       await expect
         .poll(tabsSaved, { timeout: 10_000 })
         .toEqual(["Probe typed|dashboard-probe-typed|true|false", "Probe garden|dashboard-probe|true|true"]);
 
+      // Renamed in place: no empty name for a dashboard's tab, Enter saves like the button.
+      const typedName = typedRow.getByRole("textbox", { name: "Name of the Probe typed tab" });
+      await typedName.fill("   ");
+      await expect(typedRow.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+      await typedName.fill("  Probe renamed ");
+      await typedName.press("Enter");
+      await expect
+        .poll(tabsSaved, { timeout: 10_000 })
+        .toEqual(["Probe renamed|dashboard-probe-typed|true|false", "Probe garden|dashboard-probe|true|true"]);
+      await expect(page.getByText("Name saved")).toBeVisible();
+
       await page.getByRole("button", { name: "Remove Probe garden" }).click();
-      await expect.poll(tabsSaved, { timeout: 10_000 }).toEqual(["Probe typed|dashboard-probe-typed|true|false"]);
+      await expect.poll(tabsSaved, { timeout: 10_000 }).toEqual(["Probe renamed|dashboard-probe-typed|true|false"]);
 
       // The address for the browser: only http(s), saved as typed.
       const addressCard = page.getByTestId("ha-embed-address");
@@ -1857,7 +1869,7 @@ test.describe("Home Assistant's own dashboards as tabs", () => {
         .toBe("Probe rooms");
       await page.goto("/home-automation", { waitUntil: "domcontentloaded" });
       const views = page.getByRole("group", { name: "Devices and dashboards" });
-      await expect(views.getByRole("radio")).toHaveText(["Probe rooms", "Probe typed"], { timeout: 30_000 });
+      await expect(views.getByRole("radio")).toHaveText(["Probe rooms", "Probe renamed"], { timeout: 30_000 });
       await page.goto("/settings/homeassistant/dashboards", { waitUntil: "domcontentloaded" });
 
       // When Home Assistant won't list its dashboards, the path can still be typed.

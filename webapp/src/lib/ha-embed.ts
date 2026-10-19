@@ -149,6 +149,20 @@ export function choicesNotAdded(
   return choices.filter((c) => !added.has(cleanDashboardPath(c.path)));
 }
 
+/**
+ * The list with one tab renamed, trimmed and at most TAB_NAME_MAX long; null
+ * when that would leave the tab without a name, which a dashboard's tab needs.
+ */
+export function renameDashboard<T extends { id: string; title: string }>(
+  list: readonly T[],
+  id: string,
+  name: string,
+): T[] | null {
+  const title = name.trim().slice(0, TAB_NAME_MAX);
+  if (title === "") return null;
+  return list.map((d) => (d.id === id ? { ...d, title } : d));
+}
+
 /** The list with one tab moved one place up (-1) or down (+1); unchanged at either end. */
 export function moveDashboard<T>(list: readonly T[], index: number, delta: -1 | 1): T[] {
   const to = index + delta;
