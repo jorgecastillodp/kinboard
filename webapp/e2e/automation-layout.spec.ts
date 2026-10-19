@@ -1615,7 +1615,7 @@ test.describe("a script or a scene runs from its tile", () => {
 async function setDashboardTabs(
   page: Page,
   familyId: string,
-  dashboards: { id: string; title: string; path: string; kiosk: boolean }[],
+  dashboards: { id: string; title: string; path: string; hide_sidebar?: boolean; hide_header?: boolean; kiosk?: boolean }[],
 ): Promise<void> {
   const failure = await page.evaluate(
     async ({ familyId, dashboards }) => {
@@ -1691,13 +1691,16 @@ test.describe("Home Assistant's own dashboards as tabs", () => {
       await expect(page.locator("iframe")).toHaveCount(0);
 
       await setDashboardTabs(page, house.familyId, [
-        { id: "probe-tab-garden", title: "Probe garden", path: "dashboard-probe", kiosk: true },
+        { id: "probe-tab-garden", title: "Probe garden", path: "dashboard-probe", hide_sidebar: true, hide_header: true },
+        // Saved by the first build, with one switch for both: still read.
         { id: "probe-tab-overview", title: "Probe overview", path: "lovelace", kiosk: false },
+        // Several views: the header, where they are, stays.
+        { id: "probe-tab-views", title: "Probe views", path: "dashboard-probe-views", hide_sidebar: true, hide_header: false },
       ]);
       await reloadUntilRendered(page);
 
       await expect(views).toBeVisible({ timeout: 20_000 });
-      await expect(views.getByRole("radio")).toHaveText(["Devices", "Probe garden", "Probe overview"]);
+      await expect(views.getByRole("radio")).toHaveText(["Devices", "Probe garden", "Probe overview", "Probe views"]);
       await expect(views.getByRole("radio", { name: "Devices" })).toHaveAttribute("aria-checked", "true");
       await expect(device).toBeVisible();
 
@@ -1719,6 +1722,12 @@ test.describe("Home Assistant's own dashboards as tabs", () => {
         { timeout: 20_000 },
       );
 
+      await views.getByRole("radio", { name: "Probe views" }).click();
+      await expect(page.frameLocator('iframe[title="Probe views, from Home Assistant"]').locator("#where")).toHaveText(
+        "https://home-assistant.invalid/dashboard-probe-views/0?hide_sidebar",
+        { timeout: 20_000 },
+      );
+
       await views.getByRole("radio", { name: "Devices" }).click();
       await expect(device).toBeVisible();
       await expect(page.locator("iframe")).toHaveCount(0);
@@ -1737,8 +1746,8 @@ test.describe("Home Assistant's own dashboards as tabs", () => {
     ]);
     try {
       await setDashboardTabs(page, house.familyId, [
-        { id: "probe-tab-garden", title: "Probe garden", path: "dashboard-probe", kiosk: true },
-        { id: "probe-tab-overview", title: "Probe overview", path: "lovelace", kiosk: false },
+        { id: "probe-tab-garden", title: "Probe garden", path: "dashboard-probe", hide_sidebar: true, hide_header: true },
+        { id: "probe-tab-overview", title: "Probe overview", path: "lovelace", hide_sidebar: false, hide_header: false },
       ]);
       await reloadUntilRendered(page);
       const views = page.getByRole("group", { name: "Devices and dashboards" });
@@ -1746,7 +1755,7 @@ test.describe("Home Assistant's own dashboards as tabs", () => {
       await expect(page.locator('iframe[title="Probe garden, from Home Assistant"]')).toBeVisible();
 
       await setDashboardTabs(page, house.familyId, [
-        { id: "probe-tab-overview", title: "Probe overview", path: "lovelace", kiosk: false },
+        { id: "probe-tab-overview", title: "Probe overview", path: "lovelace", hide_sidebar: false, hide_header: false },
       ]);
       await reloadUntilRendered(page);
       await expect(views.getByRole("radio", { name: "Devices" })).toHaveAttribute("aria-checked", "true", { timeout: 20_000 });
@@ -1782,7 +1791,8 @@ test.describe("Home Assistant's own dashboards as tabs", () => {
     const house = await stubbedHouse(page, baseURL, testInfo, []);
     const tabsSaved = async () =>
       ((await savedHomeAssistant(page, house.familyId)).embedded_dashboards ?? []).map(
-        (d: { title: string; path: string; kiosk: boolean }) => `${d.title}|${d.path}|${d.kiosk}`,
+        (d: { title: string; path: string; hide_sidebar: boolean; hide_header: boolean }) =>
+          `${d.title}|${d.path}|${d.hide_sidebar}|${d.hide_header}`,
       );
     try {
       await page.goto("/settings/homeassistant/dashboards", { waitUntil: "domcontentloaded" });
@@ -1795,7 +1805,7 @@ test.describe("Home Assistant's own dashboards as tabs", () => {
       await expect(page.locator("#ha-dashboard-title")).toHaveAttribute("placeholder", "Probe garden");
       await page.getByRole("button", { name: "Add", exact: true }).click();
       await expect(page.getByText("Probe garden added")).toBeVisible();
-      await expect.poll(tabsSaved, { timeout: 10_000 }).toEqual(["Probe garden|dashboard-probe|true"]);
+      await expect.poll(tabsSaved, { timeout: 10_000 }).toEqual(["Probe garden|dashboard-probe|true|true"]);
 
       // A typed path, cleaned of its slashes, with a name of its own.
       await page.locator("#ha-dashboard-pick").click();
@@ -1809,22 +1819,23 @@ test.describe("Home Assistant's own dashboards as tabs", () => {
       await page.getByRole("button", { name: "Add", exact: true }).click();
       await expect
         .poll(tabsSaved, { timeout: 10_000 })
-        .toEqual(["Probe garden|dashboard-probe|true", "Probe typed|dashboard-probe-typed|true"]);
+        .toEqual(["Probe garden|dashboard-probe|true|true", "Probe typed|dashboard-probe-typed|true|true"]);
 
       await page.getByRole("button", { name: "Move Probe typed up" }).click();
       await expect
         .poll(tabsSaved, { timeout: 10_000 })
-        .toEqual(["Probe typed|dashboard-probe-typed|true", "Probe garden|dashboard-probe|true"]);
+        .toEqual(["Probe typed|dashboard-probe-typed|true|true", "Probe garden|dashboard-probe|true|true"]);
       await expect(page.getByRole("button", { name: "Move Probe typed up" })).toBeDisabled();
 
       const typedRow = page.getByTestId("ha-dashboard-tab").filter({ hasText: "Probe typed" });
-      await typedRow.getByRole("switch").click();
+      // The header holds a dashboard's own tabs: turned back on for this one, the sidebar stays hidden.
+      await typedRow.getByRole("switch", { name: "Hide Home Assistant's header" }).click();
       await expect
         .poll(tabsSaved, { timeout: 10_000 })
-        .toEqual(["Probe typed|dashboard-probe-typed|false", "Probe garden|dashboard-probe|true"]);
+        .toEqual(["Probe typed|dashboard-probe-typed|true|false", "Probe garden|dashboard-probe|true|true"]);
 
       await page.getByRole("button", { name: "Remove Probe garden" }).click();
-      await expect.poll(tabsSaved, { timeout: 10_000 }).toEqual(["Probe typed|dashboard-probe-typed|false"]);
+      await expect.poll(tabsSaved, { timeout: 10_000 }).toEqual(["Probe typed|dashboard-probe-typed|true|false"]);
 
       // The address for the browser: only http(s), saved as typed.
       const addressCard = page.getByTestId("ha-embed-address");

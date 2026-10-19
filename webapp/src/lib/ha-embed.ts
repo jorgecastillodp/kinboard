@@ -44,14 +44,25 @@ export function cleanDashboardPath(input: string): string | null {
 }
 
 /**
+ * What kiosk-mode is asked to hide, as the address says it: both, one, or
+ * nothing at all.
+ */
+export function kioskQuery(dashboard: Pick<HaEmbeddedDashboard, "hide_sidebar" | "hide_header">): string {
+  if (dashboard.hide_sidebar && dashboard.hide_header) return "?kiosk";
+  if (dashboard.hide_sidebar) return "?hide_sidebar";
+  if (dashboard.hide_header) return "?hide_header";
+  return "";
+}
+
+/**
  * The address a dashboard's frame opens, or null when there is none a browser
  * could use. A dashboard named without a view opens at its first one, `/0`:
  * the address Home Assistant would send the browser on to anyway, and opening
- * it directly keeps `?kiosk`, which that redirect would drop.
+ * it directly keeps the kiosk-mode options, which that redirect would drop.
  */
 export function dashboardFrameUrl(
   base: string | undefined,
-  dashboard: Pick<HaEmbeddedDashboard, "path" | "kiosk">,
+  dashboard: Pick<HaEmbeddedDashboard, "path" | "hide_sidebar" | "hide_header">,
 ): string | null {
   const path = cleanDashboardPath(dashboard.path);
   if (!base || !path) return null;
@@ -65,7 +76,7 @@ export function dashboardFrameUrl(
   const view = path.includes("/") ? path : `${path}/0`;
   // A base path a reverse proxy put Home Assistant under is kept.
   url.pathname = `${url.pathname.replace(/\/+$/, "")}/${view}`;
-  url.search = dashboard.kiosk ? "?kiosk" : "";
+  url.search = kioskQuery(dashboard);
   url.hash = "";
   return url.toString();
 }
@@ -93,22 +104,32 @@ export function devicesTabLabel(
   return settings?.devices_tab_title?.trim().slice(0, TAB_NAME_MAX) || fallback;
 }
 
-/** The household's dashboard tabs, in their order, without any entry a frame could not open. */
+/**
+ * The household's dashboard tabs, in their order, without any entry a frame
+ * could not open. A tab saved before the sidebar and the header had a switch
+ * each had one, `kiosk`, for both, and reads as that.
+ */
 export function embeddedDashboards(
   settings: Pick<HomeAssistantSettings, "embedded_dashboards"> | null | undefined,
 ): HaEmbeddedDashboard[] {
   const list: unknown = settings?.embedded_dashboards;
   if (!Array.isArray(list)) return [];
-  return list.filter(
-    (d): d is HaEmbeddedDashboard =>
-      !!d &&
-      typeof d === "object" &&
-      typeof d.id === "string" &&
-      d.id !== "" &&
-      typeof d.title === "string" &&
-      typeof d.path === "string" &&
-      cleanDashboardPath(d.path) !== null,
-  );
+  const tabs: HaEmbeddedDashboard[] = [];
+  for (const entry of list) {
+    if (!entry || typeof entry !== "object") continue;
+    const { id, title, path, hide_sidebar, hide_header, kiosk } = entry as Record<string, unknown>;
+    if (typeof id !== "string" || id === "" || typeof title !== "string") continue;
+    if (typeof path !== "string" || cleanDashboardPath(path) === null) continue;
+    const both = kiosk === true;
+    tabs.push({
+      id,
+      title,
+      path,
+      hide_sidebar: typeof hide_sidebar === "boolean" ? hide_sidebar : both,
+      hide_header: typeof hide_header === "boolean" ? hide_header : both,
+    });
+  }
+  return tabs;
 }
 
 /** The tab to show: the one this display was on while it still exists, else the devices. */
