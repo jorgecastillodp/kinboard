@@ -314,18 +314,18 @@ export interface HomeAssistantSettings {
   // Room configuration for FAB
   rooms_config?: RoomsConfig;
 
-  // Home Assistant's own dashboards, each a tab on Home Automation
-  embedded_dashboards?: HaEmbeddedDashboard[];
-
-  /** The name of the page's own first tab, the rooms and devices; empty means "Devices" in the app's language. */
-  devices_tab_title?: string;
-
   /**
    * A script or scene tile asks for a second tap before it runs (the first
    * arms it for a moment), so a stray tap on a wall display can't open a gate.
    * On unless switched off: missing means on.
    */
   tile_run_tap_twice?: boolean;
+
+  // Home Assistant's own dashboards, each a tab on Home Automation
+  embedded_dashboards?: HaEmbeddedDashboard[];
+
+  /** The name of the page's own first tab, the rooms and devices; empty means "Devices" in the app's language. */
+  devices_tab_title?: string;
 
   /**
    * The address a browser opens Home Assistant at, for those tabs. Only set
