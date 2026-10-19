@@ -1875,10 +1875,14 @@ test.describe("Home Assistant's own dashboards as tabs", () => {
       // A row is found by its path: its name is in a field now, not in its text.
       const typedRow = page.getByTestId("ha-dashboard-tab").filter({ hasText: "/dashboard-probe-typed" });
       // The header holds a dashboard's own tabs: turned back on for this one, the sidebar stays hidden.
+      // Straight after, an edit on the other row: it waits for the first save to land, so neither
+      // undoes the other.
+      const gardenRow = page.getByTestId("ha-dashboard-tab").filter({ hasText: "/dashboard-probe" }).filter({ hasNotText: "/dashboard-probe-typed" });
       await typedRow.getByRole("switch", { name: "Hide Home Assistant's header" }).click();
+      await gardenRow.getByRole("switch", { name: "Hide Home Assistant's sidebar" }).click();
       await expect
         .poll(tabsSaved, { timeout: 10_000 })
-        .toEqual(["Probe typed|dashboard-probe-typed|true|false", "Probe garden|dashboard-probe|true|true"]);
+        .toEqual(["Probe typed|dashboard-probe-typed|true|false", "Probe garden|dashboard-probe|false|true"]);
 
       // Renamed in place: no empty name for a dashboard's tab, Enter saves like the button.
       const typedName = typedRow.getByRole("textbox", { name: "Name of the Probe typed tab" });
@@ -1888,7 +1892,7 @@ test.describe("Home Assistant's own dashboards as tabs", () => {
       await typedName.press("Enter");
       await expect
         .poll(tabsSaved, { timeout: 10_000 })
-        .toEqual(["Probe renamed|dashboard-probe-typed|true|false", "Probe garden|dashboard-probe|true|true"]);
+        .toEqual(["Probe renamed|dashboard-probe-typed|true|false", "Probe garden|dashboard-probe|false|true"]);
       await expect(page.getByText("Name saved")).toBeVisible();
 
       await page.getByRole("button", { name: "Remove Probe garden" }).click();
@@ -1916,6 +1920,23 @@ test.describe("Home Assistant's own dashboards as tabs", () => {
       const views = page.getByRole("group", { name: "Devices and dashboards" });
       await expect(views.getByRole("radio")).toHaveText(["Probe rooms", "Probe renamed"], { timeout: 30_000 });
       await page.goto("/settings/homeassistant/dashboards", { waitUntil: "domcontentloaded" });
+
+      // The server's own checks: no username in the address, and broken tab entries are not stored.
+      const refused = await page.evaluate(async (familyId) => {
+        const put = (value: Record<string, unknown>) =>
+          fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ family_id: familyId, key: "home_assistant", value }) }).then((r) => r.status);
+        const base = { url: "http://home-assistant.invalid:8123", access_token: "e2e-not-a-real-token" };
+        return {
+          userinfo: await put({ ...base, embed_url: "https://someone@home-assistant.invalid" }),
+          scheme: await put({ ...base, embed_url: "ftp://home-assistant.invalid" }),
+          cleaned: await put({ ...base, embed_url: "https://home-assistant.invalid",
+            embedded_dashboards: [{ id: "probe-ok", title: "Probe ok", path: "dashboard-probe", hide_sidebar: true, hide_header: true },
+                                  { id: "probe-bad", title: "Probe bad", path: "../nope", hide_sidebar: true, hide_header: true }] }),
+        };
+      }, house.familyId);
+      expect(refused).toEqual({ userinfo: 400, scheme: 400, cleaned: 200 });
+      await expect.poll(tabsSaved, { timeout: 10_000 }).toEqual(["Probe ok|dashboard-probe|true|true"]);
 
       // When Home Assistant won't list its dashboards, the path can still be typed.
       listStatus = 502;

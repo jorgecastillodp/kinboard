@@ -35,6 +35,7 @@ import {
   choicesNotAdded,
   cleanDashboardPath,
   EMBED_HELP_URL,
+  embedUrlAcceptable,
   embeddedDashboards,
   moveDashboard,
   renameDashboard,
@@ -127,18 +128,10 @@ export default function HaDashboardsSettingsPage() {
 
   const saveAddress = async () => {
     const value = address.trim();
-    if (value !== "") {
-      let ok = false;
-      try {
-        const protocol = new URL(value).protocol;
-        ok = protocol === "https:" || protocol === "http:";
-      } catch {
-        ok = false;
-      }
-      if (!ok) {
-        toast.error(t("addressInvalid"));
-        return;
-      }
+    // The server checks the same and refuses anything else.
+    if (!embedUrlAcceptable(value)) {
+      toast.error(t("addressInvalid"));
+      return;
     }
     if (await save({ embed_url: value })) toast.success(t("toastAddressSaved"));
   };

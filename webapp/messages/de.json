@@ -3839,7 +3839,7 @@
     "tabDevices": "Geräte",
     "dashboardFrameTitle": "{name}, aus Home Assistant",
     "dashboardLoading": "{name} wird geladen…",
-    "dashboardSlowHint": "Bleibt es leer? Vielleicht verweigert Home Assistant die Anzeige in Kinboard.",
+    "dashboardSlowHint": "Leer oder „Verbindung abgelehnt“? Vielleicht verweigert Home Assistant die Anzeige in Kinboard.",
     "dashboardHelpLink": "So erlaubst du es",
     "dashboardNoAddress": "Dieses Dashboard hat keine Adresse, die ein Browser öffnen kann. Prüfe in den Einstellungen seinen Pfad und die Adresse von Home Assistant.",
     "dashboardMixedContent": "Kinboard ist über https:// geöffnet, die Adresse von Home Assistant beginnt aber mit http://, deshalb zeigt der Browser es hier nicht an. Hinterlege in den Einstellungen eine https://-Adresse für den Browser.",
