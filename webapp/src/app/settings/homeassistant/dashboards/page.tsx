@@ -109,7 +109,7 @@ export default function HaDashboardsSettingsPage() {
     const added = await save({
       embedded_dashboards: [
         ...dashboards,
-        { id: safeRandomUUID(), title: name, path: cleanPath, kiosk: true },
+        { id: safeRandomUUID(), title: name, path: cleanPath, hide_sidebar: true, hide_header: true },
       ],
     });
     if (added) {
@@ -261,26 +261,44 @@ export default function HaDashboardsSettingsPage() {
                         </Button>
                       </div>
                     </div>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <Label htmlFor={`ha-kiosk-${dashboard.id}`} className="text-sm">
-                          {t("kioskLabel")}
-                        </Label>
-                        <p className="text-xs text-muted-foreground">{t("kioskHint")}</p>
-                      </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <Label htmlFor={`ha-sidebar-${dashboard.id}`} className="text-sm">
+                        {t("hideSidebarLabel")}
+                      </Label>
                       <Switch
-                        id={`ha-kiosk-${dashboard.id}`}
-                        checked={dashboard.kiosk}
+                        id={`ha-sidebar-${dashboard.id}`}
+                        checked={dashboard.hide_sidebar}
                         disabled={busy}
-                        onCheckedChange={(kiosk) =>
+                        onCheckedChange={(hide_sidebar) =>
                           void save({
                             embedded_dashboards: dashboards.map((d) =>
-                              d.id === dashboard.id ? { ...d, kiosk } : d,
+                              d.id === dashboard.id ? { ...d, hide_sidebar } : d,
                             ),
                           })
                         }
                       />
                     </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <Label htmlFor={`ha-header-${dashboard.id}`} className="text-sm">
+                          {t("hideHeaderLabel")}
+                        </Label>
+                        <p className="text-xs text-muted-foreground">{t("hideHeaderHint")}</p>
+                      </div>
+                      <Switch
+                        id={`ha-header-${dashboard.id}`}
+                        checked={dashboard.hide_header}
+                        disabled={busy}
+                        onCheckedChange={(hide_header) =>
+                          void save({
+                            embedded_dashboards: dashboards.map((d) =>
+                              d.id === dashboard.id ? { ...d, hide_header } : d,
+                            ),
+                          })
+                        }
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">{t("kioskHint")}</p>
                   </Card>
                 ))
               )}

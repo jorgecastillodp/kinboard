@@ -12,6 +12,7 @@ import {
   devicesTabLabel,
   embedBaseUrl,
   embeddedDashboards,
+  kioskQuery,
   moveDashboard,
   pickTab,
 } from "../src/lib/ha-embed";
@@ -26,10 +27,18 @@ import { codeOnly } from "./source-helpers";
 
 const read = (file: string) => readFileSync(join(process.cwd(), file), "utf8");
 
-test("a dashboard opens at its first view, with ?kiosk when asked, under any base path", () => {
-  const kitchen = { path: "dashboard-kitchen", kiosk: true };
+test("a dashboard opens at its first view, with kiosk-mode's options when asked, under any base path", () => {
+  const kitchen = { path: "dashboard-kitchen", hide_sidebar: true, hide_header: true };
   expect(dashboardFrameUrl("https://ha.example", kitchen)).toBe("https://ha.example/dashboard-kitchen/0?kiosk");
-  expect(dashboardFrameUrl("https://ha.example", { ...kitchen, kiosk: false })).toBe("https://ha.example/dashboard-kitchen/0");
+  expect(dashboardFrameUrl("https://ha.example", { ...kitchen, hide_header: false })).toBe(
+    "https://ha.example/dashboard-kitchen/0?hide_sidebar",
+  );
+  expect(dashboardFrameUrl("https://ha.example", { ...kitchen, hide_sidebar: false })).toBe(
+    "https://ha.example/dashboard-kitchen/0?hide_header",
+  );
+  expect(dashboardFrameUrl("https://ha.example", { ...kitchen, hide_sidebar: false, hide_header: false })).toBe(
+    "https://ha.example/dashboard-kitchen/0",
+  );
   // Slashes at either end of the base and the path make no difference.
   expect(dashboardFrameUrl("https://ha.example/", { ...kitchen, path: "/dashboard-kitchen/" })).toBe(
     "https://ha.example/dashboard-kitchen/0?kiosk",
@@ -40,7 +49,7 @@ test("a dashboard opens at its first view, with ?kiosk when asked, under any bas
   expect(dashboardFrameUrl("https://ha.example", { ...kitchen, path: "dashboard-kitchen/garden" })).toBe(
     "https://ha.example/dashboard-kitchen/garden?kiosk",
   );
-  expect(dashboardFrameUrl("http://homeassistant.local:8123", { path: "lovelace", kiosk: false })).toBe(
+  expect(dashboardFrameUrl("http://homeassistant.local:8123", { path: "lovelace", hide_sidebar: false, hide_header: false })).toBe(
     "http://homeassistant.local:8123/lovelace/0",
   );
   // Nothing of the base's own query or fragment rides along.
@@ -48,13 +57,13 @@ test("a dashboard opens at its first view, with ?kiosk when asked, under any bas
 });
 
 test("no frame for an address a browser can't open, or a path that would point anywhere else", () => {
-  const ok = { path: "dashboard-kitchen", kiosk: true };
+  const ok = { path: "dashboard-kitchen", hide_sidebar: true, hide_header: true };
   for (const base of [undefined, "", "   ", "not an address", "ftp://ha.example", "javascript:alert(1)", "file:///etc/passwd"]) {
     expect(dashboardFrameUrl(base, ok), String(base)).toBeNull();
   }
   for (const path of ["", "/", "..", "../admin", "a/b/c", "//evil.example", "https://evil.example", "dash board", "x?y", "x#y", "%2e%2e"]) {
     expect(cleanDashboardPath(path), path).toBeNull();
-    expect(dashboardFrameUrl("https://ha.example", { path, kiosk: false }), path).toBeNull();
+    expect(dashboardFrameUrl("https://ha.example", { path, hide_sidebar: false, hide_header: false }), path).toBeNull();
   }
   expect(cleanDashboardPath("  /dashboard-kitchen/garden/ ")).toBe("dashboard-kitchen/garden");
 });
@@ -71,18 +80,36 @@ test("the tabs come from the settings in their order, without broken entries; a 
   expect(embeddedDashboards(null)).toEqual([]);
   expect(embeddedDashboards({ embedded_dashboards: "nope" as never })).toEqual([]);
   const good = [
-    { id: "b", title: "Garden", path: "dashboard-garden", kiosk: true },
-    { id: "a", title: "Overview", path: "lovelace", kiosk: false },
+    { id: "b", title: "Garden", path: "dashboard-garden", hide_sidebar: true, hide_header: false },
+    { id: "a", title: "Overview", path: "lovelace", hide_sidebar: false, hide_header: false },
   ];
   const mixed = [
     good[0],
     null,
-    { id: "", title: "No id", path: "dashboard-x", kiosk: true },
-    { id: "c", title: "Bad path", path: "../admin", kiosk: true },
-    { id: "d", path: "dashboard-y", kiosk: true },
+    { id: "", title: "No id", path: "dashboard-x", hide_sidebar: true, hide_header: true },
+    { id: "c", title: "Bad path", path: "../admin", hide_sidebar: true, hide_header: true },
+    { id: "d", path: "dashboard-y", hide_sidebar: true, hide_header: true },
     good[1],
   ];
   expect(embeddedDashboards({ embedded_dashboards: mixed as never })).toEqual(good);
+  // A tab saved with the single switch it once had reads as both, and nothing of it is kept.
+  expect(
+    embeddedDashboards({
+      embedded_dashboards: [
+        { id: "e", title: "Old", path: "dashboard-old", kiosk: true },
+        { id: "f", title: "Old, open", path: "dashboard-open", kiosk: false },
+        { id: "g", title: "Old, unset", path: "dashboard-unset" },
+      ] as never,
+    }),
+  ).toEqual([
+    { id: "e", title: "Old", path: "dashboard-old", hide_sidebar: true, hide_header: true },
+    { id: "f", title: "Old, open", path: "dashboard-open", hide_sidebar: false, hide_header: false },
+    { id: "g", title: "Old, unset", path: "dashboard-unset", hide_sidebar: false, hide_header: false },
+  ]);
+  expect(kioskQuery({ hide_sidebar: true, hide_header: true })).toBe("?kiosk");
+  expect(kioskQuery({ hide_sidebar: true, hide_header: false })).toBe("?hide_sidebar");
+  expect(kioskQuery({ hide_sidebar: false, hide_header: true })).toBe("?hide_header");
+  expect(kioskQuery({ hide_sidebar: false, hide_header: false })).toBe("");
 
   expect(embedBaseUrl({ url: "http://homeassistant:8123", embed_url: "https://ha.example" })).toBe("https://ha.example");
   expect(embedBaseUrl({ url: "https://ha.example", embed_url: "   " })).toBe("https://ha.example");
@@ -184,7 +211,11 @@ test("the settings page saves each change with the Home Assistant settings and t
   expect(settings).toContain("const saveSettings = useSaveHomeAssistantSettings();");
   expect(settings).toContain("const choicesQuery = useHaDashboardChoices(isConnected);");
   expect(settings).toContain("const typing = picked === OTHER_PATH || choicesQuery.isError;");
-  expect(settings).toContain("{ id: safeRandomUUID(), title: name, path: cleanPath, kiosk: true },");
+  expect(settings).toContain("{ id: safeRandomUUID(), title: name, path: cleanPath, hide_sidebar: true, hide_header: true },");
+  // Each tab has a switch for the sidebar and one for the header, which keeps a dashboard's own tabs.
+  expect(settings).toMatch(/checked=\{dashboard\.hide_sidebar\}[\s\S]*?d\.id === dashboard\.id \? \{ \.\.\.d, hide_sidebar \} : d/);
+  expect(settings).toMatch(/checked=\{dashboard\.hide_header\}[\s\S]*?d\.id === dashboard\.id \? \{ \.\.\.d, hide_header \} : d/);
+  expect(settings).toContain('{t("hideHeaderHint")}');
   expect(settings).toContain("embedded_dashboards: moveDashboard(dashboards, index, -1)");
   expect(settings).toContain("embedded_dashboards: moveDashboard(dashboards, index, 1)");
   expect(settings).toContain("if (dashboards.some((d) => cleanDashboardPath(d.path) === cleanPath)) {");

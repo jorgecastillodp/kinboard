@@ -343,10 +343,14 @@ export interface HaEmbeddedDashboard {
   /** The dashboard's path in Home Assistant, as in its address: "dashboard-kitchen", "lovelace". */
   path: string;
   /**
-   * Open it with `?kiosk`, which the kiosk-mode card (HACS) turns into no
-   * header and no sidebar. Without that card Home Assistant ignores it.
+   * Hide Home Assistant's sidebar, and its header, in the tab. The kiosk-mode
+   * card (HACS) does both from the address (`?kiosk`, `?hide_sidebar`,
+   * `?hide_header`); without that card Home Assistant ignores them. The
+   * header holds the dashboard's own tabs (its views), so a dashboard with
+   * more than one keeps it.
    */
-  kiosk: boolean;
+  hide_sidebar: boolean;
+  hide_header: boolean;
 }
 
 /** One of the household's Home Assistant dashboards, as listed for picking. */
