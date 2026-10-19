@@ -1695,7 +1695,11 @@
       "info6": "Echtzeit-Updates alle 15 Sekunden",
       "connectedLabel": "Verbunden",
       "resyncButton": "Neu synchronisieren",
-      "savedToast": "Mit Home Assistant neu synchronisiert"
+      "savedToast": "Mit Home Assistant neu synchronisiert",
+      "tileRunHeading": "Skripte und Szenen auf Kacheln",
+      "tileRunLabel": "Zweimal tippen",
+      "tileRunHint": "Der erste Tipp macht die Schaltfläche für 3 Sekunden bereit, der zweite führt aus. So öffnet ein versehentlicher Tipp kein Tor und keine Tür. Aus: Ein Tipp führt aus.",
+      "tileRunSaveFailed": "Speichern fehlgeschlagen. Versuch es noch einmal."
     },
     "homeassistantRooms": {
       "backAria": "Zurück",
@@ -3009,6 +3013,7 @@
       "photos_albums": "Alben, Album, Immich, Fotos auswählen",
       "photos_search-terms": "Suchbegriffe, monatlich, Unsplash, Themen, Stichwörter",
       "homeassistant_dashboard-cards": "Dashboard-Karten, Karten, Lovelace, Home-Assistant-Dashboard",
+      "homeassistant_tile-run": "zweimal tippen, zweiter Tipp, bestätigen, Skript, Szene, Tor, versehentlich, ausführen",
       "integrations_assistants": "KI-Assistenten, KI, ChatGPT, Claude, MCP, OAuth, Assistent verbinden",
       "integrations_create-token": "neues Token, Token erstellen, API-Schlüssel, Zugriff",
       "integrations_tokens": "vorhandene Tokens, widerrufen, API-Schlüssel, Zugriff",
@@ -3781,7 +3786,8 @@
     "unreachableBody": "Bis die Verbindung zurück ist, lässt sich hier nichts steuern.",
     "unreachableRetry": "Erneut versuchen",
     "roomsUnavailable": "Räume konnten gerade nicht geladen werden.",
-    "unreachableSettings": "Verbindung prüfen"
+    "unreachableSettings": "Verbindung prüfen",
+    "tapAgain": "Nochmal tippen"
   },
   "catalogue": {
     "title": "Dinge im Haus",

@@ -72,6 +72,8 @@ const RUN_DOMAINS = new Set(["script", "scene"]);
 
 /** How long the run button shows its tick after Home Assistant took the call. */
 const RUN_DONE_MS = 2_000;
+/** How long a script or scene tile stays armed after its first tap, waiting for the second. */
+const RUN_ARM_MS = 3_000;
 
 /**
  * Domains with too many meaningful actions for one tap to be unambiguous, so
@@ -199,6 +201,8 @@ export default function HausautomationPage() {
    * answer is that we could not find out.
    */
   const isConnected = !!settings?.url && !!settings?.access_token;
+  // Scripts and scenes on the tiles want a second tap unless the household switched that off.
+  const runTapTwice = settings?.tile_run_tap_twice !== false;
 
   /**
    * Every entity we need a state for, deduped and stable.
@@ -584,6 +588,7 @@ export default function HausautomationPage() {
           item.name
         )
       }
+      runTapTwice={runTapTwice}
       onDetail={hasEntity(item) ? () => setDetailFor(item) : undefined}
       t={t}
     />
@@ -901,6 +906,7 @@ function DeviceTile({
   onOpen,
   onClose,
   onRun,
+  runTapTwice,
   onDetail,
   t,
 }: {
@@ -916,6 +922,8 @@ function DeviceTile({
   onClose: (entityId: string) => void;
   /** Runs a script or a scene; resolves to whether the call went out. */
   onRun: (entityId: string) => Promise<boolean>;
+  /** The run button arms on a first tap and runs on a second (the household's setting). */
+  runTapTwice: boolean;
   /** Absent for a catalogue row with no entity behind it — there is nothing to open. */
   onDetail?: () => void;
   t: ReturnType<typeof useTranslations>;
@@ -933,8 +941,10 @@ function DeviceTile({
     The run button answers on the button itself, at once: a spinner while the
     call is on its way, a tick for a moment once Home Assistant has it, and back
     to ready. A refused call goes back to ready (the runner's toast says why).
+    Unless the household turned it off, a first tap only arms it ("Tap again")
+    for RUN_ARM_MS, so a stray tap on a wall display can't open a gate.
   */
-  const [runPhase, setRunPhase] = useState<"idle" | "sending" | "done">("idle");
+  const [runPhase, setRunPhase] = useState<"idle" | "armed" | "sending" | "done">("idle");
   const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (doneTimer.current) clearTimeout(doneTimer.current);
@@ -950,6 +960,16 @@ function DeviceTile({
     }
     setRunPhase("done");
     doneTimer.current = setTimeout(() => setRunPhase("idle"), RUN_DONE_MS);
+  };
+  const tapRun = (id: string) => {
+    if (runPhase === "sending") return;
+    if (doneTimer.current) clearTimeout(doneTimer.current);
+    if (runTapTwice && runPhase !== "armed") {
+      setRunPhase("armed");
+      doneTimer.current = setTimeout(() => setRunPhase("idle"), RUN_ARM_MS);
+      return;
+    }
+    void runNow(id);
   };
 
   const picture = (
@@ -1074,12 +1094,12 @@ function DeviceTile({
       )}
       {entityId && inlineControl === "run" && (
         <Button
-          variant="outline"
+          variant={runPhase === "armed" ? "default" : "outline"}
           size="sm"
           className="w-full"
           disabled={!canDrive || runPhase === "sending"}
           aria-busy={runPhase === "sending"}
-          onClick={() => void runNow(entityId)}
+          onClick={() => tapRun(entityId)}
         >
           {runPhase === "sending" ? (
             <Loader2 className="mr-1.5 size-3.5 animate-spin" aria-hidden="true" />
@@ -1088,7 +1108,7 @@ function DeviceTile({
           ) : (
             <Play className="mr-1.5 size-3.5" aria-hidden="true" />
           )}
-          {t("entityDetail.activateButton")}
+          {runPhase === "armed" ? t("tapAgain") : t("entityDetail.activateButton")}
         </Button>
       )}
     </Card>

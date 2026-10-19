@@ -313,6 +313,13 @@ export interface HomeAssistantSettings {
 
   // Room configuration for FAB
   rooms_config?: RoomsConfig;
+
+  /**
+   * A script or scene tile asks for a second tap before it runs (the first
+   * arms it for a moment), so a stray tap on a wall display can't open a gate.
+   * On unless switched off: missing means on.
+   */
+  tile_run_tap_twice?: boolean;
 }
 
 // Service call request
