@@ -20,11 +20,13 @@ import {
   Zap,
   RefreshCw,
   LayoutDashboard,
+  Play,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { SecretField } from "@/components/settings/secret-field";
 import {
@@ -575,6 +577,38 @@ function HomeAssistantSettingsContent() {
                     {t("embedManageButton")}
                   </Button>
                 </Link>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Scripts and scenes on Home automation's tiles: a second tap, or one */}
+        {isConnected && (
+          <Card id="tile-run" data-setting="tile-run">
+            <div className="p-6 flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Play className="size-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="font-medium">{t("tileRunHeading")}</h2>
+                  <p className="text-sm text-muted-foreground">{t("tileRunHint")}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Label htmlFor="tile-run-tap-twice" className="text-sm">
+                  {t("tileRunLabel")}
+                </Label>
+                <Switch
+                  id="tile-run-tap-twice"
+                  checked={settings?.tile_run_tap_twice !== false}
+                  disabled={saveSettings.isPending}
+                  onCheckedChange={(on) =>
+                    void saveSettings
+                      .mutateAsync({ tile_run_tap_twice: on })
+                      .catch(() => toast.error(t("tileRunSaveFailed")))
+                  }
+                />
               </div>
             </div>
           </Card>

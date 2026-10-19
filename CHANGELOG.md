@@ -12,9 +12,16 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Camera tiles show the plain picture; the scanline look is an option, off by default.** Every camera tile had faint horizontal lines drawn over it, like a security monitor, with no way to turn them off, and they were easy to take for a fault in the picture. Each camera now has a *Scanline effect* switch in its settings (Settings → Cameras); it is off unless ticked, including for cameras added before. The full-screen view never had the lines and still doesn't.
+- **Scripts and scenes run from their tile.** On Home automation a script or a scene had no control on its tile, so running one meant opening its details first: a window over the whole page, which also hid a camera in the same room. Its tile now has an *Activate* button, with a spinner while the call goes out and a tick once Home Assistant has it. A refused call says so and leaves the button ready. The tile's name still opens the details. So that a stray tap on a wall display can't open a gate, the first tap arms the button ("Tap again", 3 seconds) and the second runs it; Settings → Home Assistant → Scripts and scenes on tiles switches that off for one-tap running.
+
 ### Fixed
 
+- **A camera's live picture comes back by itself.** An RTSP camera tile went back to still images when its connection failed, dropped or sent no video, and stayed there until someone tapped Retry or reloaded the page; a picture that stopped moving was never noticed at all. On a wall display that runs for days, that meant a slow slideshow. It now tries again by itself (after 2, 4, 8 and 15 seconds, then every 30), treats a picture with no new frame for 8 seconds as lost, and tries at once when the page is shown again or comes back online. The stills stay on screen in between.
+
 ### Security
+
+- **Changing where an integration connects now needs the settings PIN, on the server.** Any device that had joined the family could change Home Assistant's address in the background without the PIN, and Kinboard would then have sent the stored Home Assistant token to that address. The same was true for Immich's address, the cameras, Google Calendar, Bring! and Unsplash: every setting that holds a password or a token. Saving or removing one of them now needs the settings PIN, like the other parents' settings; a screen whose unlock has run out shows the PIN entry again instead of an error. With no PIN set nothing changes, so the setup wizard works as before. Found while reviewing #410.
 
 ## [1.13.0] - 2026-10-16
 

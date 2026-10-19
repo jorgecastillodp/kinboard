@@ -1569,6 +1569,8 @@
       "snapshotUrlLabel": "URL d'instantané (optionnel)",
       "snapshotUrlPlaceholder": "http://192.168.1.100/snapshot.jpg",
       "snapshotUrlHint": "Facultatif. Utile uniquement si votre caméra publie une image fixe HTTP que vous préférez utiliser — les caméras RTSP tirent leur image du flux.",
+      "scanlinesLabel": "Effet de lignes de balayage",
+      "scanlinesHint": "De fines lignes horizontales sur la vignette de cette caméra, comme sur un moniteur de surveillance. Jamais en plein écran.",
       "authLabel": "Authentification",
       "authTypeLabel": "Type d'authentification",
       "authTypeDigest": "Digest (Hikvision, Amcrest)",
@@ -1696,7 +1698,11 @@
       "savedToast": "Resynchronisé avec Home Assistant",
       "embedHeading": "Tableaux de bord Home Assistant",
       "embedDescription": "Afficher vos propres tableaux de bord Home Assistant comme onglets dans Domotique",
-      "embedManageButton": "Gérer"
+      "embedManageButton": "Gérer",
+      "tileRunHeading": "Scripts et scènes sur les vignettes",
+      "tileRunLabel": "Toucher deux fois",
+      "tileRunHint": "Le premier toucher arme le bouton pendant 3 secondes et le second le lance : un toucher par erreur n'ouvre ni portail ni porte. Désactivé : un seul toucher le lance.",
+      "tileRunSaveFailed": "Échec de l'enregistrement. Réessayez."
     },
     "homeassistantRooms": {
       "backAria": "Retour",
@@ -3055,6 +3061,7 @@
       "photos_albums": "albums, album, Immich, choisir les photos",
       "photos_search-terms": "termes de recherche, mensuel, Unsplash, thèmes, mots-clés",
       "homeassistant_dashboard-cards": "cartes du tableau de bord, Lovelace, cartes, tableau de bord Home Assistant",
+      "homeassistant_tile-run": "toucher deux fois, second toucher, confirmer, script, scène, portail, par erreur, lancer",
       "integrations_assistants": "assistants IA, IA, ChatGPT, Claude, MCP, OAuth, connecter un assistant",
       "integrations_create-token": "nouveau jeton, créer un jeton, clé API, accès",
       "integrations_tokens": "jetons existants, révoquer, clés API, accès",
@@ -3836,7 +3843,8 @@
     "dashboardHelpLink": "Comment l'autoriser",
     "dashboardNoAddress": "Ce tableau de bord n'a pas d'adresse qu'un navigateur puisse ouvrir. Vérifiez son chemin et l'adresse de Home Assistant dans les réglages.",
     "dashboardMixedContent": "Kinboard est ouvert en https://, mais l'adresse de Home Assistant commence par http://, donc le navigateur ne l'affiche pas ici. Indiquez une adresse https:// pour le navigateur dans les réglages.",
-    "dashboardSettingsLink": "Ouvrir les réglages"
+    "dashboardSettingsLink": "Ouvrir les réglages",
+    "tapAgain": "Touchez encore"
   },
   "catalogue": {
     "title": "Les objets de la maison",

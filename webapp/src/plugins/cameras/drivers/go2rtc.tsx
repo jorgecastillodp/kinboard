@@ -184,6 +184,7 @@ function Go2rtcConfigForm() {
   const [password, setPassword] = useState("");
   const [roomId, setRoomId] = useState<string | null>(null);
   const [doorbellId, setDoorbellId] = useState<string | null>(null);
+  const [scanlines, setScanlines] = useState(false);
 
   const cameras = settings?.cameras || [];
 
@@ -218,6 +219,7 @@ function Go2rtcConfigForm() {
     setPassword("");
     setRoomId(null);
     setDoorbellId(null);
+    setScanlines(false);
     setError("");
     setEditingCamera(null);
   };
@@ -239,6 +241,7 @@ function Go2rtcConfigForm() {
     setPassword(camera.auth?.password || "");
     setRoomId(camera.room_id ?? null);
     setDoorbellId(doorbellEntityId(camera.doorbell_entity_id));
+    setScanlines(camera.scanlines === true);
     setError("");
     setDialogOpen(true);
   };
@@ -277,6 +280,7 @@ function Go2rtcConfigForm() {
             auth: authConfig,
             room_id: roomId,
             doorbell_entity_id: doorbellId,
+            scanlines,
           },
         });
       } else {
@@ -288,6 +292,7 @@ function Go2rtcConfigForm() {
           auth: authConfig,
           room_id: roomId,
           doorbell_entity_id: doorbellId,
+          scanlines,
           enabled: true,
         });
       }
@@ -633,6 +638,20 @@ function Go2rtcConfigForm() {
               <p className="text-xs text-muted-foreground">
                 {t("snapshotUrlHint")}
               </p>
+            </div>
+
+            {/* A look, not a feature: off unless someone wants it. */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="camera-scanlines">{t("scanlinesLabel")}</Label>
+                <Switch
+                  aria-label={t("scanlinesLabel")}
+                  id="camera-scanlines"
+                  checked={scanlines}
+                  onCheckedChange={setScanlines}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">{t("scanlinesHint")}</p>
             </div>
 
             {/* Authentication */}

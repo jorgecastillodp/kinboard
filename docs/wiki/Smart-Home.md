@@ -45,7 +45,7 @@ Inside a room tab: one card per entity. Card type adapts to the entity domain:
 | `media_player` | Play/pause/volume, source title, artwork |
 | `lock` | Lock/unlock |
 | `alarm_control_panel` | Arm/disarm with PIN keypad |
-| `scene`, `script` | Activate button |
+| `scene`, `script` | Activate button on the tile itself, with a spinner while the call goes out and a tick once Home Assistant has it (the details still open from the name). The first tap arms it ("Tap again", 3 seconds) and the second runs it, so a stray tap can't open a gate; Settings → Home Assistant → *Scripts and scenes on tiles* switches that off for one-tap running |
 | `vacuum` | Start/stop/dock |
 | `weather` | Conditions + forecast |
 | `person`, `device_tracker` | Avatar + location label |

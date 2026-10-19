@@ -314,6 +314,13 @@ export interface HomeAssistantSettings {
   // Room configuration for FAB
   rooms_config?: RoomsConfig;
 
+  /**
+   * A script or scene tile asks for a second tap before it runs (the first
+   * arms it for a moment), so a stray tap on a wall display can't open a gate.
+   * On unless switched off: missing means on.
+   */
+  tile_run_tap_twice?: boolean;
+
   // Home Assistant's own dashboards, each a tab on Home Automation
   embedded_dashboards?: HaEmbeddedDashboard[];
 
@@ -622,6 +629,11 @@ export interface CameraConfig {
     turn_username?: string;
     turn_password?: string;
   };
+  /**
+   * Faint horizontal scanlines over the camera's tile (never in fullscreen),
+   * like a security monitor. Off unless ticked in the camera's settings.
+   */
+  scanlines?: boolean;
   enabled: boolean;
   position: number;
   created_at: string;
