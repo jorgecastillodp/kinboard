@@ -107,11 +107,27 @@ export function useIdleTimeout({
       window.addEventListener(event, handleActivity, { passive: true });
     });
 
+    // A tap inside a frame (a Home Assistant dashboard tab) is an event in the
+    // frame's own document and never reaches this window. The one trace it
+    // leaves here is this window losing focus to the frame, so that counts.
+    // Further taps in the same frame leave none, which is why a long stay in a
+    // dashboard tab can still end in the screensaver.
+    let disposed = false;
+    const handleBlur = (e: Event) => {
+      // Where focus went is settled by the next task, not always during blur.
+      setTimeout(() => {
+        if (!disposed && document.activeElement instanceof HTMLIFrameElement) handleActivity(e);
+      }, 0);
+    };
+    window.addEventListener("blur", handleBlur);
+
     return () => {
+      disposed = true;
       clearTimeout(timer);
       events.forEach((event) => {
         window.removeEventListener(event, handleActivity);
       });
+      window.removeEventListener("blur", handleBlur);
     };
   }, [timeout, presenceEnabled]);
 

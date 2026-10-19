@@ -27,6 +27,10 @@ Each room tab shows the entities you've assigned to that room. The **"Other"** t
 
 The active room is remembered per-device in localStorage so the kitchen kiosk defaults to "Kitchen" while a phone defaults to whatever room you last tapped.
 
+### Home Assistant dashboards
+
+Your own Home Assistant dashboards can sit beside all this: add them under Settings → Home Assistant → **Home Assistant dashboards** and a row at the top switches between **Devices** (everything on this page, and its name can be changed) and each dashboard, drawn by Home Assistant itself. Home Assistant has to allow it first; see [Home Assistant dashboards as tabs](Home-Assistant#home-assistant-dashboards-as-tabs).
+
 ### Cards
 
 Inside a room tab: one card per entity. Card type adapts to the entity domain:

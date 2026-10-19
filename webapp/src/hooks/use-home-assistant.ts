@@ -13,6 +13,7 @@ import type {
   TeslaConfig,
   EntityHistory,
   StatisticsPeriod,
+  HaDashboardChoice,
 } from "@/types/home-assistant";
 import { isPinRequired, relockSettings } from "@/lib/pin-session";
 
@@ -153,6 +154,29 @@ export function useTestHomeAssistantConnection() {
 }
 
 // Hook to save Home Assistant settings
+/**
+ * The household's Home Assistant dashboards, for picking which become tabs on
+ * Home Automation. Asked of Home Assistant through Kinboard's server; no retry,
+ * since a failure here means the page offers typing a path instead.
+ */
+export function useHaDashboardChoices(enabled: boolean) {
+  const { family } = useFamilyStore();
+
+  return useQuery({
+    queryKey: ["ha-dashboard-choices", family?.id],
+    enabled: enabled && !!family?.id,
+    retry: false,
+    staleTime: 60_000,
+    queryFn: async (): Promise<HaDashboardChoice[]> => {
+      if (!family?.id) return [];
+      const response = await fetch(`/api/homeassistant/dashboards?family_id=${family.id}`);
+      if (!response.ok) throw new Error(`listing dashboards failed (${response.status})`);
+      const data = await response.json();
+      return Array.isArray(data?.dashboards) ? data.dashboards : [];
+    },
+  });
+}
+
 export function useSaveHomeAssistantSettings() {
   const queryClient = useQueryClient();
   const { family } = useFamilyStore();
@@ -209,10 +233,13 @@ export function useSaveHomeAssistantSettings() {
 
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["home-assistant-status", family?.id] });
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["home-assistant-config", family?.id] });
       queryClient.invalidateQueries({ queryKey: ["home-assistant-entities", family?.id] });
+      // Waited for: the save is not over until the settings on screen are the
+      // saved ones, or a second quick edit would start from the old list and
+      // undo the first.
+      await queryClient.invalidateQueries({ queryKey: ["home-assistant-status", family?.id] });
     },
   });
 }

@@ -320,6 +320,52 @@ export interface HomeAssistantSettings {
    * On unless switched off: missing means on.
    */
   tile_run_tap_twice?: boolean;
+
+  // Home Assistant's own dashboards, each a tab on Home Automation
+  embedded_dashboards?: HaEmbeddedDashboard[];
+
+  /** The name of the page's own first tab, the rooms and devices; empty means "Devices" in the app's language. */
+  devices_tab_title?: string;
+
+  /**
+   * The address a browser opens Home Assistant at, for those tabs. Only set
+   * when it differs from `url`, which is the address Kinboard's server uses
+   * and may be one a tablet cannot reach (a Docker service name, say).
+   */
+  embed_url?: string;
+}
+
+/**
+ * A Home Assistant dashboard shown inside Kinboard: a tab on the Home
+ * Automation page holding the dashboard itself, in a frame. Home Assistant
+ * draws it, so custom cards and themes look as they do there. Home Assistant
+ * has to allow being shown inside another page, and the wall display signs in
+ * to it once inside the tab (wiki: Home-Assistant, "Home Assistant dashboards
+ * as tabs").
+ */
+export interface HaEmbeddedDashboard {
+  id: string;
+  /** The tab's label. */
+  title: string;
+  /** The dashboard's path in Home Assistant, as in its address: "dashboard-kitchen", "lovelace". */
+  path: string;
+  /**
+   * Hide Home Assistant's sidebar, and its header, in the tab. The kiosk-mode
+   * card (HACS) does both from the address (`?kiosk`, `?hide_sidebar`,
+   * `?hide_header`); without that card Home Assistant ignores them. The
+   * header holds the dashboard's own tabs (its views), so a dashboard with
+   * more than one keeps it.
+   */
+  hide_sidebar: boolean;
+  hide_header: boolean;
+}
+
+/** One of the household's Home Assistant dashboards, as listed for picking. */
+export interface HaDashboardChoice {
+  path: string;
+  title: string;
+  /** Home Assistant opens it for administrators only. */
+  admin_only: boolean;
 }
 
 // Service call request

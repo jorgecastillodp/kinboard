@@ -63,6 +63,37 @@ If you have solar / battery / grid sensors in HA, Kinboard can render a live ene
 
 The energy backend uses HA's `/api/history/period` and `/api/statistics` endpoints; all aggregation happens in Kinboard, not in HA.
 
+## Home Assistant dashboards as tabs
+
+Any of your Home Assistant dashboards can be a tab on Home Automation, beside the devices. Home Assistant draws it, so custom cards, themes and cameras look and work as they do in Home Assistant itself.
+
+It takes three things, and the first two happen in Home Assistant:
+
+1. **Let Kinboard show Home Assistant.** Out of the box Home Assistant refuses to be shown inside another page (the `X-Frame-Options` header, against clickjacking), and the tab stays blank or says the address refused to connect. Either:
+   - in Home Assistant, **Settings → System → Network**, turn off **Send X-Frame-Options**. Saving restarts Home Assistant, and any site could then show your Home Assistant inside itself; or
+   - behind a reverse proxy, let only Kinboard through: remove `X-Frame-Options` from Home Assistant's responses and send `Content-Security-Policy: frame-ancestors https://kinboard.example` instead. With Traefik, a middleware on Home Assistant's router:
+     ```yaml
+     http:
+       middlewares:
+         ha-frame-kinboard:
+           headers:
+             customResponseHeaders:
+               X-Frame-Options: ""
+             contentSecurityPolicy: "frame-ancestors 'self' https://kinboard.example"
+     ```
+2. **A sign-in for the wall display.** Kinboard never signs in to Home Assistant for you: Home Assistant's own sign-in page shows inside the tab the first time. Give the display a user of its own (**Settings → People → Add person**, **Allow login** on, **Administrator** off), open the tab on the display and sign in with **Keep me logged in**. Dashboards that need an administrator won't open for it; the picker marks them "admins only". Signing the display in by its address (`trusted_networks`) works too, but behind a reverse proxy Home Assistant sees the proxy's address, and a mistake there lets in everyone who comes through it.
+3. **Pick the dashboards** in Settings → Home Assistant → **Home Assistant dashboards** → **Manage**. The tabs come in the order shown there, and each display comes back to the tab it was on. Every tab can be renamed there, including the first one, with your rooms and devices.
+
+The [kiosk-mode](https://github.com/NemesisRE/kiosk-mode) card (HACS) can hide Home Assistant's sidebar and its header inside the tab. Each tab has a switch for each, both on by default; without the card they do nothing. A dashboard's own tabs (its views) are in the header, so for a dashboard with more than one view, leave the header showing.
+
+Good to know:
+
+- **https.** If Kinboard is on `https://`, Home Assistant's address has to be too, or the browser blocks the tab. If the display reaches Home Assistant at another address than Kinboard's server does (a Docker service name, say), set **Address for the browser** on the same page: an `http(s)` address without a username or password in it.
+- **Its own origin.** The tab is sandboxed so that Home Assistant can't navigate the whole display away from Kinboard, and that only holds while Home Assistant is on an origin of its own: a sibling subdomain (`ha.example.org` beside `kinboard.example.org`) is fine; served from Kinboard's own origin, it would have full access to Kinboard's page.
+- **One domain.** With Kinboard and Home Assistant under one domain (`kinboard.example.org`, `ha.example.org`) the sign-in stays. On different domains some browsers, Safari especially, may not keep a sign-in made inside another page.
+- **Screensaver.** Kinboard can't see taps inside a dashboard. It counts the first one, so a long stay in a dashboard tab can still bring the screensaver on.
+- **Microphone and camera.** Kinboard turns them off for its pages and everything shown in them, so a camera card's talk button doesn't work in a tab.
+
 ## Entity domain support
 
 Each entity domain renders with an appropriate card — slider for lights, set-point for climate, PIN keypad for alarms, and so on. Full domain-to-card reference: [Smart-Home → Cards](Smart-Home#cards).
