@@ -37,6 +37,7 @@ import {
   EMBED_HELP_URL,
   embeddedDashboards,
   moveDashboard,
+  renameDashboard,
   TAB_NAME_MAX,
 } from "@/lib/ha-embed";
 import { safeRandomUUID } from "@/lib/uuid";
@@ -72,10 +73,6 @@ export default function HaDashboardsSettingsPage() {
   useEffect(() => {
     setAddress(settings?.embed_url ?? "");
   }, [settings?.embed_url]);
-  const [devicesTitle, setDevicesTitle] = useState("");
-  useEffect(() => {
-    setDevicesTitle(settings?.devices_tab_title ?? "");
-  }, [settings?.devices_tab_title]);
 
   // Home Assistant's own list leaves out its default dashboard; the server adds
   // it as "lovelace", and it is named here in the app's language.
@@ -120,8 +117,12 @@ export default function HaDashboardsSettingsPage() {
     }
   };
 
-  const saveDevicesTitle = async () => {
-    if (await save({ devices_tab_title: devicesTitle.trim() })) toast.success(t("toastNameSaved"));
+  // A new name for a tab, from its own field: the page's first tab, or one dashboard's.
+  const saveName = async (patch: Partial<HomeAssistantSettings> | null): Promise<boolean> => {
+    if (!patch) return false;
+    const saved = await save(patch);
+    if (saved) toast.success(t("toastNameSaved"));
+    return saved;
   };
 
   const saveAddress = async () => {
@@ -201,22 +202,15 @@ export default function HaDashboardsSettingsPage() {
               {/* The page's own tab is always first: it can be renamed, not moved or removed. */}
               <Card className="p-4 flex flex-col gap-2" data-testid="ha-devices-tab">
                 <Label htmlFor="ha-devices-tab-title">{t("devicesTabLabel")}</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="ha-devices-tab-title"
-                    value={devicesTitle}
-                    onChange={(e) => setDevicesTitle(e.target.value)}
-                    placeholder={tPage("tabDevices")}
-                    maxLength={TAB_NAME_MAX}
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => void saveDevicesTitle()}
-                    disabled={busy || devicesTitle.trim() === (settings?.devices_tab_title ?? "").trim()}
-                  >
-                    {t("devicesTabSave")}
-                  </Button>
-                </div>
+                <TabNameField
+                  id="ha-devices-tab-title"
+                  value={settings?.devices_tab_title ?? ""}
+                  placeholder={tPage("tabDevices")}
+                  allowEmpty
+                  busy={busy}
+                  saveLabel={t("nameSave")}
+                  onSave={(name) => saveName({ devices_tab_title: name })}
+                />
                 <p className="text-xs text-muted-foreground">{t("devicesTabHint", { name: tPage("tabDevices") })}</p>
               </Card>
               {dashboards.length === 0 ? (
@@ -225,8 +219,19 @@ export default function HaDashboardsSettingsPage() {
                 dashboards.map((dashboard, index) => (
                   <Card key={dashboard.id} className="p-4 flex flex-col gap-3" data-testid="ha-dashboard-tab">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="font-medium truncate">{dashboard.title}</p>
+                      <div className="min-w-0 flex-1 flex flex-col gap-1">
+                        <TabNameField
+                          id={`ha-tab-name-${dashboard.id}`}
+                          value={dashboard.title}
+                          ariaLabel={t("tabNameAria", { name: dashboard.title })}
+                          allowEmpty={false}
+                          busy={busy}
+                          saveLabel={t("nameSave")}
+                          onSave={(name) => {
+                            const renamed = renameDashboard(dashboards, dashboard.id, name);
+                            return saveName(renamed && { embedded_dashboards: renamed });
+                          }}
+                        />
                         <p className="text-xs text-muted-foreground font-mono truncate">/{dashboard.path}</p>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
@@ -393,5 +398,52 @@ export default function HaDashboardsSettingsPage() {
         )}
       </div>
     </main>
+  );
+}
+
+interface TabNameFieldProps {
+  id: string;
+  /** The name as saved. */
+  value: string;
+  placeholder?: string;
+  ariaLabel?: string;
+  /** The page's first tab may be left empty (it is then called by the app's own word); a dashboard's tab keeps a name. */
+  allowEmpty: boolean;
+  busy: boolean;
+  saveLabel: string;
+  onSave: (name: string) => Promise<boolean>;
+}
+
+/**
+ * A tab's name, edited in place with its own Save (or Enter): trimmed, at most
+ * TAB_NAME_MAX long, and saved only when it changed.
+ */
+function TabNameField({ id, value, placeholder, ariaLabel, allowEmpty, busy, saveLabel, onSave }: TabNameFieldProps) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+  const name = draft.trim().slice(0, TAB_NAME_MAX);
+  const canSave = !busy && name !== value.trim() && (allowEmpty || name !== "");
+  const submit = () => {
+    if (canSave) void onSave(name);
+  };
+  return (
+    <div className="flex gap-2">
+      <Input
+        id={id}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") submit();
+        }}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        maxLength={TAB_NAME_MAX}
+      />
+      <Button variant="outline" onClick={submit} disabled={!canSave}>
+        {saveLabel}
+      </Button>
+    </div>
   );
 }
