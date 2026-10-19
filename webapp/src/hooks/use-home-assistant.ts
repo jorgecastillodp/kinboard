@@ -226,10 +226,13 @@ export function useSaveHomeAssistantSettings() {
 
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["home-assistant-status", family?.id] });
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["home-assistant-config", family?.id] });
       queryClient.invalidateQueries({ queryKey: ["home-assistant-entities", family?.id] });
+      // Waited for: the save is not over until the settings on screen are the
+      // saved ones, or a second quick edit would start from the old list and
+      // undo the first.
+      await queryClient.invalidateQueries({ queryKey: ["home-assistant-status", family?.id] });
     },
   });
 }

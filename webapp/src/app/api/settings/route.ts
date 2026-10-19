@@ -12,6 +12,7 @@ import {
 } from "@/lib/integration-secrets";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { embedUrlAcceptable, embeddedDashboards } from "@/lib/ha-embed";
 import { isFamilyTimeZone } from "@/lib/integration-event-input";
 import { checkCameraDoorbells } from "@/lib/camera-takeover";
 import { isCalendarSyncRangeDays, CALENDAR_SYNC_RANGE_DAYS } from "@/lib/calendar-sync-range";
@@ -112,7 +113,8 @@ export async function PUT(request: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const body = await request.json();
-  const { family_id, key, value } = body;
+  const { family_id, key } = body;
+  let { value } = body;
 
   const dedicated = dedicatedRoute(key);
   if (dedicated) return dedicated;
@@ -135,6 +137,21 @@ export async function PUT(request: NextRequest) {
     const doorbells = checkCameraDoorbells(value?.cameras);
     if (!doorbells.ok) {
       return NextResponse.json({ error: doorbells.error }, { status: 400 });
+    }
+  }
+
+  // Home Assistant's dashboard tabs (lib/ha-embed.ts): the address a browser
+  // opens them at must be http(s) with no username or password in it, and the
+  // tab list is stored the way the page reads it.
+  if (key === SETTINGS_KEYS.homeAssistant && value && typeof value === "object") {
+    if (!embedUrlAcceptable(value.embed_url)) {
+      return NextResponse.json(
+        { error: "embed_url must be an http(s) address without a username or password" },
+        { status: 400 }
+      );
+    }
+    if ("embedded_dashboards" in value) {
+      value = { ...value, embedded_dashboards: embeddedDashboards(value) };
     }
   }
 

@@ -11,6 +11,7 @@ import {
   dashboardFrameUrl,
   devicesTabLabel,
   embedBaseUrl,
+  embedUrlAcceptable,
   embeddedDashboards,
   kioskQuery,
   moveDashboard,
@@ -67,6 +68,18 @@ test("no frame for an address a browser can't open, or a path that would point a
     expect(dashboardFrameUrl("https://ha.example", { path, hide_sidebar: false, hide_header: false }), path).toBeNull();
   }
   expect(cleanDashboardPath("  /dashboard-kitchen/garden/ ")).toBe("dashboard-kitchen/garden");
+  // No username or password in the address the frame opens.
+  expect(dashboardFrameUrl("https://someone@ha.example", ok)).toBeNull();
+  expect(dashboardFrameUrl("https://someone:secret@ha.example", ok)).toBeNull();
+});
+
+test("the address for the browser is http(s) without a username or password, or nothing", () => {
+  for (const good of [undefined, null, "", "   ", "https://ha.example", "http://homeassistant.local:8123", "https://example.org/ha/"]) {
+    expect(embedUrlAcceptable(good), String(good)).toBe(true);
+  }
+  for (const bad of ["ftp://ha.example", "javascript:alert(1)", "not an address", "https://ha@evil.example", "https://u:p@ha.example", 42, {}]) {
+    expect(embedUrlAcceptable(bad), String(bad)).toBe(false);
+  }
 });
 
 test("an https page says why it can't show an http dashboard", () => {
@@ -185,12 +198,19 @@ test("the frame: Home Assistant's address, a name, no sandbox, and a message ins
   const frame = codeOnly(read("src/components/home-assistant/ha-dashboard-frame.tsx"));
   expect(frame).toContain("const src = dashboardFrameUrl(baseUrl, dashboard);");
   expect(frame).toMatch(/<iframe[\s\S]*?src=\{src\}[\s\S]*?title=\{t\("dashboardFrameTitle", \{ name: dashboard\.title \}\)\}/);
-  expect(frame).not.toMatch(/sandbox/);
+  // Sandboxed with what Home Assistant needs, and never the right to navigate the display away.
+  expect(frame).toContain(
+    'sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals"',
+  );
+  expect(frame).not.toContain("allow-top-navigation");
   // Only the browser knows the page's protocol: checked after mount.
   expect(frame).toMatch(/useEffect\(\(\) => \{[\s\S]*?setMixed\(src !== null && blockedAsMixedContent\(window\.location\.protocol, src\)\);/);
   expect(frame).toContain("if (src === null || mixed) {");
   expect(frame).toContain('role="alert"');
-  expect(frame).toContain("setTimeout(() => setSlow(true), FRAME_SLOW_MS)");
+  // The help link shows for the first seconds whether or not the frame says it loaded:
+  // browsers fire load for their own "refused to connect" page.
+  expect(frame).toContain("const timer = setTimeout(() => setHint(false), FRAME_HINT_MS);");
+  expect(frame).toMatch(/\{hint && \(\s*<p className="absolute inset-x-0 bottom-0/);
   expect(frame).toContain("href={EMBED_HELP_URL}");
 });
 
@@ -203,6 +223,14 @@ test("focus moving into a frame counts as activity for the screensaver", () => {
 });
 
 test("Home Assistant's list of dashboards comes through Kinboard's server, for the family's own session", () => {
+  // Saved settings: the server refuses an address with a username, a password or another scheme,
+  // and stores the tab list the way the page reads it.
+  const settingsRoute = codeOnly(read("src/app/api/settings/route.ts"));
+  expect(settingsRoute).toMatch(/if \(key === SETTINGS_KEYS\.homeAssistant && value && typeof value === "object"\) \{\s*if \(!embedUrlAcceptable\(value\.embed_url\)\) \{/);
+  expect(settingsRoute).toContain("value = { ...value, embedded_dashboards: embeddedDashboards(value) };");
+  // A save is over once the settings on screen are the saved ones.
+  const hook = codeOnly(read("src/hooks/use-home-assistant.ts"));
+  expect(hook).toMatch(/onSuccess: async \(\) => \{[\s\S]{0,400}?await queryClient\.invalidateQueries\(\{ queryKey: \["home-assistant-status", family\?\.id\] \}\);/);
   const route = codeOnly(read("src/app/api/homeassistant/dashboards/route.ts"));
   expect(route).toContain("const auth = await requireSession(request);");
   expect(route).toContain("if (!familyMatchesSession(auth.session, familyId)) {");
@@ -229,6 +257,7 @@ test("the settings page saves each change with the Home Assistant settings and t
   expect(settings).toContain("embedded_dashboards: moveDashboard(dashboards, index, 1)");
   expect(settings).toContain("if (dashboards.some((d) => cleanDashboardPath(d.path) === cleanPath)) {");
   expect(settings).toContain("await save({ embed_url: value })");
+  expect(settings).toContain("if (!embedUrlAcceptable(value)) {");
   // The first tab: renamed here, named in the app's language when left empty, as long as a tab may be.
   expect(settings).toContain("onSave={(name) => saveName({ devices_tab_title: name })}");
   // Every dashboard's tab is renamed in place, and never to nothing.
@@ -272,6 +301,7 @@ test("the wiki section every hint links to exists", () => {
   const wiki = readFileSync(join(process.cwd(), "..", "docs", "wiki", "Home-Assistant.md"), "utf8");
   expect(wiki).toContain("\n## Home Assistant dashboards as tabs\n");
   expect(wiki).toContain("Send X-Frame-Options");
+  expect(wiki).toContain("**Its own origin.**");
   expect(readFileSync(join(process.cwd(), "..", "docs", "wiki", "Smart-Home.md"), "utf8")).toContain(
     "(Home-Assistant#home-assistant-dashboards-as-tabs)",
   );

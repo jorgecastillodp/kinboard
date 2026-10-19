@@ -88,7 +88,8 @@ The [kiosk-mode](https://github.com/NemesisRE/kiosk-mode) card (HACS) can hide H
 
 Good to know:
 
-- **https.** If Kinboard is on `https://`, Home Assistant's address has to be too, or the browser blocks the tab. If the display reaches Home Assistant at another address than Kinboard's server does (a Docker service name, say), set **Address for the browser** on the same page.
+- **https.** If Kinboard is on `https://`, Home Assistant's address has to be too, or the browser blocks the tab. If the display reaches Home Assistant at another address than Kinboard's server does (a Docker service name, say), set **Address for the browser** on the same page: an `http(s)` address without a username or password in it.
+- **Its own origin.** The tab is sandboxed so that Home Assistant can't navigate the whole display away from Kinboard, and that only holds while Home Assistant is on an origin of its own: a sibling subdomain (`ha.example.org` beside `kinboard.example.org`) is fine; served from Kinboard's own origin, it would have full access to Kinboard's page.
 - **One domain.** With Kinboard and Home Assistant under one domain (`kinboard.example.org`, `ha.example.org`) the sign-in stays. On different domains some browsers, Safari especially, may not keep a sign-in made inside another page.
 - **Screensaver.** Kinboard can't see taps inside a dashboard. It counts the first one, so a long stay in a dashboard tab can still bring the screensaver on.
 - **Microphone and camera.** Kinboard turns them off for its pages and everything shown in them, so a camera card's talk button doesn't work in a tab.

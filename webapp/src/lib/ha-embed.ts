@@ -21,8 +21,12 @@ export const DEVICES_TAB = "devices";
 /** Where a display keeps the tab it was on: this browser only. */
 export const TAB_STORAGE_KEY = "kinboard:home-automation:tab";
 
-/** How long a frame may take before its tab says what Home Assistant needs. */
-export const FRAME_SLOW_MS = 10_000;
+/**
+ * How long a newly opened tab shows its help link under the frame. Not tied to
+ * the frame's load: a browser fires `load` for its own "refused to connect"
+ * page too, which is the commonest way this goes wrong.
+ */
+export const FRAME_HINT_MS = 8_000;
 
 /** The longest name a tab takes; the row of tabs has to fit on a wall display. */
 export const TAB_NAME_MAX = 40;
@@ -35,12 +39,35 @@ export const EMBED_HELP_URL =
  * A dashboard path as Home Assistant writes it in its address — "lovelace",
  * "dashboard-kitchen", or one of its views, "dashboard-kitchen/garden" — with
  * slashes at either end dropped. Null for anything else: letters, digits, `-`
- * and `_` in one or two parts, so nothing typed here can point a frame at
- * anything but a page of the household's own Home Assistant.
+ * and `_` in one or two parts, so a typed path can only name a page on the
+ * Home Assistant the address points at, never add a host, a query or a
+ * fragment. That address is the household's to set (`embedUrlAcceptable`).
  */
 export function cleanDashboardPath(input: string): string | null {
   const path = input.trim().replace(/^\/+|\/+$/g, "");
   return /^[A-Za-z0-9_-]+(\/[A-Za-z0-9_-]+)?$/.test(path) ? path : null;
+}
+
+/**
+ * The address a browser opens Home Assistant at for the tabs, as it may be
+ * saved: empty (Kinboard's own address is used then), or http(s) with no
+ * username or password in it. The server checks it when the settings are
+ * saved, and the settings page before sending them; which host it names is
+ * the household's choice, behind the settings PIN like the rest of the
+ * integration's settings.
+ */
+export function embedUrlAcceptable(value: unknown): boolean {
+  if (value === undefined || value === null) return true;
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (trimmed === "") return true;
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    return false;
+  }
+  return (url.protocol === "http:" || url.protocol === "https:") && url.username === "" && url.password === "";
 }
 
 /**
@@ -73,6 +100,7 @@ export function dashboardFrameUrl(
     return null;
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  if (url.username !== "" || url.password !== "") return null;
   const view = path.includes("/") ? path : `${path}/0`;
   // A base path a reverse proxy put Home Assistant under is kept.
   url.pathname = `${url.pathname.replace(/\/+$/, "")}/${view}`;

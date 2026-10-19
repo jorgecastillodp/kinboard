@@ -9,7 +9,7 @@ import {
   blockedAsMixedContent,
   dashboardFrameUrl,
   EMBED_HELP_URL,
-  FRAME_SLOW_MS,
+  FRAME_HINT_MS,
 } from "@/lib/ha-embed";
 import type { HaEmbeddedDashboard } from "@/types/home-assistant";
 
@@ -23,11 +23,15 @@ interface HaDashboardFrameProps {
  * One Home Assistant dashboard, drawn by Home Assistant inside a frame that
  * fills the rest of the screen. Kinboard cannot see into it: when Home
  * Assistant refuses to be shown inside another page, the browser puts its own
- * error page in the frame, so a load that takes long gets a hint pointing at
- * the setting that allows it.
+ * error page in the frame (and calls it loaded), so every newly opened tab
+ * shows its help link under the frame for a few seconds.
  *
- * No `sandbox`: this is the household's own Home Assistant, which needs its
- * scripts, its storage (to stay signed in) and its forms. Camera and
+ * Sandboxed with what Home Assistant needs — its scripts, its storage (to stay
+ * signed in), its forms, popups and dialogs — and without
+ * `allow-top-navigation`, so nothing framed can send the whole display away
+ * from Kinboard. That holds only while Home Assistant is on an origin of its
+ * own (a sibling subdomain is fine): under Kinboard's own origin, scripts and
+ * the same origin together could reach into Kinboard's page. Camera and
  * microphone stay unavailable in here — Kinboard's Permissions-Policy turns
  * them off for the page and every frame in it, so a camera card's talk button
  * cannot work in a tab.
@@ -36,15 +40,15 @@ export function HaDashboardFrame({ dashboard, baseUrl }: HaDashboardFrameProps) 
   const t = useTranslations("homeAutomation");
   const src = dashboardFrameUrl(baseUrl, dashboard);
   const [loaded, setLoaded] = useState(false);
-  const [slow, setSlow] = useState(false);
+  const [hint, setHint] = useState(true);
   // The page's protocol is only known in the browser; the first render is the server's.
   const [mixed, setMixed] = useState(false);
 
   useEffect(() => {
     setLoaded(false);
-    setSlow(false);
+    setHint(true);
     setMixed(src !== null && blockedAsMixedContent(window.location.protocol, src));
-    const timer = setTimeout(() => setSlow(true), FRAME_SLOW_MS);
+    const timer = setTimeout(() => setHint(false), FRAME_HINT_MS);
     return () => clearTimeout(timer);
   }, [src]);
 
@@ -73,6 +77,7 @@ export function HaDashboardFrame({ dashboard, baseUrl }: HaDashboardFrameProps) 
         title={t("dashboardFrameTitle", { name: dashboard.title })}
         className="absolute inset-0 size-full border-0"
         allow="fullscreen; autoplay"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals"
         referrerPolicy="no-referrer"
         onLoad={() => setLoaded(true)}
       />
@@ -80,15 +85,15 @@ export function HaDashboardFrame({ dashboard, baseUrl }: HaDashboardFrameProps) 
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card p-6 text-center">
           <Loader2 className="size-6 animate-spin text-muted-foreground" aria-hidden="true" />
           <p className="text-sm text-muted-foreground">{t("dashboardLoading", { name: dashboard.title })}</p>
-          {slow && (
-            <p className="max-w-md text-sm text-muted-foreground">
-              {t("dashboardSlowHint")}{" "}
-              <a href={EMBED_HELP_URL} target="_blank" rel="noopener noreferrer" className="underline">
-                {t("dashboardHelpLink")}
-              </a>
-            </p>
-          )}
         </div>
+      )}
+      {hint && (
+        <p className="absolute inset-x-0 bottom-0 border-t border-border bg-card px-4 py-2 text-center text-xs text-muted-foreground">
+          {t("dashboardSlowHint")}{" "}
+          <a href={EMBED_HELP_URL} target="_blank" rel="noopener noreferrer" className="underline">
+            {t("dashboardHelpLink")}
+          </a>
+        </p>
       )}
     </div>
   );
