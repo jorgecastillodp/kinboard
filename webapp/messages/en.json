@@ -1569,6 +1569,8 @@
       "snapshotUrlLabel": "Snapshot URL (optional)",
       "snapshotUrlPlaceholder": "http://192.168.1.100/snapshot.jpg",
       "snapshotUrlHint": "Optional. Only needed if your camera publishes an HTTP still image you would rather use — RTSP cameras get their picture from the stream.",
+      "scanlinesLabel": "Scanline effect",
+      "scanlinesHint": "Faint horizontal lines over this camera's tile, like a security monitor. The full-screen view never has them.",
       "authLabel": "Authentication",
       "authTypeLabel": "Auth type",
       "authTypeDigest": "Digest (Hikvision, Amcrest)",
@@ -1693,7 +1695,11 @@
       "info6": "Real-time updates every 15 seconds",
       "connectedLabel": "Connected",
       "resyncButton": "Re-sync",
-      "savedToast": "Re-synced with Home Assistant"
+      "savedToast": "Re-synced with Home Assistant",
+      "tileRunHeading": "Scripts and scenes on tiles",
+      "tileRunLabel": "Tap twice",
+      "tileRunHint": "The first tap arms the button for 3 seconds and the second runs it, so a stray tap can't open a gate or unlock a door. Off: one tap runs it.",
+      "tileRunSaveFailed": "Couldn't save. Try again."
     },
     "homeassistantRooms": {
       "backAria": "Back",
@@ -3007,6 +3013,7 @@
       "photos_albums": "albums, album, Immich, choose photos",
       "photos_search-terms": "search terms, monthly, Unsplash, topics, keywords",
       "homeassistant_dashboard-cards": "dashboard cards, Lovelace, cards, Home Assistant dashboard",
+      "homeassistant_tile-run": "tap twice, second tap, confirm, script, scene, gate, accidental tap, run",
       "integrations_assistants": "AI assistants, ChatGPT, Claude, MCP, OAuth, connect assistant",
       "integrations_create-token": "new token, create token, API key, access",
       "integrations_tokens": "existing tokens, revoke, API keys, access",
@@ -3779,7 +3786,8 @@
     "unreachableBody": "Nothing here can be controlled until the connection is back.",
     "unreachableRetry": "Try again",
     "roomsUnavailable": "Rooms couldn't be loaded right now.",
-    "unreachableSettings": "Check connection"
+    "unreachableSettings": "Check connection",
+    "tapAgain": "Tap again"
   },
   "catalogue": {
     "title": "Things in your house",

@@ -1569,6 +1569,8 @@
       "snapshotUrlLabel": "URL d'instantané (optionnel)",
       "snapshotUrlPlaceholder": "http://192.168.1.100/snapshot.jpg",
       "snapshotUrlHint": "Facultatif. Utile uniquement si votre caméra publie une image fixe HTTP que vous préférez utiliser — les caméras RTSP tirent leur image du flux.",
+      "scanlinesLabel": "Effet de lignes de balayage",
+      "scanlinesHint": "De fines lignes horizontales sur la vignette de cette caméra, comme sur un moniteur de surveillance. Jamais en plein écran.",
       "authLabel": "Authentification",
       "authTypeLabel": "Type d'authentification",
       "authTypeDigest": "Digest (Hikvision, Amcrest)",
@@ -1693,7 +1695,11 @@
       "info6": "Mises à jour en temps réel toutes les 15 secondes",
       "connectedLabel": "Connecté",
       "resyncButton": "Resynchroniser",
-      "savedToast": "Resynchronisé avec Home Assistant"
+      "savedToast": "Resynchronisé avec Home Assistant",
+      "tileRunHeading": "Scripts et scènes sur les vignettes",
+      "tileRunLabel": "Toucher deux fois",
+      "tileRunHint": "Le premier toucher arme le bouton pendant 3 secondes et le second le lance : un toucher par erreur n'ouvre ni portail ni porte. Désactivé : un seul toucher le lance.",
+      "tileRunSaveFailed": "Échec de l'enregistrement. Réessayez."
     },
     "homeassistantRooms": {
       "backAria": "Retour",
@@ -3007,6 +3013,7 @@
       "photos_albums": "albums, album, Immich, choisir les photos",
       "photos_search-terms": "termes de recherche, mensuel, Unsplash, thèmes, mots-clés",
       "homeassistant_dashboard-cards": "cartes du tableau de bord, Lovelace, cartes, tableau de bord Home Assistant",
+      "homeassistant_tile-run": "toucher deux fois, second toucher, confirmer, script, scène, portail, par erreur, lancer",
       "integrations_assistants": "assistants IA, IA, ChatGPT, Claude, MCP, OAuth, connecter un assistant",
       "integrations_create-token": "nouveau jeton, créer un jeton, clé API, accès",
       "integrations_tokens": "jetons existants, révoquer, clés API, accès",
@@ -3779,7 +3786,8 @@
     "unreachableBody": "Rien n'est contrôlable ici tant que la connexion n'est pas rétablie.",
     "unreachableRetry": "Réessayer",
     "roomsUnavailable": "Impossible de charger les pièces pour le moment.",
-    "unreachableSettings": "Vérifier la connexion"
+    "unreachableSettings": "Vérifier la connexion",
+    "tapAgain": "Touchez encore"
   },
   "catalogue": {
     "title": "Les objets de la maison",
