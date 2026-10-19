@@ -117,9 +117,16 @@ export function CameraViewer({
   const initWebRTCRef = useRef<() => void>(() => {});
   const rtspLiveRef = useRef(false);
 
+  // The <video> showing now — the tile's, or the fullscreen dialog's — kept as
+  // state too, because the frame watch below has to start over when it
+  // changes, and a ref changing re-runs nothing. Opening fullscreen unmounts
+  // the tile's and mounts the dialog's a render later.
+  const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
+
   // Callback ref to attach stream when video element mounts
   const setVideoRef = useCallback((el: HTMLVideoElement | null) => {
     videoRef.current = el;
+    setVideoEl(el);
     if (el && streamRef.current) {
       el.srcObject = streamRef.current;
     }
@@ -309,10 +316,11 @@ export function CameraViewer({
     } catch (err) {
       console.error("WebRTC error:", err);
       if (isFallbackCapable) {
-        setRtspLive(false);
         // Only for the attempt still current: one replaced or torn down meanwhile
-        // has nobody left to try again for.
+        // has nobody left to try again for, and must not switch a newer, live
+        // picture back to the stills.
         if (attempt && pcRef.current === attempt) {
+          setRtspLive(false);
           cleanupWebRTC();
           recoveryRef.current?.failed();
         }
@@ -346,6 +354,9 @@ export function CameraViewer({
   const handleVideoError = () => {
     if (stream_type === "rtsp") {
       setRtspLive(false);
+      // A <video> that gave up is a failed attempt like any other: try again.
+      cleanupWebRTC();
+      recoveryRef.current?.failed();
     } else {
       handleError(t("errorVideoLoad"));
     }
@@ -407,7 +418,7 @@ export function CameraViewer({
   // fullscreen dialog's). `timeupdate` where frame callbacks are missing.
   useEffect(() => {
     if (!rtspLive) return;
-    const video = videoRef.current;
+    const video = videoEl;
     if (!video) return;
     const frame = () => recoveryRef.current?.frame();
     if (typeof video.requestVideoFrameCallback === "function") {
@@ -426,7 +437,7 @@ export function CameraViewer({
     }
     video.addEventListener("timeupdate", frame);
     return () => video.removeEventListener("timeupdate", frame);
-  }, [rtspLive, fullscreenOpen]);
+  }, [rtspLive, videoEl]);
 
   // Back on the page, or back online: try again at once rather than wait out the delay.
   useEffect(() => {

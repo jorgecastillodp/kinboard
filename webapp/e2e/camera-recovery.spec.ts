@@ -51,14 +51,16 @@ function fakeTime() {
 function harness() {
   const time = fakeTime();
   const calls = { start: 0, drop: 0 };
+  const page = { hidden: false };
   const recovery = createRtspRecovery({
     start: () => void calls.start++,
     drop: () => void calls.drop++,
     setTimer: time.setTimer,
     clearTimer: time.clearTimer,
     now: time.now,
+    hidden: () => page.hidden,
   });
-  return { time, calls, recovery };
+  return { time, calls, recovery, page };
 }
 
 test("the waits grow after each failure, then repeat every 30 seconds", () => {
@@ -169,6 +171,22 @@ test("a manual retry forgets the failures and the pending attempt; after dispose
 
 const viewer = () => codeOnly(readFileSync(join(process.cwd(), "src/components/camera-viewer.tsx"), "utf8"));
 
+test("while nobody can see the page no attempt is scheduled; coming back tries at once", () => {
+  const { time, calls, recovery, page } = harness();
+  page.hidden = true;
+  recovery.failed();
+  expect(time.pending()).toBe(0);
+  time.advance(120_000);
+  expect(calls.start).toBe(0);
+  page.hidden = false;
+  recovery.wake(false);
+  expect(calls.start).toBe(1);
+  // Visible again, a failure waits the shortest time, as after any fresh start.
+  recovery.failed();
+  time.advance(2_000);
+  expect(calls.start).toBe(2);
+});
+
 test("the viewer reports every way an attempt ends without a picture", () => {
   const src = viewer();
   // Lost: failed or closed at once, disconnected after a grace period.
@@ -176,13 +194,22 @@ test("the viewer reports every way an attempt ends without a picture", () => {
   expect(src).toMatch(/pcRef\.current === pc && pc\.iceConnectionState === "disconnected"\) \{\s*cleanupWebRTC\(\);\s*recoveryRef\.current\?\.failed\(\);\s*\}\s*\}, DISCONNECTED_GRACE_MS\)/);
   // No video arrived.
   expect(src).toMatch(/keeping the snapshot"\);\s*cleanupWebRTC\(\);\s*recoveryRef\.current\?\.failed\(\);/);
-  // Signalling failed, for the attempt still current only.
-  expect(src).toMatch(/if \(attempt && pcRef\.current === attempt\) \{\s*cleanupWebRTC\(\);\s*recoveryRef\.current\?\.failed\(\);/);
+  // Signalling failed, for the attempt still current only: an older attempt's late failure
+  // must not switch a newer, live picture back to the stills.
+  expect(src).toMatch(/if \(attempt && pcRef\.current === attempt\) \{\s*setRtspLive\(false\);\s*cleanupWebRTC\(\);\s*recoveryRef\.current\?\.failed\(\);/);
+  expect(src).not.toMatch(/if \(isFallbackCapable\) \{\s*setRtspLive\(false\);/);
+  // The <video> gave up.
+  expect(src).toMatch(/const handleVideoError = \(\) => \{\s*if \(stream_type === "rtsp"\) \{\s*setRtspLive\(false\);[\s\S]{0,120}?cleanupWebRTC\(\);\s*recoveryRef\.current\?\.failed\(\);/);
 });
 
 test("the viewer watches frames, checks for a frozen picture on a visible page, wakes, retries by hand and cleans up", () => {
   const src = viewer();
   expect(src).toContain("video.requestVideoFrameCallback(onFrame)");
+  // Whichever <video> shows now: the frame watch follows the element itself, held as state by the
+  // callback ref, so opening fullscreen (the dialog's <video> mounts a render later) restarts it.
+  expect(src).toMatch(/const setVideoRef = useCallback\(\(el: HTMLVideoElement \| null\) => \{\s*videoRef\.current = el;\s*setVideoEl\(el\);/);
+  expect(src).toMatch(/const video = videoEl;\s*if \(!video\) return;/);
+  expect(src).toContain("}, [rtspLive, videoEl]);");
   expect(src).toContain('video.addEventListener("timeupdate", frame);');
   expect(src).toMatch(/if \(document\.visibilityState === "visible"\) recoveryRef\.current\?\.check\(\);\s*\}, FROZEN_CHECK_MS\)/);
   expect(src).toContain('document.addEventListener("visibilitychange", wake);');
