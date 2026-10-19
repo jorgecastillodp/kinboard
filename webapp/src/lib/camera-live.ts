@@ -224,6 +224,8 @@ export interface RecoveryHooks {
   setTimer?(callback: () => unknown, ms: number): unknown;
   clearTimer?(handle: unknown): void;
   now?(): number;
+  /** Nobody can see the page: no new attempt is scheduled until it is back (`wake`). */
+  hidden?(): boolean;
 }
 
 export interface RtspRecovery {
@@ -249,6 +251,7 @@ export function createRtspRecovery(hooks: RecoveryHooks): RtspRecovery {
   const setTimer = hooks.setTimer ?? ((callback: () => unknown, ms: number) => setTimeout(callback, ms));
   const clearTimer = hooks.clearTimer ?? ((handle: unknown) => clearTimeout(handle as ReturnType<typeof setTimeout>));
   const now = hooks.now ?? (() => performance.now());
+  const hidden = hooks.hidden ?? (() => typeof document !== "undefined" && document.visibilityState === "hidden");
   let failures = 0;
   let retryTimer: unknown = null;
   let liveSince: number | null = null;
@@ -265,6 +268,8 @@ export function createRtspRecovery(hooks: RecoveryHooks): RtspRecovery {
     lastFrameAt = null;
     // One attempt pending at a time: several signals about one lost connection are one failure.
     if (disposed || retryTimer !== null) return;
+    // Nobody is looking: wait. Coming back to the page (wake) tries at once.
+    if (hidden()) return;
     const delay = retryDelay(failures);
     failures += 1;
     // dispose() cancels this timer, and nothing schedules one after it.
