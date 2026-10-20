@@ -3169,7 +3169,45 @@
       "taskTitle": "✓ {title}",
       "taskTitleWithPerson": "✓ {title} · {person}",
       "tasksMissedCount": "{count, plural, one {# nicht erledigt} other {# nicht erledigt}}"
-    }
+    },
+    "fieldRepeat": "Wiederholen",
+    "repeat": {
+      "never": "Nie",
+      "daily": "Täglich",
+      "weekly": "Wöchentlich",
+      "biweekly": "Alle 2 Wochen",
+      "monthly": "Monatlich",
+      "yearly": "Jährlich",
+      "custom": "Eigene Tage"
+    },
+    "repeatLocalOnly": "Wiederholungen gibt es für Kinboards eigene Kalender. Bei einem Google- oder CalDAV-Kalender richtest du sie dort ein.",
+    "repeatEnds": "Endet",
+    "repeatEndsNever": "Nie",
+    "repeatClearEnd": "Enddatum entfernen",
+    "repeatPickDay": "Wähle mindestens einen Tag für die Wiederholung.",
+    "repeatSummary": {
+      "daily": "Wiederholt sich täglich",
+      "weekly": "Wiederholt sich wöchentlich",
+      "biweekly": "Wiederholt sich alle 2 Wochen",
+      "monthly": "Wiederholt sich monatlich",
+      "yearly": "Wiederholt sich jährlich",
+      "custom": "Wiederholt sich wöchentlich am {days}"
+    },
+    "repeatSummaryUntil": "{what}, bis {date}",
+    "editSeriesTitle": "Wiederkehrenden Termin ändern",
+    "editSeriesBody": "Nur diesen Termin ändern oder alle Termine der Serie? Bei allen Terminen gilt eine neue Uhrzeit oder ein neuer Tag ab diesem Termin (oder ab heute, wenn er noch bevorsteht); frühere Termine und einzeln geänderte oder gelöschte Termine bleiben, wie sie sind.",
+    "deleteSeriesTitle": "Wiederkehrenden Termin löschen",
+    "deleteSeriesBody": "Nur diesen Termin löschen, diesen und alle folgenden oder die ganze Serie?",
+    "repeatChangeTitle": "Wiederholung ändern?",
+    "repeatChangeBody": "Die Serie folgt der neuen Wiederholung ab diesem Termin, oder ab heute, wenn er noch bevorsteht. Frühere Termine bleiben, wie sie sind, ebenso einzeln geänderte oder gelöschte Termine.",
+    "repeatChangeConfirm": "Wiederholung ändern",
+    "repeatStopTitle": "Wiederholung beenden?",
+    "repeatStopBody": "Dieser Termin und die früheren bleiben. Die späteren werden gelöscht.",
+    "repeatStopConfirm": "Wiederholung beenden",
+    "scopeThis": "Dieser Termin",
+    "scopeFollowing": "Dieser und alle folgenden",
+    "scopeAll": "Alle Termine",
+    "seriesDeleted": "Wiederkehrender Termin gelöscht"
   },
   "weather": {
     "title": "Wetter",

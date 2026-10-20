@@ -19,6 +19,7 @@ import {
   Trash2,
   Pencil,
   Search,
+  Repeat,
 } from "lucide-react";
 import {
   format,
@@ -93,6 +94,17 @@ import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmente
 import { MonthView, WeekView } from "@/components/calendar";
 import { ErrorState } from "@/components/error-state";
 import { LocationAutocomplete } from "@/components/location-autocomplete";
+import {
+  NO_REPEAT,
+  RepeatFields,
+  repeatValueFromRule,
+  ruleFromRepeatValue,
+  sameRepeat,
+  useRepeatSummary,
+  type RepeatValue,
+} from "@/components/calendar/repeat-fields";
+import { formatRepeatRule } from "@/lib/event-repeat";
+import { takesRepeatingEvents } from "@/lib/local-calendars";
 import { PageHeader } from "@/components/page-header";
 import { EventPill } from "@/components/event-pill";
 import { PersonChip } from "@/components/person-chip";
@@ -105,6 +117,9 @@ import {
   useCreateEvent,
   useUpdateEvent,
   useDeleteEvent,
+  useCreateEventSeries,
+  useUpdateEventSeries,
+  useDeleteEventSeries,
   usePeople,
   useCalendars,
   useTodos,
@@ -155,7 +170,14 @@ interface CalendarEvent {
   calendar_name?: string;
   is_holiday?: boolean;
   is_waste_collection?: boolean;
+  calendar_id?: string;
+  /** Set on an occurrence of a repeating event, with the repeat as RRULE text. */
+  series_id?: string;
+  recurrence_rule?: string;
 }
+
+/** Which occurrences of a repeating event a change or a delete is for. */
+type SeriesScope = "this" | "following" | "all";
 
 function CalendarSkeleton({ view = "month" }: { view?: "month" | "week" }) {
   if (view === "week") {
@@ -243,7 +265,7 @@ export default function CalendarPage() {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [editMode, setEditMode] = useState(false);
-  const [editForm, setEditForm] = useState({ title: "", location: "", startDate: new Date(), endDate: new Date(), startTime: "", endTime: "", allDay: false, person_id: null as string | null });
+  const [editForm, setEditForm] = useState({ title: "", location: "", startDate: new Date(), endDate: new Date(), startTime: "", endTime: "", allDay: false, person_id: null as string | null, repeat: NO_REPEAT as RepeatValue });
   const [view, setView] = useState<"month" | "week">("month");
 
   // Person filter — default: all selected (null = "all", lazily initialized once people load)
@@ -273,6 +295,7 @@ export default function CalendarPage() {
     location: "",
     calendar_id: "",
     person_id: "" as string | null,
+    repeat: NO_REPEAT as RepeatValue,
   });
 
   // Calculate date range based on view
@@ -383,6 +406,35 @@ export default function CalendarPage() {
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
+  const createSeries = useCreateEventSeries();
+  const updateSeries = useUpdateEventSeries();
+  const deleteSeries = useDeleteEventSeries();
+  // While a series is being written, Add and Save wait: a second tap on a slow
+  // screen would otherwise write it twice.
+  const seriesBusy = createSeries.isPending || updateSeries.isPending || deleteSeries.isPending;
+  const repeatSummary = useRepeatSummary();
+  // Repeats are for Kinboard's own calendars: lib/event-series.ts makes their occurrences.
+  const repeatableCalendar = (calendarId: string | undefined) => {
+    const calendar = calendars?.find((c) => c.id === calendarId);
+    return !!calendar && takesRepeatingEvents(calendar);
+  };
+  // A change or a delete on one occurrence of a repeating event asks which ones
+  // it is for; a new repeat ("repeat") or none ("stop") is for the whole series
+  // and only asks to go ahead.
+  const [scopeAsk, setScopeAsk] = useState<null | {
+    kind: "edit" | "delete" | "repeat" | "stop";
+    run: (scope: SeriesScope) => Promise<void>;
+  }>(null);
+  const runScope = async (scope: SeriesScope) => {
+    const ask = scopeAsk;
+    setScopeAsk(null);
+    if (!ask) return;
+    try {
+      await ask.run(scope);
+    } catch {
+      toast.error(ask.kind === "delete" ? t("toastDeleteFailed") : t("toastUpdateFailed"));
+    }
+  };
   const queryClient = useQueryClient();
   const { family } = useFamilyStore();
 
@@ -418,7 +470,7 @@ export default function CalendarPage() {
   // Set default calendar when dialog opens
   const openAddDialog = () => {
     const calendarId = defaultCalendarId || calendars?.[0]?.id || "";
-    setNewEvent((prev) => ({ ...prev, calendar_id: calendarId, title: "", person_id: null }));
+    setNewEvent((prev) => ({ ...prev, calendar_id: calendarId, title: "", person_id: null, repeat: NO_REPEAT }));
     setAddDialogOpen(true);
   };
 
@@ -443,6 +495,9 @@ export default function CalendarPage() {
       calendar_name: event.calendar?.name,
       is_holiday: event.calendar?.is_holidays ?? false,
       is_waste_collection: event.calendar?.is_waste_collection ?? false,
+      calendar_id: event.calendar_id,
+      series_id: event.series_id ?? undefined,
+      recurrence_rule: event.recurrence_rule ?? undefined,
     };
   }, [people]);
 
@@ -616,16 +671,38 @@ export default function CalendarPage() {
       return;
     }
 
+    // A repeat, in a calendar that takes one; custom days need at least one day.
+    const repeats = repeatableCalendar(newEvent.calendar_id) && newEvent.repeat.choice !== "never";
+    const rule = repeats ? ruleFromRepeatValue(newEvent.repeat) : null;
+    if (repeats && !rule) {
+      toast.error(t("repeatPickDay"));
+      return;
+    }
+
     try {
-      await createEvent.mutateAsync({
-        calendar_id: newEvent.calendar_id,
-        title: newEvent.title,
-        start_at: start.toISOString(),
-        end_at: end.toISOString(),
-        all_day: newEvent.allDay,
-        location: newEvent.location || undefined,
-        person_id: newEvent.person_id || null,
-      });
+      if (rule) {
+        await createSeries.mutateAsync({
+          calendar_id: newEvent.calendar_id,
+          title: newEvent.title,
+          start_at: start.toISOString(),
+          end_at: end.toISOString(),
+          all_day: newEvent.allDay,
+          location: newEvent.location || null,
+          person_id: newEvent.person_id || null,
+          rule: formatRepeatRule(rule),
+          time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        });
+      } else {
+        await createEvent.mutateAsync({
+          calendar_id: newEvent.calendar_id,
+          title: newEvent.title,
+          start_at: start.toISOString(),
+          end_at: end.toISOString(),
+          all_day: newEvent.allDay,
+          location: newEvent.location || undefined,
+          person_id: newEvent.person_id || null,
+        });
+      }
 
       setAddDialogOpen(false);
       setNewEvent({
@@ -638,9 +715,49 @@ export default function CalendarPage() {
         location: "",
         calendar_id: "",
         person_id: null,
+        repeat: NO_REPEAT,
       });
     } catch {
       toast.error(t("toastCreateFailed"));
+    }
+  };
+
+  // Delete one event, with an undo toast. Also "This event" for an occurrence of a repeating one.
+  const deleteOneEvent = async (event: CalendarEvent) => {
+    // The loaded-range query misses events opened via
+    // ?event= deep-link whose date falls outside the
+    // current view — fall back to the byId row so the
+    // undo snapshot isn't empty. Both queries select
+    // the same shape (raw row + joined calendar).
+    const rawEvent =
+      eventsData?.find((e) => e.id === event.id) ??
+      (deepLinkEventData?.id === event.id ? deepLinkEventData : undefined);
+    try {
+      await deleteEvent.mutateAsync(event.id);
+      closeEventDetail();
+      if (rawEvent) {
+        const { calendar: _calendar, ...eventSnapshot } = rawEvent;
+        showUndoToast({
+          message: t("eventDeleted"),
+          undoLabel: tCommon("undo"),
+          errorMessage: tCommon("undoFailed"),
+          onUndo: async () => {
+            const supabase = createClient();
+            // useDeleteEvent already deleted the Google-side copy before the
+            // local delete — undo can only restore the local row, so the
+            // Google link is nulled to avoid pointing at a deleted event.
+            const { error } = await (supabase as any)
+              .from("events")
+              .insert({ ...eventSnapshot, google_event_id: null });
+            if (error) throw error;
+            if (family?.id) {
+              queryClient.invalidateQueries({ queryKey: queryKeys.events(family.id) });
+            }
+          },
+        });
+      }
+    } catch {
+      toast.error(t("toastDeleteFailed"));
     }
   };
 
@@ -884,6 +1001,15 @@ export default function CalendarPage() {
                       </>
                     )}
 
+                    {/* Repeat */}
+                    <RepeatFields
+                      idPrefix="add"
+                      value={newEvent.repeat}
+                      onChange={(repeat) => setNewEvent((prev) => ({ ...prev, repeat }))}
+                      startDate={newEvent.date}
+                      disabled={!repeatableCalendar(newEvent.calendar_id)}
+                    />
+
                     {/* Location */}
                     <div className="flex flex-col gap-2">
                       <Label htmlFor="location">{t("fieldLocation")}</Label>
@@ -995,9 +1121,9 @@ export default function CalendarPage() {
                     <Button
                       className="w-full"
                       onClick={handleAddEvent}
-                      disabled={!newEvent.title.trim() || !newEvent.calendar_id || createEvent.isPending}
+                      disabled={!newEvent.title.trim() || !newEvent.calendar_id || createEvent.isPending || seriesBusy}
                     >
-                      {createEvent.isPending ? (
+                      {createEvent.isPending || createSeries.isPending ? (
                         <>
                           <Loader2 className="size-4 mr-2 animate-spin" />
                           {t("creating")}
@@ -1737,6 +1863,17 @@ export default function CalendarPage() {
                   </>
                 )}
 
+                {/* Repeat */}
+                {selectedEvent && (
+                  <RepeatFields
+                    idPrefix="edit"
+                    value={editForm.repeat}
+                    onChange={(repeat) => setEditForm({ ...editForm, repeat })}
+                    startDate={editForm.startDate}
+                    disabled={!repeatableCalendar(selectedEvent.calendar_id)}
+                  />
+                )}
+
                 {/* Location */}
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="edit-location">{t("fieldLocation")}</Label>
@@ -1792,7 +1929,7 @@ export default function CalendarPage() {
                   </Button>
                   <Button
                     className="flex-1"
-                    disabled={!editForm.title.trim() || updateEvent.isPending}
+                    disabled={!editForm.title.trim() || updateEvent.isPending || seriesBusy}
                     onClick={async () => {
                       if (!selectedEvent) return;
 
@@ -1811,28 +1948,78 @@ export default function CalendarPage() {
                         return;
                       }
 
-                      try {
-                        await updateEvent.mutateAsync({
-                          id: selectedEvent.id,
-                          title: editForm.title,
-                          // null, not undefined — an undefined key is
-                          // dropped from the JSON body, so clearing a
-                          // location silently kept the old one.
-                          location: editForm.location || null,
-                          start_at: start.toISOString(),
-                          end_at: end.toISOString(),
-                          all_day: editForm.allDay,
-                          person_id: editForm.person_id,
-                        });
-
+                      const change = {
+                        title: editForm.title,
+                        // null, not undefined — an undefined key is
+                        // dropped from the JSON body, so clearing a
+                        // location silently kept the old one.
+                        location: editForm.location || null,
+                        start_at: start.toISOString(),
+                        end_at: end.toISOString(),
+                        all_day: editForm.allDay,
+                        person_id: editForm.person_id,
+                      };
+                      const repeatable = repeatableCalendar(selectedEvent.calendar_id);
+                      const rule = repeatable ? ruleFromRepeatValue(editForm.repeat) : null;
+                      if (repeatable && editForm.repeat.choice !== "never" && !rule) {
+                        toast.error(t("repeatPickDay"));
+                        return;
+                      }
+                      const event = selectedEvent;
+                      const finish = () => {
                         setEditMode(false);
                         closeEventDetail();
+                      };
+
+                      try {
+                        if (event.series_id) {
+                          const seriesId = event.series_id;
+                          if (repeatable && !sameRepeat(editForm.repeat, repeatValueFromRule(event.recurrence_rule))) {
+                            // A new repeat, or none, is a change to the whole series: asked first.
+                            setScopeAsk({
+                              kind: rule ? "repeat" : "stop",
+                              run: async () => {
+                                await updateSeries.mutateAsync({
+                                  series_id: seriesId,
+                                  occurrence_id: event.id,
+                                  ...change,
+                                  rule: rule ? formatRepeatRule(rule) : null,
+                                });
+                                finish();
+                              },
+                            });
+                          } else {
+                            setScopeAsk({
+                              kind: "edit",
+                              run: async (scope) => {
+                                if (scope === "this") await updateEvent.mutateAsync({ id: event.id, ...change });
+                                else await updateSeries.mutateAsync({ series_id: seriesId, occurrence_id: event.id, ...change });
+                                finish();
+                              },
+                            });
+                          }
+                        } else if (rule && event.calendar_id) {
+                          // A single event that now repeats becomes the first of a series.
+                          await createSeries.mutateAsync({
+                            calendar_id: event.calendar_id,
+                            ...change,
+                            // The dialog has no description field; the event's own goes along.
+                            description: event.description ?? null,
+                            rule: formatRepeatRule(rule),
+                            time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                          });
+                          await deleteEvent.mutateAsync(event.id);
+                          finish();
+                        } else {
+                          await updateEvent.mutateAsync({ id: event.id, ...change });
+                          finish();
+                        }
                       } catch {
                         toast.error(t("toastUpdateFailed"));
                       }
                     }}
                   >
-                    {updateEvent.isPending ? (
+                    {updateEvent.isPending || seriesBusy ? (
                       <>
                         <Loader2 className="size-4 mr-2 animate-spin" />
                         {t("saving")}
@@ -1891,6 +2078,13 @@ export default function CalendarPage() {
                       </div>
                     </div>
 
+                    {repeatSummary(selectedEvent.recurrence_rule) && (
+                      <div className="flex items-center gap-3 text-muted-foreground">
+                        <Repeat className="size-5" />
+                        <p>{repeatSummary(selectedEvent.recurrence_rule)}</p>
+                      </div>
+                    )}
+
                     {selectedEvent.location && (
                       <div className="flex items-center gap-3 text-muted-foreground">
                         <MapPin className="size-5" />
@@ -1934,6 +2128,7 @@ export default function CalendarPage() {
                             endTime: formatTime(selectedEvent.end),
                             allDay: selectedEvent.allDay,
                             person_id: selectedEvent.person_id || null,
+                            repeat: repeatValueFromRule(selectedEvent.recurrence_rule),
                           });
                           setEditMode(true);
                         }}
@@ -1941,71 +2136,59 @@ export default function CalendarPage() {
                         <Pencil className="size-4 mr-2" />
                         {tCommon("edit")}
                       </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="destructive" className="flex-1" disabled={deleteEvent.isPending}>
-                            {deleteEvent.isPending ? (
-                              <Loader2 className="size-4 animate-spin" />
-                            ) : (
-                              <>
-                                <Trash2 className="size-4 mr-2" />
+                      {selectedEvent.series_id ? (
+                        <Button
+                          variant="destructive"
+                          className="flex-1"
+                          disabled={deleteEvent.isPending || deleteSeries.isPending}
+                          onClick={() => {
+                            const event = selectedEvent;
+                            const seriesId = event.series_id!;
+                            setScopeAsk({
+                              kind: "delete",
+                              run: async (scope) => {
+                                if (scope === "this") return deleteOneEvent(event);
+                                await deleteSeries.mutateAsync({ series_id: seriesId, from: scope === "following" ? event.id : undefined });
+                                closeEventDetail();
+                                toast.success(t("seriesDeleted"));
+                              },
+                            });
+                          }}
+                        >
+                          <Trash2 className="size-4 mr-2" />
+                          {tCommon("delete")}
+                        </Button>
+                      ) : (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="destructive" className="flex-1" disabled={deleteEvent.isPending}>
+                              {deleteEvent.isPending ? (
+                                <Loader2 className="size-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <Trash2 className="size-4 mr-2" />
+                                  {tCommon("delete")}
+                                </>
+                              )}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>{t("deleteDialogTitle")}</AlertDialogTitle>
+                              <AlertDialogDescription>{t("deleteConfirm")}</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                onClick={() => void deleteOneEvent(selectedEvent)}
+                              >
                                 {tCommon("delete")}
-                              </>
-                            )}
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>{t("deleteDialogTitle")}</AlertDialogTitle>
-                            <AlertDialogDescription>{t("deleteConfirm")}</AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
-                            <AlertDialogAction
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              onClick={async () => {
-                                // The loaded-range query misses events opened via
-                                // ?event= deep-link whose date falls outside the
-                                // current view — fall back to the byId row so the
-                                // undo snapshot isn't empty. Both queries select
-                                // the same shape (raw row + joined calendar).
-                                const rawEvent =
-                                  eventsData?.find((e) => e.id === selectedEvent.id) ??
-                                  (deepLinkEventData?.id === selectedEvent.id ? deepLinkEventData : undefined);
-                                try {
-                                  await deleteEvent.mutateAsync(selectedEvent.id);
-                                  closeEventDetail();
-                                  if (rawEvent) {
-                                    const { calendar: _calendar, ...eventSnapshot } = rawEvent;
-                                    showUndoToast({
-                                      message: t("eventDeleted"),
-                                      undoLabel: tCommon("undo"),
-                                      errorMessage: tCommon("undoFailed"),
-                                      onUndo: async () => {
-                                        const supabase = createClient();
-                                        // useDeleteEvent already deleted the Google-side copy before the
-                                        // local delete — undo can only restore the local row, so the
-                                        // Google link is nulled to avoid pointing at a deleted event.
-                                        const { error } = await (supabase as any)
-                                          .from("events")
-                                          .insert({ ...eventSnapshot, google_event_id: null });
-                                        if (error) throw error;
-                                        if (family?.id) {
-                                          queryClient.invalidateQueries({ queryKey: queryKeys.events(family.id) });
-                                        }
-                                      },
-                                    });
-                                  }
-                                } catch {
-                                  toast.error(t("toastDeleteFailed"));
-                                }
-                              }}
-                            >
-                              {tCommon("delete")}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                     </div>
                   </div>
                 </>
@@ -2020,6 +2203,58 @@ export default function CalendarPage() {
             ariaLabel={t("newEventButton")}
             className="sm:hidden"
           />
+
+          {/* Which occurrences of a repeating event a change or a delete is for */}
+          <AlertDialog open={scopeAsk !== null} onOpenChange={(open) => !open && setScopeAsk(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {scopeAsk?.kind === "delete"
+                    ? t("deleteSeriesTitle")
+                    : scopeAsk?.kind === "repeat"
+                      ? t("repeatChangeTitle")
+                      : scopeAsk?.kind === "stop"
+                        ? t("repeatStopTitle")
+                        : t("editSeriesTitle")}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {scopeAsk?.kind === "delete"
+                    ? t("deleteSeriesBody")
+                    : scopeAsk?.kind === "repeat"
+                      ? t("repeatChangeBody")
+                      : scopeAsk?.kind === "stop"
+                        ? t("repeatStopBody")
+                        : t("editSeriesBody")}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              {scopeAsk?.kind === "repeat" || scopeAsk?.kind === "stop" ? (
+                <div className="flex flex-col gap-2">
+                  <Button
+                    variant={scopeAsk.kind === "stop" ? "destructive" : "default"}
+                    onClick={() => void runScope("all")}
+                  >
+                    {scopeAsk.kind === "stop" ? t("repeatStopConfirm") : t("repeatChangeConfirm")}
+                  </Button>
+                  <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+                </div>
+              ) : (
+              <div className="flex flex-col gap-2">
+                <Button variant={scopeAsk?.kind === "delete" ? "destructive" : "default"} onClick={() => void runScope("this")}>
+                  {t("scopeThis")}
+                </Button>
+                {scopeAsk?.kind === "delete" && (
+                  <Button variant="destructive" onClick={() => void runScope("following")}>
+                    {t("scopeFollowing")}
+                  </Button>
+                )}
+                <Button variant={scopeAsk?.kind === "delete" ? "destructive" : "outline"} onClick={() => void runScope("all")}>
+                  {t("scopeAll")}
+                </Button>
+                <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+              </div>
+              )}
+            </AlertDialogContent>
+          </AlertDialog>
 
         </div>
       </main>

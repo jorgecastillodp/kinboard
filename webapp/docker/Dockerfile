@@ -117,6 +117,11 @@ RUN echo '#!/bin/sh' > /usr/local/bin/evaluate-attention && \
     echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/evaluate-attention' >> /usr/local/bin/evaluate-attention && \
     chmod +x /usr/local/bin/evaluate-attention
 
+# Add repeating-events top-up cron script
+RUN echo '#!/bin/sh' > /usr/local/bin/extend-event-series && \
+    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/extend-event-series' >> /usr/local/bin/extend-event-series && \
+    chmod +x /usr/local/bin/extend-event-series
+
 # Add event-reminder scheduler cron script
 RUN echo '#!/bin/sh' > /usr/local/bin/schedule-event-reminders && \
     echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/schedule-event-reminders' >> /usr/local/bin/schedule-event-reminders && \

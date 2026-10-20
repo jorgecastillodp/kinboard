@@ -100,7 +100,20 @@ test("every family-scoped table is under row-level security", () => {
     "creatures",
     "point_purchases",
     "bring_removals",
+    "event_series",
   ]);
+
+  // - event_series: repeating events in local calendars. Its own RLS + a
+  //   family-scoped SELECT-only policy, REVOKE ALL from anon/authenticated and
+  //   only SELECT given back, in migration_zzzzzzzzzzzzz_event_series.sql.
+  //   Every write is the service role's, in the routes under
+  //   /api/calendar/series and the nightly extend-event-series job.
+  const seriesSql = codeOnly(readFileSync(join(DOCKER, "migration_zzzzzzzzzzzzz_event_series.sql"), "utf8"), { sql: true });
+  expect(seriesSql).toMatch(/ALTER TABLE public\.event_series ENABLE ROW LEVEL SECURITY;/i);
+  expect(seriesSql).toMatch(/CREATE POLICY event_series_family_read ON public\.event_series\s+FOR SELECT USING \(family_id = public\.current_family_id\(\)\);/i);
+  expect(seriesSql).toMatch(/REVOKE ALL ON TABLE public\.event_series FROM anon;/i);
+  expect(seriesSql).toMatch(/REVOKE ALL ON TABLE public\.event_series FROM authenticated;/i);
+  expect(browserWriteGrants(seriesSql, "event_series")).toEqual([]);
 
   // - bring_removals (#407): what the Bring! sync still has to take off the
   //   Bring! list. RLS on with no policy, REVOKE ALL from anon/authenticated
