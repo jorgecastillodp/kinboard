@@ -99,7 +99,12 @@ ALTER TABLE public.event_series ADD COLUMN IF NOT EXISTS extend_on DATE;
 -- wrote the series since it read it.
 ALTER TABLE public.event_series ADD COLUMN IF NOT EXISTS revision INTEGER NOT NULL DEFAULT 0;
 
-UPDATE public.event_series SET extend_on = generated_through WHERE extend_on IS NULL AND revision = 0;
+-- A series no write of this shape has touched yet (revision 0: made before
+-- extend_on and revision existed) is due at once, so the nightly job works
+-- out when it is next due. Once that job has written it, revision is above 0
+-- and this leaves it be.
+UPDATE public.event_series SET extend_on = CURRENT_DATE
+ WHERE revision = 0 AND (extend_on IS NULL OR extend_on > CURRENT_DATE);
 
 DO $$
 BEGIN

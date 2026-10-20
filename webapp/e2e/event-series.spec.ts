@@ -275,6 +275,9 @@ test("the nightly job is wired like the others, and the migration keeps writes o
   expect(migration).toMatch(/ADD CONSTRAINT events_series_fkey FOREIGN KEY \(series_id, calendar_id\)\s*REFERENCES public\.event_series \(id, calendar_id\) ON DELETE CASCADE;/);
   expect(migration).toContain("ADD CONSTRAINT events_series_day_key UNIQUE (series_id, series_day);");
   expect(migration).toContain("ALTER TABLE public.events DROP CONSTRAINT IF EXISTS events_series_id_fkey;");
+  // A series from before extend_on is due at once, not when its last occurrence comes.
+  expect(migration).toMatch(/UPDATE public\.event_series SET extend_on = CURRENT_DATE\s*WHERE revision = 0 AND \(extend_on IS NULL OR extend_on > CURRENT_DATE\);/);
+  expect(migration).not.toMatch(/SET extend_on = generated_through/);
   expect(migration).not.toMatch(/series_id UUID\s*REFERENCES/);
   // Inside the write functions, every write to events names the series' calendar too (or one row by id).
   const functions = migration.slice(migration.indexOf("CREATE OR REPLACE FUNCTION public.event_series_write("));
