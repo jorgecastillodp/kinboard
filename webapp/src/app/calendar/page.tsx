@@ -409,14 +409,22 @@ export default function CalendarPage() {
   const createSeries = useCreateEventSeries();
   const updateSeries = useUpdateEventSeries();
   const deleteSeries = useDeleteEventSeries();
+  // While a series is being written, Add and Save wait: a second tap on a slow
+  // screen would otherwise write it twice.
+  const seriesBusy = createSeries.isPending || updateSeries.isPending || deleteSeries.isPending;
   const repeatSummary = useRepeatSummary();
   // Repeats are for Kinboard's own calendars: lib/event-series.ts makes their occurrences.
   const repeatableCalendar = (calendarId: string | undefined) => {
     const calendar = calendars?.find((c) => c.id === calendarId);
     return !!calendar && takesRepeatingEvents(calendar);
   };
-  // A change or a delete on one occurrence of a repeating event asks which ones it is for.
-  const [scopeAsk, setScopeAsk] = useState<null | { kind: "edit" | "delete"; run: (scope: SeriesScope) => Promise<void> }>(null);
+  // A change or a delete on one occurrence of a repeating event asks which ones
+  // it is for; a new repeat ("repeat") or none ("stop") is for the whole series
+  // and only asks to go ahead.
+  const [scopeAsk, setScopeAsk] = useState<null | {
+    kind: "edit" | "delete" | "repeat" | "stop";
+    run: (scope: SeriesScope) => Promise<void>;
+  }>(null);
   const runScope = async (scope: SeriesScope) => {
     const ask = scopeAsk;
     setScopeAsk(null);
@@ -1113,9 +1121,9 @@ export default function CalendarPage() {
                     <Button
                       className="w-full"
                       onClick={handleAddEvent}
-                      disabled={!newEvent.title.trim() || !newEvent.calendar_id || createEvent.isPending}
+                      disabled={!newEvent.title.trim() || !newEvent.calendar_id || createEvent.isPending || seriesBusy}
                     >
-                      {createEvent.isPending ? (
+                      {createEvent.isPending || createSeries.isPending ? (
                         <>
                           <Loader2 className="size-4 mr-2 animate-spin" />
                           {t("creating")}
@@ -1921,7 +1929,7 @@ export default function CalendarPage() {
                   </Button>
                   <Button
                     className="flex-1"
-                    disabled={!editForm.title.trim() || updateEvent.isPending}
+                    disabled={!editForm.title.trim() || updateEvent.isPending || seriesBusy}
                     onClick={async () => {
                       if (!selectedEvent) return;
 
@@ -1967,14 +1975,19 @@ export default function CalendarPage() {
                         if (event.series_id) {
                           const seriesId = event.series_id;
                           if (repeatable && !sameRepeat(editForm.repeat, repeatValueFromRule(event.recurrence_rule))) {
-                            // A new repeat, or none, is a change to the whole series.
-                            await updateSeries.mutateAsync({
-                              series_id: seriesId,
-                              occurrence_id: event.id,
-                              ...change,
-                              rule: rule ? formatRepeatRule(rule) : null,
+                            // A new repeat, or none, is a change to the whole series: asked first.
+                            setScopeAsk({
+                              kind: rule ? "repeat" : "stop",
+                              run: async () => {
+                                await updateSeries.mutateAsync({
+                                  series_id: seriesId,
+                                  occurrence_id: event.id,
+                                  ...change,
+                                  rule: rule ? formatRepeatRule(rule) : null,
+                                });
+                                finish();
+                              },
                             });
-                            finish();
                           } else {
                             setScopeAsk({
                               kind: "edit",
@@ -1990,6 +2003,8 @@ export default function CalendarPage() {
                           await createSeries.mutateAsync({
                             calendar_id: event.calendar_id,
                             ...change,
+                            // The dialog has no description field; the event's own goes along.
+                            description: event.description ?? null,
                             rule: formatRepeatRule(rule),
                             time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                           });
@@ -2004,7 +2019,7 @@ export default function CalendarPage() {
                       }
                     }}
                   >
-                    {updateEvent.isPending ? (
+                    {updateEvent.isPending || seriesBusy ? (
                       <>
                         <Loader2 className="size-4 mr-2 animate-spin" />
                         {t("saving")}
@@ -2193,11 +2208,36 @@ export default function CalendarPage() {
           <AlertDialog open={scopeAsk !== null} onOpenChange={(open) => !open && setScopeAsk(null)}>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>{scopeAsk?.kind === "delete" ? t("deleteSeriesTitle") : t("editSeriesTitle")}</AlertDialogTitle>
+                <AlertDialogTitle>
+                  {scopeAsk?.kind === "delete"
+                    ? t("deleteSeriesTitle")
+                    : scopeAsk?.kind === "repeat"
+                      ? t("repeatChangeTitle")
+                      : scopeAsk?.kind === "stop"
+                        ? t("repeatStopTitle")
+                        : t("editSeriesTitle")}
+                </AlertDialogTitle>
                 <AlertDialogDescription>
-                  {scopeAsk?.kind === "delete" ? t("deleteSeriesBody") : t("editSeriesBody")}
+                  {scopeAsk?.kind === "delete"
+                    ? t("deleteSeriesBody")
+                    : scopeAsk?.kind === "repeat"
+                      ? t("repeatChangeBody")
+                      : scopeAsk?.kind === "stop"
+                        ? t("repeatStopBody")
+                        : t("editSeriesBody")}
                 </AlertDialogDescription>
               </AlertDialogHeader>
+              {scopeAsk?.kind === "repeat" || scopeAsk?.kind === "stop" ? (
+                <div className="flex flex-col gap-2">
+                  <Button
+                    variant={scopeAsk.kind === "stop" ? "destructive" : "default"}
+                    onClick={() => void runScope("all")}
+                  >
+                    {scopeAsk.kind === "stop" ? t("repeatStopConfirm") : t("repeatChangeConfirm")}
+                  </Button>
+                  <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+                </div>
+              ) : (
               <div className="flex flex-col gap-2">
                 <Button variant={scopeAsk?.kind === "delete" ? "destructive" : "default"} onClick={() => void runScope("this")}>
                   {t("scopeThis")}
@@ -2212,6 +2252,7 @@ export default function CalendarPage() {
                 </Button>
                 <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
               </div>
+              )}
             </AlertDialogContent>
           </AlertDialog>
 

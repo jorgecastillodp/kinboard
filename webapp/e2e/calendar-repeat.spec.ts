@@ -43,7 +43,7 @@ test.describe("calendar events repeat", () => {
   test.use({ serviceWorkers: "block", viewport: { width: 1280, height: 900 } });
   test.describe.configure({ timeout: 180_000 });
 
-  test("a weekly event repeats; one occurrence changes alone, then every one", async ({ page, baseURL }) => {
+  test("a weekly event repeats; one occurrence changes alone, then every other one, then it stops", async ({ page, baseURL }) => {
     const family = await familyWithLocalCalendar(page, baseURL, "edit");
     try {
       await addEvent(page, "Probe weekly", "Weekly");
@@ -69,7 +69,7 @@ test.describe("calendar events repeat", () => {
       await expect(occurrence(page, "Probe weekly")).toBeVisible({ timeout: 15_000 });
       await expect(page.getByText("Probe moved", { exact: true })).toHaveCount(0);
 
-      // Every occurrence, the one changed alone included.
+      // Every occurrence, except the one whose title was changed alone.
       await occurrence(page, "Probe weekly").click();
       await page.getByRole("button", { name: "Edit" }).click();
       await page.locator("#edit-title").fill("Probe renamed");
@@ -77,11 +77,28 @@ test.describe("calendar events repeat", () => {
       await page.getByRole("button", { name: "All events" }).click();
       await expect(occurrence(page, "Probe renamed")).toBeVisible({ timeout: 15_000 });
       await page.getByRole("button", { name: "Previous" }).click();
-      await expect(occurrence(page, "Probe renamed")).toBeVisible({ timeout: 15_000 });
+      await expect(occurrence(page, "Probe moved")).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByText("Probe renamed", { exact: true })).toHaveCount(0);
       await page.getByRole("button", { name: "Previous" }).click();
       await expect(occurrence(page, "Probe renamed")).toBeVisible({ timeout: 15_000 });
       // Far ahead too: a weekly series is kept more than a year ahead.
       for (let i = 0; i < 10; i++) await page.getByRole("button", { name: "Next" }).click();
+      await expect(occurrence(page, "Probe renamed")).toBeVisible({ timeout: 15_000 });
+
+      // Stopping the repeat asks first; this one and the ones before it stay.
+      await occurrence(page, "Probe renamed").click();
+      await page.getByRole("button", { name: "Edit" }).click();
+      await page.locator("#edit-repeat").click();
+      await page.getByRole("option", { name: "Never", exact: true }).click();
+      await page.getByRole("button", { name: "Save" }).click();
+      await expect(page.getByText("Stop repeating?")).toBeVisible();
+      await page.getByRole("button", { name: "Stop repeating" }).click();
+      await expect(page.getByText("Stop repeating?")).toHaveCount(0);
+      await expect(occurrence(page, "Probe renamed")).toBeVisible({ timeout: 15_000 });
+      await page.getByRole("button", { name: "Next" }).click();
+      await expect(page.getByText("Probe renamed", { exact: true })).toHaveCount(0, { timeout: 15_000 });
+      await page.getByRole("button", { name: "Previous" }).click();
+      await page.getByRole("button", { name: "Previous" }).click();
       await expect(occurrence(page, "Probe renamed")).toBeVisible({ timeout: 15_000 });
     } finally {
       await deleteThrowawayFamily(page, family.familyId, family.familyName);
