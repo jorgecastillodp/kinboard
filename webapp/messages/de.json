@@ -1793,7 +1793,11 @@
       "addressSave": "Speichern",
       "addressInvalid": "Gib eine Adresse ein, die mit https:// oder http:// beginnt.",
       "toastAddressSaved": "Adresse gespeichert",
-      "overview": "Übersicht"
+      "overview": "Übersicht",
+      "navLabel": "In der Navigation zeigen",
+      "navHint": "Ein eigener Eintrag im Menü, der das Dashboard auf einer eigenen Seite öffnet. Unter Hausautomation bleibt es ein Tab, und jedes Gerät kann es unter Einstellungen → Navigation ausblenden.",
+      "navIconLabel": "Icon im Menü",
+      "navIconHint": "Das Symbol neben dem Namen im Menü."
     },
     "homeassistantEnergy": {
       "title": "Energie-Konfiguration",
@@ -3844,7 +3848,10 @@
     "dashboardNoAddress": "Dieses Dashboard hat keine Adresse, die ein Browser öffnen kann. Prüfe in den Einstellungen seinen Pfad und die Adresse von Home Assistant.",
     "dashboardMixedContent": "Kinboard ist über https:// geöffnet, die Adresse von Home Assistant beginnt aber mit http://, deshalb zeigt der Browser es hier nicht an. Hinterlege in den Einstellungen eine https://-Adresse für den Browser.",
     "dashboardSettingsLink": "Einstellungen öffnen",
-    "tapAgain": "Nochmal tippen"
+    "tapAgain": "Nochmal tippen",
+    "dashboardPageSubtitle": "Aus Home Assistant",
+    "dashboardPageMissing": "Dieses Dashboard ist nicht mehr in Kinboard. Vielleicht wurde es unter Einstellungen → Home Assistant entfernt.",
+    "dashboardPageOpenAutomation": "Hausautomation öffnen"
   },
   "catalogue": {
     "title": "Dinge im Haus",
@@ -5268,5 +5275,42 @@
     "takeOffAria": "{item} ausziehen",
     "useBackgroundAria": "{item} als Hintergrund verwenden",
     "removeBackgroundAria": "Hintergrund {item} entfernen"
+  },
+  "dashboardNavIcons": {
+    "dashboard": "Dashboard",
+    "zap": "Strom",
+    "sun": "Sonne",
+    "battery": "Batterie",
+    "battery-charging": "Laden",
+    "plug": "Steckdose",
+    "gauge": "Zähler",
+    "chart": "Diagramm",
+    "thermometer": "Temperatur",
+    "flame": "Heizung",
+    "snowflake": "Kühlung",
+    "droplets": "Wasser",
+    "wind": "Wind",
+    "cloud": "Wetter",
+    "lightbulb": "Licht",
+    "lamp": "Lampe",
+    "tv": "Fernseher",
+    "music": "Musik",
+    "camera": "Kamera",
+    "shield": "Sicherheit",
+    "lock": "Schloss",
+    "door": "Tür",
+    "car": "Auto",
+    "leaf": "Garten",
+    "flower": "Blumen",
+    "trees": "Bäume",
+    "house": "Haus",
+    "sofa": "Wohnzimmer",
+    "bed": "Schlafzimmer",
+    "kitchen": "Küche",
+    "laundry": "Wäsche",
+    "baby": "Kinderzimmer",
+    "dog": "Hund",
+    "cat": "Katze",
+    "wifi": "Netzwerk"
   }
 }

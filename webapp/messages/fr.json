@@ -1793,7 +1793,11 @@
       "addressSave": "Enregistrer",
       "addressInvalid": "Saisissez une adresse commençant par https:// ou http://.",
       "toastAddressSaved": "Adresse enregistrée",
-      "overview": "Aperçu"
+      "overview": "Aperçu",
+      "navLabel": "Afficher dans la navigation",
+      "navHint": "Une entrée à part dans le menu, qui ouvre le tableau de bord sur sa propre page. Il reste un onglet sous Domotique, et chaque appareil peut le masquer dans Paramètres → Navigation.",
+      "navIconLabel": "Icône du menu",
+      "navIconHint": "L'icône à côté de son nom dans le menu."
     },
     "homeassistantEnergy": {
       "title": "Configuration énergétique",
@@ -3844,7 +3848,10 @@
     "dashboardNoAddress": "Ce tableau de bord n'a pas d'adresse qu'un navigateur puisse ouvrir. Vérifiez son chemin et l'adresse de Home Assistant dans les réglages.",
     "dashboardMixedContent": "Kinboard est ouvert en https://, mais l'adresse de Home Assistant commence par http://, donc le navigateur ne l'affiche pas ici. Indiquez une adresse https:// pour le navigateur dans les réglages.",
     "dashboardSettingsLink": "Ouvrir les réglages",
-    "tapAgain": "Touchez encore"
+    "tapAgain": "Touchez encore",
+    "dashboardPageSubtitle": "Depuis Home Assistant",
+    "dashboardPageMissing": "Ce tableau de bord n'est plus dans Kinboard. Il a peut-être été retiré dans Paramètres → Home Assistant.",
+    "dashboardPageOpenAutomation": "Ouvrir Domotique"
   },
   "catalogue": {
     "title": "Les objets de la maison",
@@ -5268,5 +5275,42 @@
     "takeOffAria": "Enlever : {item}",
     "useBackgroundAria": "Utiliser le décor : {item}",
     "removeBackgroundAria": "Retirer le décor : {item}"
+  },
+  "dashboardNavIcons": {
+    "dashboard": "Tableau de bord",
+    "zap": "Électricité",
+    "sun": "Soleil",
+    "battery": "Batterie",
+    "battery-charging": "Recharge",
+    "plug": "Prise",
+    "gauge": "Compteur",
+    "chart": "Graphique",
+    "thermometer": "Température",
+    "flame": "Chauffage",
+    "snowflake": "Refroidissement",
+    "droplets": "Eau",
+    "wind": "Vent",
+    "cloud": "Météo",
+    "lightbulb": "Lumière",
+    "lamp": "Lampe",
+    "tv": "Télé",
+    "music": "Musique",
+    "camera": "Caméra",
+    "shield": "Sécurité",
+    "lock": "Serrure",
+    "door": "Porte",
+    "car": "Voiture",
+    "leaf": "Jardin",
+    "flower": "Fleurs",
+    "trees": "Arbres",
+    "house": "Maison",
+    "sofa": "Salon",
+    "bed": "Chambre",
+    "kitchen": "Cuisine",
+    "laundry": "Linge",
+    "baby": "Chambre d'enfant",
+    "dog": "Chien",
+    "cat": "Chat",
+    "wifi": "Réseau"
   }
 }

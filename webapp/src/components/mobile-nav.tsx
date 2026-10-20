@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Home, CalendarDays, ShoppingCart, MoreHorizontal } from "lucide-react";
-import { isNoNavPath } from "@/lib/constants";
+import { isNoNavPath, navEntryLabel } from "@/lib/constants";
 import { useNavBadges } from "@/hooks/use-nav-badges";
 import { useVisibleNavItems } from "@/hooks/use-visible-nav-items";
 import { useHiddenNavItems } from "@/hooks/use-hidden-nav-items";
@@ -63,7 +63,9 @@ export function MobileNav() {
     <>
       <nav
         className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-stretch border-t border-border bg-card"
-        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        // Exactly --nav-spacing tall (border-box: the safe-area padding is inside it), so
+        // what is placed above the nav by that variable meets it without a gap.
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", height: "var(--nav-spacing)" }}
         aria-label={tNav("mobile")}
       >
         {fixedTabs.map((tab) => {
@@ -144,7 +146,7 @@ export function MobileNav() {
                   >
                     <Icon size={22} strokeWidth={1.75} className="shrink-0" />
                     <span className="flex-1 truncate text-sm font-medium">
-                      {tNav(item.labelKey)}
+                      {navEntryLabel(item, tNav)}
                     </span>
                     {badge && (
                       <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-2xs font-bold text-primary-foreground tabular-nums">

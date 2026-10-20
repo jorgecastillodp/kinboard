@@ -12,13 +12,16 @@ import {
   devicesTabLabel,
   embedBaseUrl,
   embedUrlAcceptable,
+  dashboardPageHref,
   embeddedDashboards,
   kioskQuery,
+  navDashboards,
   moveDashboard,
   pickTab,
   renameDashboard,
 } from "../src/lib/ha-embed";
 import { codeOnly } from "./source-helpers";
+import { DASHBOARD_NAV_ICON_IDS } from "../src/lib/dashboard-nav-icons";
 
 /**
  * The household's own Home Assistant dashboards as tabs on Home Automation:
@@ -105,7 +108,9 @@ test("the tabs come from the settings in their order, without broken entries; a 
     { id: "d", path: "dashboard-y", hide_sidebar: true, hide_header: true },
     good[1],
   ];
-  expect(embeddedDashboards({ embedded_dashboards: mixed as never })).toEqual(good);
+  // Not in the navigation unless switched on, and no icon of its own.
+  const normalised = (d: object) => ({ ...d, in_nav: false, nav_icon: null });
+  expect(embeddedDashboards({ embedded_dashboards: mixed as never })).toEqual(good.map(normalised));
   // A tab saved with the single switch it once had reads as both, and nothing of it is kept.
   expect(
     embeddedDashboards({
@@ -115,11 +120,13 @@ test("the tabs come from the settings in their order, without broken entries; a 
         { id: "g", title: "Old, unset", path: "dashboard-unset" },
       ] as never,
     }),
-  ).toEqual([
-    { id: "e", title: "Old", path: "dashboard-old", hide_sidebar: true, hide_header: true },
-    { id: "f", title: "Old, open", path: "dashboard-open", hide_sidebar: false, hide_header: false },
-    { id: "g", title: "Old, unset", path: "dashboard-unset", hide_sidebar: false, hide_header: false },
-  ]);
+  ).toEqual(
+    [
+      { id: "e", title: "Old", path: "dashboard-old", hide_sidebar: true, hide_header: true },
+      { id: "f", title: "Old, open", path: "dashboard-open", hide_sidebar: false, hide_header: false },
+      { id: "g", title: "Old, unset", path: "dashboard-unset", hide_sidebar: false, hide_header: false },
+    ].map(normalised),
+  );
   expect(kioskQuery({ hide_sidebar: true, hide_header: true })).toBe("?kiosk");
   expect(kioskQuery({ hide_sidebar: true, hide_header: false })).toBe("?hide_sidebar");
   expect(kioskQuery({ hide_sidebar: false, hide_header: true })).toBe("?hide_header");
@@ -130,6 +137,61 @@ test("the tabs come from the settings in their order, without broken entries; a 
   expect(embedBaseUrl({ url: "https://ha.example" })).toBe("https://ha.example");
   expect(embedBaseUrl({ url: "" })).toBeUndefined();
   expect(embedBaseUrl(null)).toBeUndefined();
+});
+
+test("a dashboard can have an entry in the navigation, with an icon from the set, opening a page of its own", () => {
+  const base = { title: "Energie", path: "dashboard-energie", hide_sidebar: true, hide_header: true };
+  const tabs = embeddedDashboards({
+    embedded_dashboards: [
+      { id: "a", ...base, in_nav: true, nav_icon: "zap" },
+      { id: "b", ...base, in_nav: "yes", nav_icon: "sun" },
+      // An emoji from the first build, a Lucide name outside the set, not a string: none.
+      { id: "c", ...base, in_nav: true, nav_icon: "⚡" },
+      { id: "d", ...base, in_nav: true, nav_icon: "skull" },
+      { id: "f", ...base, in_nav: true, nav_icon: 7 },
+      { id: "e", ...base },
+    ] as never,
+  });
+  expect(tabs.map((d) => [d.id, d.in_nav, d.nav_icon])).toEqual([
+    ["a", true, "zap"],
+    ["b", false, "sun"],
+    ["c", true, null],
+    ["d", true, null],
+    ["f", true, null],
+    ["e", false, null],
+  ]);
+  expect(navDashboards(tabs).map((d) => d.id)).toEqual(["a", "c", "d", "f"]);
+  // Every icon in the set has a component and a name in every language.
+  const icons = codeOnly(read("src/components/dashboard-nav-icon.tsx"));
+  for (const lang of ["en", "de", "fr"]) {
+    const names = JSON.parse(read(`messages/${lang}.json`)).dashboardNavIcons;
+    expect(Object.keys(names).sort(), lang).toEqual([...DASHBOARD_NAV_ICON_IDS].sort());
+  }
+  for (const id of DASHBOARD_NAV_ICON_IDS) expect(icons, id).toMatch(new RegExp(`^\\s*"?${id}"?: [A-Z]\\w+,$`, "m"));
+  expect(dashboardPageHref("a")).toBe("/ha/a");
+  expect(dashboardPageHref("x/../y?z")).toBe("/ha/x%2F..%2Fy%3Fz");
+});
+
+test("the navigation lists those dashboards after Home automation, hideable per device, and the page finds its dashboard", () => {
+  const hook = codeOnly(read("src/hooks/use-visible-nav-items.ts"));
+  expect(hook).toMatch(/navDashboards\(embeddedDashboards\(haSettings\)\)/);
+  expect(hook).toMatch(/haConnected\s*\?/);
+  expect(hook).toMatch(/hiddenItems\.includes\(entry\.href\)/);
+  expect(hook).toMatch(/item\.href === "\/home-automation"/);
+  expect(hook).toMatch(/icon: dashboardNavIcon\(d\.nav_icon\)/);
+  for (const nav of ["src/components/mobile-nav.tsx", "src/components/desktop-nav.tsx", "src/app/settings/navigation/page.tsx"]) {
+    const code = codeOnly(read(nav));
+    expect(code, nav).toContain("navEntryLabel(");
+    expect(code, nav).not.toMatch(/tNav\(item\.labelKey/);
+  }
+  const page = codeOnly(read("src/app/ha/[id]/page.tsx"));
+  expect(page).toMatch(/embeddedDashboards\(settings\)\.find\(\(d\) => d\.id === id\)/);
+  expect(page).toContain("<HaDashboardFrame");
+  expect(page).toContain('t("dashboardPageMissing")');
+  const settings = codeOnly(read("src/app/settings/homeassistant/dashboards/page.tsx"));
+  expect(settings).toMatch(/\{ \.\.\.d, in_nav \}/);
+  expect(settings).toMatch(/\{ \.\.\.d, nav_icon \}/);
+  expect(settings).toContain("<DashboardNavIconField");
 });
 
 test("the first tab takes the household's name, trimmed and capped; empty is the app's own word", () => {

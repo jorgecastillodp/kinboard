@@ -1793,7 +1793,11 @@
       "addressSave": "Save",
       "addressInvalid": "Enter an address starting with https:// or http://.",
       "toastAddressSaved": "Address saved",
-      "overview": "Overview"
+      "overview": "Overview",
+      "navLabel": "Show in the navigation",
+      "navHint": "An entry of its own in the menu that opens the dashboard on a page of its own. It stays a tab under Home automation, and each device can hide it under Settings → Navigation.",
+      "navIconLabel": "Menu icon",
+      "navIconHint": "The icon beside its name in the menu."
     },
     "homeassistantEnergy": {
       "title": "Energy configuration",
@@ -3844,7 +3848,10 @@
     "dashboardNoAddress": "This dashboard has no address a browser can open. Check its path and Home Assistant's address in the settings.",
     "dashboardMixedContent": "Kinboard is open on https://, but Home Assistant's address starts with http://, so the browser won't show it here. Set an https:// address for the browser in the settings.",
     "dashboardSettingsLink": "Open the settings",
-    "tapAgain": "Tap again"
+    "tapAgain": "Tap again",
+    "dashboardPageSubtitle": "From Home Assistant",
+    "dashboardPageMissing": "This dashboard isn't in Kinboard any more. It may have been removed under Settings → Home Assistant.",
+    "dashboardPageOpenAutomation": "Open Home automation"
   },
   "catalogue": {
     "title": "Things in your house",
@@ -5268,5 +5275,42 @@
     "takeOffAria": "Take off {item}",
     "useBackgroundAria": "Use {item} as the background",
     "removeBackgroundAria": "Remove the {item} background"
+  },
+  "dashboardNavIcons": {
+    "dashboard": "Dashboard",
+    "zap": "Power",
+    "sun": "Sun",
+    "battery": "Battery",
+    "battery-charging": "Charging",
+    "plug": "Plug",
+    "gauge": "Meter",
+    "chart": "Chart",
+    "thermometer": "Temperature",
+    "flame": "Heating",
+    "snowflake": "Cooling",
+    "droplets": "Water",
+    "wind": "Wind",
+    "cloud": "Weather",
+    "lightbulb": "Light",
+    "lamp": "Lamp",
+    "tv": "TV",
+    "music": "Music",
+    "camera": "Camera",
+    "shield": "Security",
+    "lock": "Lock",
+    "door": "Door",
+    "car": "Car",
+    "leaf": "Garden",
+    "flower": "Flowers",
+    "trees": "Trees",
+    "house": "House",
+    "sofa": "Living room",
+    "bed": "Bedroom",
+    "kitchen": "Kitchen",
+    "laundry": "Laundry",
+    "baby": "Nursery",
+    "dog": "Dog",
+    "cat": "Cat",
+    "wifi": "Network"
   }
 }
