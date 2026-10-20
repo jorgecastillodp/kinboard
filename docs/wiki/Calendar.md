@@ -67,12 +67,15 @@ Tap any existing event → edit dialog with the same fields. Delete via the tras
 
 An event in one of Kinboard's own (local) calendars can repeat: daily, weekly, every 2 weeks, monthly, yearly, or weekly on the days you pick, until a last day or with no end. The event's details say how it repeats ("Repeats weekly on Mon, Wed, until 31 December 2027").
 
-- **Changing an occurrence** asks whether the change is for **this event** or **all events**. A new repeat (or *Never*, which stops it and keeps just that occurrence) always applies to the whole series. For all events, a new title, place, notes or person goes to every occurrence; a new time, day or length makes the series again from its first occurrence, so changes made to single occurrences are replaced. Moving the occurrence by a few days moves the whole series by as many.
+- **Changing an occurrence** asks whether the change is for **this event** or **all events**. For all events:
+  - a new title, place or person goes to every occurrence, except one where you changed that on its own;
+  - a new time, day or length applies from that occurrence on, or from today if it is still to come. Earlier occurrences stay as they were, and so do occurrences you changed or deleted on their own. Moving the occurrence by a few days moves the series by as many.
+- **A new repeat** applies to the series in the same way, after asking. **Never** asks too, then ends the series at that occurrence: it and the earlier ones stay, the later ones are deleted.
 - **Deleting an occurrence** asks: **this event** (with Undo, like any event), **this and following events**, or **all events**.
 - **A plain event becomes a repeating one** by giving it a repeat when you edit it.
 - **The clock stays put.** Occurrences keep their wall-clock time across daylight-saving changes, in the time zone of the device that made the series. A monthly event on the 31st falls on the last day of shorter months, and a yearly one on 29 February on the 28th in other years.
 
-Each occurrence is an ordinary event, so it shows everywhere events do: the calendar, the Home widgets, reminders, the published feed and the Integration API. Kinboard keeps occurrences about four months ahead for a daily repeat, thirteen months for weekly, three years for monthly and ten years for yearly; the `extend-event-series` job adds the next ones every night (03:20, in the `cron` container), and an occurrence you deleted on its own is never made again.
+Each occurrence is an ordinary event, so it shows everywhere events do: the calendar, the Home widgets, reminders, the published feed and the Integration API. Kinboard keeps occurrences about four months ahead for a daily repeat, thirteen months for weekly, three years for monthly and ten years for yearly; the `extend-event-series` job (every night at 03:20, in the `cron` container) tops each series up about once a month, and an occurrence you deleted on its own is never made again.
 
 Google and CalDAV calendars keep their own repeats: set those up in Google Calendar or your CalDAV app, and they sync into Kinboard as usual.
 

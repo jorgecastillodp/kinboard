@@ -14,7 +14,8 @@ export type Parsed<T> = { ok: true; value: T } | { ok: false; error: string };
 
 export interface SeriesFields {
   title: string;
-  description: string | null;
+  /** undefined: not sent, so unchanged (a change); a new series has none. */
+  description?: string | null;
   location: string | null;
   personId: string | null;
 }
@@ -34,6 +35,7 @@ function optionalText(value: unknown, max: number): string | null | false {
 }
 
 export function parseSeriesFields(body: Record<string, unknown>): Parsed<SeriesFields> {
+  const sent = "description" in body && body.description !== undefined;
   const title = typeof body.title === "string" ? body.title.trim() : "";
   if (title === "" || title.length > 300) return fail("title is required (at most 300 characters)");
   const description = optionalText(body.description, 5000);
@@ -42,7 +44,10 @@ export function parseSeriesFields(body: Record<string, unknown>): Parsed<SeriesF
   if (location === false) return fail("location must be text (at most 500 characters)");
   const personId = body.person_id ?? null;
   if (personId !== null && (typeof personId !== "string" || !UUID.test(personId))) return fail("person_id must be an id");
-  return { ok: true, value: { title, description, location, personId: personId as string | null } };
+  return {
+    ok: true,
+    value: { title, ...(sent ? { description } : {}), location, personId: personId as string | null },
+  };
 }
 
 export function parseSeriesTiming(body: Record<string, unknown>): Parsed<SeriesTiming> {
@@ -87,7 +92,14 @@ export function parseSeriesCreate(body: unknown): Parsed<{
   if (!rule.ok) return rule;
   return {
     ok: true,
-    value: { calendarId: b.calendar_id, fields: fields.value, timing: timing.value, rule: rule.value, timeZone: b.time_zone },
+    value: {
+      calendarId: b.calendar_id,
+      // A new series has a description or none: nothing to keep.
+      fields: { ...fields.value, description: fields.value.description ?? null },
+      timing: timing.value,
+      rule: rule.value,
+      timeZone: b.time_zone,
+    },
   };
 }
 

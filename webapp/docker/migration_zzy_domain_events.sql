@@ -177,6 +177,12 @@ RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_t
 DECLARE
   v_family UUID;
 BEGIN
+  -- An occurrence of a repeating event, written by the series
+  -- (migration_zzzzzzzzzzzzz_event_series.sql): a series is one event to a
+  -- person, and event_series_write() emits it once, when it is made.
+  IF current_setting('kinboard.series_write', true) = 'on' THEN
+    RETURN NEW;
+  END IF;
   IF NEW.caldav_href IS NOT NULL OR NEW.google_event_id IS NOT NULL THEN
     RETURN NEW;  -- imported, not authored
   END IF;

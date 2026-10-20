@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { familyIdFrom } from "@/lib/family-scope";
 import { parseSeriesUpdate } from "@/lib/event-series-input";
-import { SERIES_COLUMNS, deleteSeries, updateSeries, type SeriesRow } from "@/lib/event-series";
+import { SERIES_COLUMNS, deleteSeries, updateSeries, type OccurrenceRef, type SeriesRow } from "@/lib/event-series";
 
 // The family's own series only: a series of another family is the same 404
 // as one that doesn't exist.
@@ -12,15 +12,20 @@ async function loadSeries(admin: any, id: string, familyId: string): Promise<Ser
   return (data as SeriesRow | null) ?? null;
 }
 
-async function loadOccurrence(admin: any, id: string, seriesId: string) {
+async function loadOccurrence(admin: any, id: string, series: SeriesRow) {
   const { data } = await admin
     .from("events")
-    .select("id, start_at, end_at, all_day, series_id")
+    .select("id, start_at, end_at, all_day, series_day")
     .eq("id", id)
-    .eq("series_id", seriesId)
+    .eq("series_id", series.id)
+    .eq("calendar_id", series.calendar_id)
     .maybeSingle();
-  return data as { id: string; start_at: string; end_at: string; all_day: boolean } | null;
+  return (data as OccurrenceRef | null) ?? null;
 }
+
+// The series was written by something else between reading it and writing
+// it (another screen, the nightly job): the edit is not made on stale data.
+const CHANGED_MEANWHILE = { error: "the repeating event changed meanwhile; try again" };
 
 // PATCH: change every occurrence of a series ("All events"), from an edit made
 // on one of them (lib/event-series.ts updateSeries). `rule: null` stops the
@@ -46,7 +51,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const input = parseSeriesUpdate(body, series.time_zone);
   if (!input.ok) return NextResponse.json({ error: input.error }, { status: 400 });
 
-  const occurrence = await loadOccurrence(admin, input.value.occurrenceId, series.id);
+  const occurrence = await loadOccurrence(admin, input.value.occurrenceId, series);
   if (!occurrence) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   if (input.value.fields.personId) {
@@ -60,7 +65,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   try {
-    return NextResponse.json(await updateSeries(admin, series, occurrence, input.value, new Date()));
+    const result = await updateSeries(admin, series, occurrence, input.value, new Date());
+    if (result.status === "stale") return NextResponse.json(CHANGED_MEANWHILE, { status: 409 });
+    if (result.status === "gone") return NextResponse.json({ error: "not found" }, { status: 404 });
+    return NextResponse.json(result);
   } catch (error) {
     console.error("event series: update failed", error);
     return NextResponse.json({ error: "could not save the repeating event" }, { status: 500 });
@@ -88,9 +96,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   if (!series) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const fromId = request.nextUrl.searchParams.get("from");
-  let from: { start_at: string } | undefined;
+  let from: OccurrenceRef | undefined;
   if (fromId) {
-    const occurrence = await loadOccurrence(admin, fromId, series.id);
+    const occurrence = await loadOccurrence(admin, fromId, series);
     if (!occurrence) return NextResponse.json({ error: "not found" }, { status: 404 });
     from = occurrence;
   }
