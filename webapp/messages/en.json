@@ -3169,7 +3169,39 @@
       "taskTitle": "✓ {title}",
       "taskTitleWithPerson": "✓ {title} · {person}",
       "tasksMissedCount": "{count, plural, one {# not done} other {# not done}}"
-    }
+    },
+    "fieldRepeat": "Repeat",
+    "repeat": {
+      "never": "Never",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "biweekly": "Every 2 weeks",
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "custom": "Custom days"
+    },
+    "repeatLocalOnly": "Repeating events are for Kinboard's own calendars. A Google or CalDAV calendar's repeats are set up there.",
+    "repeatEnds": "Ends",
+    "repeatEndsNever": "Never",
+    "repeatClearEnd": "Remove the end date",
+    "repeatPickDay": "Pick at least one day for the repeat.",
+    "repeatSummary": {
+      "daily": "Repeats daily",
+      "weekly": "Repeats weekly",
+      "biweekly": "Repeats every 2 weeks",
+      "monthly": "Repeats monthly",
+      "yearly": "Repeats yearly",
+      "custom": "Repeats weekly on {days}"
+    },
+    "repeatSummaryUntil": "{what}, until {date}",
+    "editSeriesTitle": "Change a repeating event",
+    "editSeriesBody": "Change only this event, or every event in the series?",
+    "deleteSeriesTitle": "Delete a repeating event",
+    "deleteSeriesBody": "Delete only this event, this one and the ones after it, or the whole series?",
+    "scopeThis": "This event",
+    "scopeFollowing": "This and following events",
+    "scopeAll": "All events",
+    "seriesDeleted": "Repeating event deleted"
   },
   "weather": {
     "title": "Weather",
