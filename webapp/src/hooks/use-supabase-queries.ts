@@ -1338,6 +1338,99 @@ export function useCreateEvent() {
   });
 }
 
+/**
+ * A repeating event in one of the family's own calendars: the server writes
+ * the series and its occurrences (lib/event-series.ts), which then read like
+ * any other events.
+ */
+export function useCreateEventSeries() {
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
+
+  return useMutation({
+    mutationFn: async (input: {
+      calendar_id: string;
+      title: string;
+      description?: string | null;
+      location?: string | null;
+      start_at: string;
+      end_at: string;
+      all_day: boolean;
+      person_id: string | null;
+      rule: string;
+      time_zone: string;
+    }): Promise<{ series_id: string; occurrences: number }> => {
+      const response = await fetch("/api/calendar/series", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ family_id: requireFamilyId(family), ...input }),
+      });
+      if (!response.ok) throw new Error(`saving the repeating event failed (${response.status})`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["events", requireFamilyId(family)] });
+    },
+  });
+}
+
+/**
+ * "All events": a change made on one occurrence, for every occurrence of its
+ * series. `rule` left out keeps the repeat, null stops it.
+ */
+export function useUpdateEventSeries() {
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
+
+  return useMutation({
+    mutationFn: async ({
+      series_id,
+      ...change
+    }: {
+      series_id: string;
+      occurrence_id: string;
+      title: string;
+      location: string | null;
+      description?: string | null;
+      start_at: string;
+      end_at: string;
+      all_day: boolean;
+      person_id: string | null;
+      rule?: string | null;
+    }): Promise<{ occurrences: number }> => {
+      const response = await fetch(`/api/calendar/series/${series_id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ family_id: requireFamilyId(family), ...change }),
+      });
+      if (!response.ok) throw new Error(`saving the repeating event failed (${response.status})`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["events", requireFamilyId(family)] });
+    },
+  });
+}
+
+/** Delete a series: all of it, or from one occurrence on (`from`). */
+export function useDeleteEventSeries() {
+  const queryClient = useQueryClient();
+  const { family } = useFamilyStore();
+
+  return useMutation({
+    mutationFn: async ({ series_id, from }: { series_id: string; from?: string }) => {
+      const params = new URLSearchParams({ family_id: requireFamilyId(family) });
+      if (from) params.set("from", from);
+      const response = await fetch(`/api/calendar/series/${series_id}?${params}`, { method: "DELETE" });
+      if (!response.ok) throw new Error(`deleting the repeating event failed (${response.status})`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["events", requireFamilyId(family)] });
+    },
+  });
+}
+
 export function useUpdateEvent() {
   const supabase = createClient();
   const queryClient = useQueryClient();

@@ -3169,7 +3169,39 @@
       "taskTitle": "✓ {title}",
       "taskTitleWithPerson": "✓ {title} · {person}",
       "tasksMissedCount": "{count, plural, one {# pas faite} other {# pas faites}}"
-    }
+    },
+    "fieldRepeat": "Répétition",
+    "repeat": {
+      "never": "Aucune",
+      "daily": "Quotidienne",
+      "weekly": "Hebdomadaire",
+      "biweekly": "Toutes les 2 semaines",
+      "monthly": "Mensuelle",
+      "yearly": "Annuelle",
+      "custom": "Jours choisis"
+    },
+    "repeatLocalOnly": "Les événements récurrents sont pour les calendriers propres à Kinboard. Pour un calendrier Google ou CalDAV, la répétition se règle là-bas.",
+    "repeatEnds": "Se termine",
+    "repeatEndsNever": "Jamais",
+    "repeatClearEnd": "Retirer la date de fin",
+    "repeatPickDay": "Choisissez au moins un jour pour la répétition.",
+    "repeatSummary": {
+      "daily": "Se répète tous les jours",
+      "weekly": "Se répète chaque semaine",
+      "biweekly": "Se répète toutes les 2 semaines",
+      "monthly": "Se répète chaque mois",
+      "yearly": "Se répète chaque année",
+      "custom": "Se répète chaque semaine le {days}"
+    },
+    "repeatSummaryUntil": "{what}, jusqu'au {date}",
+    "editSeriesTitle": "Modifier un événement récurrent",
+    "editSeriesBody": "Modifier seulement cet événement, ou tous les événements de la série ?",
+    "deleteSeriesTitle": "Supprimer un événement récurrent",
+    "deleteSeriesBody": "Supprimer seulement cet événement, celui-ci et les suivants, ou toute la série ?",
+    "scopeThis": "Cet événement",
+    "scopeFollowing": "Celui-ci et les suivants",
+    "scopeAll": "Tous les événements",
+    "seriesDeleted": "Événement récurrent supprimé"
   },
   "weather": {
     "title": "Météo",

@@ -57,10 +57,24 @@ The blue "+ New event" button opens a dialog:
 - **Calendar** — pick any of your Google calendars (event will round-trip to Google) or "Local only" (stays inside Kinboard)
 - **Location** (optional) — type three letters or more for place and address suggestions from OpenStreetMap, through [Photon](https://photon.komoot.io): shops, schools, doctors and landmarks as well as streets. Places near your [weather location](OpenWeatherMap) come first, and well-known places elsewhere still show, so "Eiffel Tower" finds Paris. With no weather location, suggestions come from the country of your [holiday region](#holidays), or the whole world when none is picked. Names come in the app's language (English, German or French; other languages get each place's local name), and each address is written the way its country writes it, led by the place's name when it has one. Kinboard makes the searches from its own server and keeps answers for a day, so a repeated search stays on your network
 - Notes
+- **Repeat** (Kinboard's own calendars) — daily, weekly, every 2 weeks, monthly, yearly or on custom days, with an optional last day; see [Repeating events](#repeating-events)
 
 Events show up immediately for everyone in the family. If you picked a Google calendar, the event lands on Google within a few seconds and the next sync round-trip cements it. Edits and deletes also propagate.
 
 Tap any existing event → edit dialog with the same fields. Delete via the trash icon — a confirmation dialog guards it, and an "Undo" toast appears afterward to restore the event exactly as it was.
+
+## Repeating events
+
+An event in one of Kinboard's own (local) calendars can repeat: daily, weekly, every 2 weeks, monthly, yearly, or weekly on the days you pick, until a last day or with no end. The event's details say how it repeats ("Repeats weekly on Mon, Wed, until 31 December 2027").
+
+- **Changing an occurrence** asks whether the change is for **this event** or **all events**. A new repeat (or *Never*, which stops it and keeps just that occurrence) always applies to the whole series. For all events, a new title, place, notes or person goes to every occurrence; a new time, day or length makes the series again from its first occurrence, so changes made to single occurrences are replaced. Moving the occurrence by a few days moves the whole series by as many.
+- **Deleting an occurrence** asks: **this event** (with Undo, like any event), **this and following events**, or **all events**.
+- **A plain event becomes a repeating one** by giving it a repeat when you edit it.
+- **The clock stays put.** Occurrences keep their wall-clock time across daylight-saving changes, in the time zone of the device that made the series. A monthly event on the 31st falls on the last day of shorter months, and a yearly one on 29 February on the 28th in other years.
+
+Each occurrence is an ordinary event, so it shows everywhere events do: the calendar, the Home widgets, reminders, the published feed and the Integration API. Kinboard keeps occurrences about four months ahead for a daily repeat, thirteen months for weekly, three years for monthly and ten years for yearly; the `extend-event-series` job adds the next ones every night (03:20, in the `cron` container), and an occurrence you deleted on its own is never made again.
+
+Google and CalDAV calendars keep their own repeats: set those up in Google Calendar or your CalDAV app, and they sync into Kinboard as usual.
 
 ## Day-detail panel
 
@@ -147,7 +161,7 @@ See [CalDAV](CalDAV) for setup, provider URLs and troubleshooting.
 - **Attendees / invites.** Google events show their attendees in the day panel as read-only text; you can't RSVP or invite people from Kinboard, and CalDAV writes carry no `ATTENDEE` lines.
 - **Editing read-only subscribed calendars** — if the provider itself marks the calendar as read-only (someone else's calendar shared with you, public holiday calendars, etc.), Kinboard can't write to it either. CalDAV calendars in that state get a "Read-only" badge.
 - **Writing to ICS feeds.** ICS support is read-only by design — feeds are published-only URLs with no write semantics. Use CalDAV or Google Calendar for editable family events.
-- **Editing one occurrence of a repeating event.** A series is a single resource on the server; Kinboard edits whole events, so it declines the edit rather than rewriting every occurrence. Change it in your calendar app instead.
+- **Editing one occurrence of a Google or CalDAV repeating event.** A series is a single resource on the server; Kinboard edits whole events, so it declines the edit rather than rewriting every occurrence. Change it in your calendar app instead.
 
 ## Related
 

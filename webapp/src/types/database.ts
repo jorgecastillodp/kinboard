@@ -314,6 +314,7 @@ export interface Database {
           all_day: boolean;
           person_id: string | null;
           recurrence_rule?: string | null;
+          series_id?: string | null;
           caldav_href: string | null;
           caldav_etag: string | null;
           created_at: string;
@@ -331,6 +332,7 @@ export interface Database {
           all_day?: boolean;
           person_id?: string | null;
           recurrence_rule?: string | null;
+          series_id?: string | null;
           caldav_href?: string | null;
           caldav_etag?: string | null;
           created_at?: string;
@@ -348,6 +350,7 @@ export interface Database {
           all_day?: boolean;
           person_id?: string | null;
           recurrence_rule?: string | null;
+          series_id?: string | null;
           caldav_href?: string | null;
           caldav_etag?: string | null;
           created_at?: string;

@@ -18,6 +18,18 @@ export function isLocalCalendar(
   return cal.google_calendar_id == null && cal.ics_url == null && cal.caldav_url == null;
 }
 
+/**
+ * A calendar a repeating event can go in: a local one (lib/event-series.ts
+ * makes its occurrences in Kinboard's own database). Not the holidays or bin
+ * collection calendars, which Kinboard fills itself, and not a Google, CalDAV
+ * or ICS one, whose repeats belong to the service behind it.
+ */
+export function takesRepeatingEvents(
+  cal: Pick<Calendar, "google_calendar_id" | "ics_url" | "caldav_url" | "is_holidays" | "is_waste_collection">,
+): boolean {
+  return isLocalCalendar(cal) && !cal.is_holidays && !cal.is_waste_collection;
+}
+
 /** Where an event change goes besides Kinboard's own database. */
 export type EventPushTarget = "caldav" | "google" | "none";
 
