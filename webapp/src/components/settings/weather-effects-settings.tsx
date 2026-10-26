@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { WeatherEffects } from "@/components/weather-effects";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,11 +15,13 @@ import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { UNIT_LABELS, type UnitSystem } from "@/lib/weather-units";
 import {
   DEFAULT_WEATHER_EFFECTS,
+  PREVIEW_MS,
   WEATHER_EFFECTS,
   displayThreshold,
   normalizeWeatherEffects,
   storedThreshold,
   type THRESHOLD_BOUNDS,
+  type WeatherEffect,
   type WeatherEffectsSettings,
 } from "@/lib/weather-effects";
 
@@ -32,6 +35,13 @@ export function WeatherEffectsSettings({ units }: { units: UnitSystem }) {
   const update = useUpdateSetting();
   const [value, setValue] = useState<WeatherEffectsSettings>(() => normalizeWeatherEffects(stored));
   const [typed, setTyped] = useState<Record<ThresholdKey, string>>({ freezingAtC: "", heatAtC: "", windAtKmh: "" });
+  // An effect shown right here, over this page, for a minute (or until Stop).
+  const [previewing, setPreviewing] = useState<WeatherEffect | null>(null);
+  useEffect(() => {
+    if (!previewing) return;
+    const timer = window.setTimeout(() => setPreviewing(null), PREVIEW_MS);
+    return () => window.clearTimeout(timer);
+  }, [previewing]);
 
   useEffect(() => {
     const next = normalizeWeatherEffects(stored);
@@ -73,6 +83,7 @@ export function WeatherEffectsSettings({ units }: { units: UnitSystem }) {
 
   return (
     <Card id="effects" data-setting="effects" className="p-4">
+      {previewing && <WeatherEffects key={previewing} preview={[previewing]} />}
       <div className="flex items-start justify-between gap-4">
         <div>
           <Label htmlFor="weather-effects-enabled" className="mb-1 flex items-center gap-2">
@@ -163,13 +174,17 @@ export function WeatherEffectsSettings({ units }: { units: UnitSystem }) {
                     <p className="text-xs text-muted-foreground">{t(`effectWhen.${effect}`)}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
-                    <Link
-                      href={`/?weather-preview=${effect}`}
-                      className="text-xs font-medium text-primary underline-offset-2 hover:underline"
+                    <Button
+                      type="button"
+                      variant={previewing === effect ? "outline" : "ghost"}
+                      size="sm"
+                      className="h-8 px-2 text-xs"
+                      aria-pressed={previewing === effect}
+                      onClick={() => setPreviewing(previewing === effect ? null : effect)}
                       data-testid={`weather-effect-preview-${effect}`}
                     >
-                      {t("effectsPreview")}
-                    </Link>
+                      {previewing === effect ? t("effectsPreviewStop") : t("effectsPreview")}
+                    </Button>
                     <Switch
                       id={`weather-effect-${effect}`}
                       checked={value.effects[effect]}

@@ -62,17 +62,24 @@ test.describe("weather effects on Home", () => {
       await expect(page.locator("#weather-effects-enabled")).toHaveAttribute("aria-checked", "true", { timeout: 30_000 });
       await expect(page.locator("#weather-effects-freezingAtC")).toHaveValue("-3");
 
-      // Preview: snow on Home for a minute; the address loses the parameter.
+      // Preview, right here: snow over the settings page, still there seconds later, until Stop.
       await page.getByTestId("weather-effect-preview-snow").click();
-      await expect(overlay(page)).toHaveAttribute("data-effects", "snow", { timeout: 30_000 });
+      await expect(overlay(page)).toHaveAttribute("data-effects", "snow", { timeout: 10_000 });
       await expect(page.getByTestId("weather-effects-motion")).toHaveCount(1);
-      expect(page.url()).not.toContain("weather-preview");
-      // Taps go to what is under it.
+      await page.waitForTimeout(3_000);
+      await expect(overlay(page)).toHaveAttribute("data-effects", "snow");
+      expect(new URL(page.url()).pathname).toBe("/settings/weather");
       expect(await tapsBlocked(page)).toEqual({ blocked: [], checked: 36 });
+      await page.getByTestId("weather-effect-preview-snow").click();
+      await expect(overlay(page)).toHaveCount(0);
 
       // Frost and fog are still layers, and don't take taps either.
       await page.goto("/?weather-preview=freezing,fog,wind", { waitUntil: "domcontentloaded" });
       await expect(overlay(page)).toHaveAttribute("data-effects", "freezing,wind,fog", { timeout: 30_000 });
+      // A preview opened on Home outlives taking the parameter out of the address.
+      await page.waitForTimeout(3_000);
+      await expect(overlay(page)).toHaveAttribute("data-effects", "freezing,wind,fog");
+      expect(page.url()).not.toContain("weather-preview");
       await expect(page.locator(".weather-frost")).toHaveCount(1);
       await expect(page.locator(".weather-fog")).toHaveCount(1);
       expect(await tapsBlocked(page)).toEqual({ blocked: [], checked: 36 });

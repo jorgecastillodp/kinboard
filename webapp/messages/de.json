@@ -1371,8 +1371,9 @@
         "windAtKmh": "Wind ab"
       },
       "effectsListLabel": "Effekte",
-      "effectsListHint": "Schalte aus, was du nicht möchtest. Vorschau zeigt einen Effekt eine Minute lang auf der Startseite, egal bei welchem Wetter.",
+      "effectsListHint": "Schalte aus, was du nicht möchtest. Vorschau zeigt einen Effekt eine Minute lang direkt hier, egal bei welchem Wetter.",
       "effectsPreview": "Vorschau",
+      "effectsPreviewStop": "Stopp",
       "effectName": {
         "snow": "Schnee",
         "rain": "Regen",

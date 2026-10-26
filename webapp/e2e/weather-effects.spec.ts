@@ -133,7 +133,13 @@ test("Home draws it; Settings -> Weather sets it, findable in the settings searc
   const settings = codeOnly(read("src/components/settings/weather-effects-settings.tsx"));
   expect(settings).toContain('<Card id="effects" data-setting="effects" className="p-4">');
   expect(settings).toContain("await update.mutateAsync({ key: SETTINGS_KEYS.weatherEffects, value: next });");
-  expect(settings).toContain("href={`/?weather-preview=${effect}`}");
+  // Preview in place, over the settings page, not by sending the screen to Home.
+  expect(settings).toContain("{previewing && <WeatherEffects key={previewing} preview={[previewing]} />}");
+  expect(settings).not.toMatch(/weather-preview=/);
+  // On Home, a preview outlives the redraw that taking it out of the address causes.
+  const overlayCode = codeOnly(read("src/components/weather-effects.tsx"));
+  expect(overlayCode).toContain("window.sessionStorage.setItem(PREVIEW_STORE, JSON.stringify({ effects: asked, until }));");
+  expect(overlayCode).toMatch(/saved\.until > Date\.now\(\)/);
   expect(read("src/lib/settings-keys.ts")).toContain('weatherEffects: "weather_effects",');
   expect(read("src/lib/settings-search/registry.ts")).toContain('{ anchor: "effects", labelKey: "settings.weather.effectsLabel", descriptionKey: "settings.weather.effectsHint" },');
 });

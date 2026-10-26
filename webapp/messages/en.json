@@ -1371,8 +1371,9 @@
         "windAtKmh": "Windy at or above"
       },
       "effectsListLabel": "Effects",
-      "effectsListHint": "Switch off any you don't want. Preview shows one on Home for a minute, whatever the weather.",
+      "effectsListHint": "Switch off any you don't want. Preview shows one right here for a minute, whatever the weather.",
       "effectsPreview": "Preview",
+      "effectsPreviewStop": "Stop",
       "effectName": {
         "snow": "Snow",
         "rain": "Rain",

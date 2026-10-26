@@ -1371,8 +1371,9 @@
         "windAtKmh": "Vent à partir de"
       },
       "effectsListLabel": "Effets",
-      "effectsListHint": "Désactivez ceux que vous ne voulez pas. Aperçu en affiche un sur l'accueil pendant une minute, quel que soit le temps.",
+      "effectsListHint": "Désactivez ceux que vous ne voulez pas. Aperçu en affiche un ici même pendant une minute, quel que soit le temps.",
       "effectsPreview": "Aperçu",
+      "effectsPreviewStop": "Arrêter",
       "effectName": {
         "snow": "Neige",
         "rain": "Pluie",

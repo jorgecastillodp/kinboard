@@ -28,10 +28,15 @@ import {
  * the still layers only (frost, a plain haze, the warm edge, a darker sky in
  * rain) and no lightning.
  *
- * `?weather-preview=snow,wind` shows those effects for a minute, whatever the
- * weather: the settings page's Preview buttons open Home that way.
+ * `preview` shows those effects whatever the weather (the settings page's
+ * Preview buttons, in place). On Home, `?weather-preview=snow,wind` does the
+ * same for a minute; it is kept in sessionStorage, because taking the
+ * parameter out of the address redraws this component, and a preview held
+ * only in its state was gone within a second.
  */
-export function WeatherEffects() {
+const PREVIEW_STORE = "kinboard.weatherPreview";
+
+export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] } = {}) {
   const { data: stored } = useSetting<unknown>(SETTINGS_KEYS.weatherEffects, DEFAULT_WEATHER_EFFECTS);
   const settings = useMemo(() => normalizeWeatherEffects(stored), [stored]);
   const { data: weather } = useWeather();
@@ -40,17 +45,42 @@ export function WeatherEffects() {
   const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
+    if (forced) return;
     const url = new URL(window.location.href);
     const asked = parsePreview(url.searchParams.get("weather-preview"));
-    if (asked.length === 0) return;
-    setPreview(asked);
-    url.searchParams.delete("weather-preview");
-    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
-    const timer = window.setTimeout(() => setPreview([]), PREVIEW_MS);
+    let until = Date.now() + PREVIEW_MS;
+    let effects = asked;
+    try {
+      if (asked.length > 0) {
+        window.sessionStorage.setItem(PREVIEW_STORE, JSON.stringify({ effects: asked, until }));
+      } else {
+        const saved = JSON.parse(window.sessionStorage.getItem(PREVIEW_STORE) ?? "null");
+        if (saved && typeof saved.until === "number" && saved.until > Date.now()) {
+          effects = parsePreview(Array.isArray(saved.effects) ? saved.effects.join(",") : "");
+          until = saved.until;
+        }
+      }
+    } catch {
+      // No storage (a private window): the preview lasts as long as this component.
+    }
+    if (asked.length > 0) {
+      url.searchParams.delete("weather-preview");
+      window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+    }
+    if (effects.length === 0) return;
+    setPreview(effects);
+    const timer = window.setTimeout(() => {
+      setPreview([]);
+      try {
+        window.sessionStorage.removeItem(PREVIEW_STORE);
+      } catch {
+        // nothing kept
+      }
+    }, Math.max(0, until - Date.now()));
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [forced]);
 
-  const effects = preview.length > 0 ? preview : activeEffects(weather, settings, system);
+  const effects = forced && forced.length > 0 ? forced : preview.length > 0 ? preview : activeEffects(weather, settings, system);
   if (effects.length === 0) return null;
   const on = new Set(effects);
   const intensity = settings.intensity;
