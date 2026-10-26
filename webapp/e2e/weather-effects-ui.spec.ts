@@ -12,15 +12,26 @@ const FAMILY_CODE = process.env.FAMILY_CODE ?? "";
 
 const overlay = (page: Page) => page.getByTestId("weather-effects");
 
-/** True when a tap at the middle of `selector` lands on it, not on an effect. */
-async function tapReaches(page: Page, selector: string) {
-  return page.evaluate((sel) => {
-    const el = document.querySelector(sel);
-    if (!el) return false;
-    const r = el.getBoundingClientRect();
-    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-    return !!hit && !hit.closest('[data-testid="weather-effects"]') && (el === hit || el.contains(hit));
-  }, selector);
+/**
+ * Where a tap would land, on a 6 x 6 grid over the whole screen: the points
+ * that would hit an effect instead of the page (none, when nothing is in the
+ * way), and how many points were checked.
+ */
+async function tapsBlocked(page: Page) {
+  return page.evaluate(() => {
+    const blocked: string[] = [];
+    let checked = 0;
+    for (let i = 1; i <= 6; i++) {
+      for (let j = 1; j <= 6; j++) {
+        const x = (window.innerWidth * i) / 7;
+        const y = (window.innerHeight * j) / 7;
+        const hit = document.elementFromPoint(x, y);
+        checked += 1;
+        if (hit?.closest('[data-testid="weather-effects"]')) blocked.push(`${Math.round(x)},${Math.round(y)}`);
+      }
+    }
+    return { blocked, checked };
+  });
 }
 
 test.describe("weather effects on Home", () => {
@@ -44,8 +55,9 @@ test.describe("weather effects on Home", () => {
       const freezing = page.locator("#weather-effects-freezingAtC");
       await expect(freezing).toHaveValue("0");
       await freezing.fill("-3");
+      const saved = page.waitForResponse((r) => r.url().includes("/api/settings") && r.request().method() === "PUT");
       await freezing.press("Enter");
-      await page.waitForResponse((r) => r.url().includes("/api/settings") && r.request().method() === "PUT");
+      expect((await saved).ok()).toBe(true);
       await page.reload();
       await expect(page.locator("#weather-effects-enabled")).toHaveAttribute("aria-checked", "true", { timeout: 30_000 });
       await expect(page.locator("#weather-effects-freezingAtC")).toHaveValue("-3");
@@ -56,14 +68,14 @@ test.describe("weather effects on Home", () => {
       await expect(overlay(page).locator("canvas")).toHaveCount(1);
       expect(page.url()).not.toContain("weather-preview");
       // Taps go to what is under it.
-      expect(await tapReaches(page, "section[aria-label]")).toBe(true);
+      expect(await tapsBlocked(page)).toEqual({ blocked: [], checked: 36 });
 
       // Frost and fog are still layers, and don't take taps either.
       await page.goto("/?weather-preview=freezing,fog,wind", { waitUntil: "domcontentloaded" });
       await expect(overlay(page)).toHaveAttribute("data-effects", "freezing,wind,fog", { timeout: 30_000 });
       await expect(page.locator(".weather-frost")).toHaveCount(1);
       await expect(page.locator(".weather-fog")).toHaveCount(1);
-      expect(await tapReaches(page, "section[aria-label]")).toBe(true);
+      expect(await tapsBlocked(page)).toEqual({ blocked: [], checked: 36 });
 
       // Reduced motion: the still layers stay, nothing moves.
       await page.emulateMedia({ reducedMotion: "reduce" });
