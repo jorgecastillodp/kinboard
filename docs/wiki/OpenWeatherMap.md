@@ -19,6 +19,14 @@ Two values need converting regardless of the setting, because OpenWeatherMap alw
 
 The weather map's rain overlay is served by OpenWeatherMap as metric tiles and keeps its mm/h legend in both systems.
 
+## Weather effects on Home
+
+**Settings → Weather → Weather effects on Home** puts the weather on the Home screen itself: snow falling when it snows, streaks of rain in rain or drizzle, rain and a soft glow now and then in a thunderstorm, frost at the screen's edges when it is freezing, gusts and leaves blowing across when it is windy (and snow or rain slanting with them), a slow haze in mist or fog, and a warm shimmer from below when it is hot. Off until you switch it on.
+
+- **Thresholds** for freezing, hot and windy are typed in your units (°C or °F, km/h or mph) and kept as they are when you change units. Compare the measured or the "feels like" temperature.
+- **Strength**: Subtle or Normal. Each effect can be switched off on its own, and **Preview** shows one on Home for a minute, whatever the weather (or open `/?weather-preview=snow,wind`).
+- **Out of the way**: nothing covers a button. Moving effects are drawn behind the widgets at most 30 times a second and stop when the page is hidden; a device set to reduce motion only gets the still ones (frost, fog, the warm edge) and no glow.
+
 ## Setup
 
 ### 1. Free API key

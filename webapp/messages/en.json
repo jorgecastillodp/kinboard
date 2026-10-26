@@ -1356,7 +1356,41 @@
       "notConfiguredTitle": "OpenWeatherMap API key not set",
       "notConfiguredDescription": "The weather widget needs a free OpenWeatherMap API key to fetch current conditions and forecasts. The widget stays disabled (no error in the dashboard) until you add the key.",
       "notConfiguredDocsLabel": "Where to get a free API key →",
-      "saveFailed": "Could not save the weather location. Please try again."
+      "saveFailed": "Could not save the weather location. Please try again.",
+      "effectsLabel": "Weather effects on Home",
+      "effectsHint": "Snow, rain, frost, wind, fog and heat on the Home screen when the weather calls for it. Nothing covers a button, and a device set to reduce motion only gets the still ones.",
+      "effectsIntensityLabel": "Strength",
+      "effectsIntensitySubtle": "Subtle",
+      "effectsIntensityNormal": "Normal",
+      "effectsTemperatureLabel": "Temperature to compare",
+      "effectsTemperatureMeasured": "Measured",
+      "effectsTemperatureFeelsLike": "Feels like",
+      "effectsThreshold": {
+        "freezingAtC": "Freezing at or below",
+        "heatAtC": "Hot at or above",
+        "windAtKmh": "Windy at or above"
+      },
+      "effectsListLabel": "Effects",
+      "effectsListHint": "Switch off any you don't want. Preview shows one on Home for a minute, whatever the weather.",
+      "effectsPreview": "Preview",
+      "effectName": {
+        "snow": "Snow",
+        "rain": "Rain",
+        "storm": "Storm",
+        "freezing": "Frost",
+        "wind": "Wind",
+        "fog": "Fog",
+        "heat": "Heat"
+      },
+      "effectWhen": {
+        "snow": "Flakes falling, when it snows",
+        "rain": "Streaks of rain, in rain or drizzle",
+        "storm": "Rain and a soft glow now and then, in a thunderstorm",
+        "freezing": "Frost at the edges, at or below the freezing temperature",
+        "wind": "Gusts and leaves blowing across, and snow or rain slanting, at or above the wind speed",
+        "fog": "A slow haze, in mist or fog",
+        "heat": "A warm shimmer from below, at or above the hot temperature"
+      }
     },
     "notifications": {
       "title": "Notifications",
@@ -3046,6 +3080,7 @@
       "screensaver_presence": "presence sensor, motion sensor, motion, wake, someone there, Home Assistant",
       "weather_location-type": "location, city, coordinates, latitude, longitude",
       "weather_location": "city, town, place, location, search city",
+      "weather_effects": "weather effects, snow, rain, frost, freezing, wind, fog, heat, animation, effects, home screen",
       "notifications_push": "push, status, allow, permission, blocked, subscribe, this device",
       "notifications_shopping": "shopping list, groceries, new items, reminders",
       "notifications_tasks": "tasks, to-dos, chores, reminders, due",

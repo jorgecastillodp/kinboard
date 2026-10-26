@@ -21,6 +21,7 @@ import { Weather } from "@/components/widgets/weather";
 import { PageHeader } from "@/components/page-header";
 import { IntegrationConfigHint } from "@/components/integration-config-hint";
 import { CityLocationPicker } from "@/components/settings/city-location-picker";
+import { WeatherEffectsSettings } from "@/components/settings/weather-effects-settings";
 
 const DEFAULT_LOCATION: WeatherLocation = { type: "city", city: "Hamburg" };
 
@@ -223,6 +224,16 @@ export default function WeatherSettingsPage() {
               t("saveButton")
             )}
           </Button>
+        </motion.div>
+
+        {/* Weather effects on Home: saved on tap, like the units (the Save button above is the location's) */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="mb-6"
+        >
+          <WeatherEffectsSettings units={unitSystem} />
         </motion.div>
 
         {/* Weather Preview */}
