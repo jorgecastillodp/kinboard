@@ -1385,11 +1385,11 @@
       "effectWhen": {
         "snow": "Flakes falling, when it snows",
         "rain": "Streaks of rain, in rain or drizzle",
-        "storm": "Rain and a soft glow now and then, in a thunderstorm",
-        "freezing": "Frost at the edges, at or below the freezing temperature",
+        "storm": "Heavier rain and a lightning bolt now and then, in a thunderstorm",
+        "freezing": "Ice crystals growing in from the edges, at or below the freezing temperature",
         "wind": "Gusts and leaves blowing across, and snow or rain slanting, at or above the wind speed",
         "fog": "A slow haze, in mist or fog",
-        "heat": "A warm shimmer from below, at or above the hot temperature"
+        "heat": "The sun's glare in the corner and warm light rising, at or above the hot temperature"
       }
     },
     "notifications": {

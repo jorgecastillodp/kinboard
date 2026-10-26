@@ -65,7 +65,7 @@ test.describe("weather effects on Home", () => {
       // Preview: snow on Home for a minute; the address loses the parameter.
       await page.getByTestId("weather-effect-preview-snow").click();
       await expect(overlay(page)).toHaveAttribute("data-effects", "snow", { timeout: 30_000 });
-      await expect(overlay(page).locator("canvas")).toHaveCount(1);
+      await expect(page.getByTestId("weather-effects-motion")).toHaveCount(1);
       expect(page.url()).not.toContain("weather-preview");
       // Taps go to what is under it.
       expect(await tapsBlocked(page)).toEqual({ blocked: [], checked: 36 });
@@ -82,7 +82,7 @@ test.describe("weather effects on Home", () => {
       await page.goto("/?weather-preview=snow,freezing,storm", { waitUntil: "domcontentloaded" });
       await expect(overlay(page)).toHaveAttribute("data-effects", "snow,storm,freezing", { timeout: 30_000 });
       await expect(page.locator(".weather-frost")).toHaveCount(1);
-      await expect(overlay(page).locator("canvas")).toHaveCount(0);
+      await expect(page.getByTestId("weather-effects-motion")).toHaveCount(0);
       await expect(page.locator(".weather-storm")).toHaveCount(0);
     } finally {
       await deleteThrowawayFamily(page, familyId, familyName);

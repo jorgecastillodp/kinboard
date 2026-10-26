@@ -107,7 +107,7 @@ test("a preview names effects Kinboard has, and nothing else", () => {
 test("the overlay never takes a tap, stops when hidden or for reduced motion, and keeps a frame cap", () => {
   const overlay = codeOnly(read("src/components/weather-effects.tsx"));
   const layers = overlay.match(/className="[^"]*fixed inset-0[^"]*"/g) ?? [];
-  expect(layers.length).toBe(5);
+  expect(layers.length).toBe(6);
   for (const layer of layers) expect(layer, layer).toContain("pointer-events-none");
   expect(overlay).toContain('window.matchMedia("(prefers-reduced-motion: reduce)")');
   expect(overlay).toContain("{!reducedMotion && moving.length > 0 && (");
@@ -115,7 +115,10 @@ test("the overlay never takes a tap, stops when hidden or for reduced motion, an
   expect(overlay).toContain("const onVisibility = () => (document.hidden ? stop() : start());");
   expect(overlay).toContain("if (t - last < FRAME_MS) return;");
   expect(overlay).toContain("const FRAME_MS = 1000 / 30;");
-  expect(overlay).toContain("const dpr = Math.min(window.devicePixelRatio || 1, 1.5);");
+  expect(overlay.match(/const dpr = Math\.min\(window\.devicePixelRatio \|\| 1, 1\.5\);/g)?.length).toBe(2);
+  // Lightning comes with the glow, and only in a storm.
+  expect(overlay).toContain("window.dispatchEvent(new Event(LIGHTNING_EVENT));");
+  expect(overlay).toContain("const onLightning = () => heavy && strike();");
   // The storm's glow is a slow brightening, never a flash.
   expect(overlay).toMatch(/}, 9_000 \+ Math\.random\(\) \* 11_000\);/);
   expect(overlay).toContain("transition-opacity duration-700");
