@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { AvatarSpecies, AvatarTier } from "@/lib/pocket-money/types";
 import { effectiveStyle } from "@/lib/pocket-money/creatures";
 import { CreatureAvatar, useParticles } from "./creature-avatar";
+import { prefersReducedMotion } from "@/lib/motion";
 import type { CreatureLook } from "@/lib/pocket-money/creatures/look";
 
 type CelebrationKind = "evolution" | "goal-reached" | "interest-pay";
@@ -160,13 +161,7 @@ export function HatchingScene({
   const fromTier = from < toTier ? clampTier(from) : clampTier(toTier - 1);
   const fromEgg = fromTier === 1;
   // Only ever mounted on the client, after a promotion: matchMedia is there.
-  const [reduce] = useState(() => {
-    try {
-      return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    } catch {
-      return false;
-    }
-  });
+  const [reduce] = useState(prefersReducedMotion);
   const [phase, setPhase] = useState<Phase>(reduce ? "new" : fromEgg ? "egg" : "old");
   const { burst, layer } = useParticles();
 

@@ -3,6 +3,7 @@
 // The pragma is a no-op for Next; see lib/pocket-money/creatures/skeleton.tsx.
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { prefersReducedMotion } from "@/lib/motion";
 import type { AvatarSpecies, AvatarTier } from "@/lib/pocket-money/types";
 import {
   classicAvatarSrc,
@@ -49,13 +50,8 @@ export interface CreatureAvatarProps {
   className?: string;
 }
 
-export function prefersReducedMotion(): boolean {
-  try {
-    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  } catch {
-    return false;
-  }
-}
+// Lives in lib/motion.ts so it follows the device's animation switch too.
+export { prefersReducedMotion };
 
 /** Restart a one-shot animation class on an element. */
 export function replayClass(el: Element | null, cls: string) {

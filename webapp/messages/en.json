@@ -1283,6 +1283,11 @@
       "textScaleLarge": "Larger",
       "textScaleXL": "Largest",
       "textScaleHint": "Saved per device — set it on the kiosk itself.",
+      "motionLabel": "Animations",
+      "motion_auto": "On",
+      "motion_reduced": "Reduced",
+      "motion_off": "Off",
+      "motionHint": "Saved per device, for a display that stutters, such as a Raspberry Pi. Reduced stops things moving across the screen; Off also leaves out fades and still effects. On still follows the device's own reduce-motion setting.",
       "previewHeading": "Preview"
     },
     "screensaver": {
@@ -3043,6 +3048,7 @@
       "theme_monthly-theme": "monthly theme, seasons, season, Christmas, Halloween, Easter, decoration",
       "theme_palette": "neutral tone, palette, colours, colors, warm, cool, grey",
       "theme_appearance": "dark mode, light mode, 24-hour clock, seconds, text size, font size, bigger text",
+      "theme_animations": "animations, motion, effects, reduce motion, performance, slow, stutter, raspberry pi",
       "screensaver_timeout": "timeout, idle, inactivity, minutes, when, start",
       "screensaver_rotation": "photo rotation, slideshow, interval, change photos, seconds",
       "screensaver_presence": "presence sensor, motion sensor, motion, wake, someone there, Home Assistant",
