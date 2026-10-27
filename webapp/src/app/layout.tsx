@@ -7,6 +7,7 @@ import { getMonthTheme } from "@/lib/utils";
 import { ChunkErrorRecovery } from "@/components/chunk-error-recovery";
 import { display, sans, mono } from "./fonts";
 import { publicApiEnv } from "@/lib/supabase/api-base";
+import { MOTION_INIT_SCRIPT } from "@/lib/motion";
 
 export const metadata: Metadata = {
   title: "Kinboard",
@@ -70,6 +71,8 @@ export default async function RootLayout({
       <body
         className={`${display.variable} ${sans.variable} ${mono.variable} font-sans antialiased min-h-page bg-background`}
       >
+        {/* Before anything paints: this device's animation level (lib/motion.ts). */}
+        <script dangerouslySetInnerHTML={{ __html: MOTION_INIT_SCRIPT }} />
         <script
            
           dangerouslySetInnerHTML={{

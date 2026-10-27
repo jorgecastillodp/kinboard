@@ -2,12 +2,14 @@
 
 import { type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { AnimatePresence, motion, PresenceContext, useReducedMotion } from "framer-motion";
-import { useKioskMode } from "@/hooks";
+import { AnimatePresence, motion, PresenceContext } from "framer-motion";
+import { useKioskMode, useMotion } from "@/hooks";
 
 export function RouteTransition({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const reduce = useReducedMotion();
+  // This device's switch as well as the OS (lib/motion.ts); framer's own
+  // useReducedMotion only sees the OS.
+  const reduce = useMotion() !== "full";
   const { isKioskMode } = useKioskMode();
 
   // Reduced motion: no animation. Kiosk: opacity-only (ARM GPU).

@@ -235,6 +235,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     { anchor: "monthly-theme", labelKey: "settings.theme.monthlyThemeHeading" },
     { anchor: "palette", labelKey: "settings.theme.paletteHeading" },
     { anchor: "appearance", labelKey: "settings.theme.appearanceHeading" },
+    { anchor: "animations", labelKey: "settings.theme.motionLabel", descriptionKey: "settings.theme.motionHint" },
   ]),
   ...sectionsOf(screensaver, [
     { anchor: "timeout", labelKey: "settings.screensaver.timeoutHeading" },
