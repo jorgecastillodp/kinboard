@@ -1358,7 +1358,42 @@
       "notConfiguredTitle": "Clé API OpenWeatherMap non définie",
       "notConfiguredDescription": "Le widget météo a besoin d'une clé API OpenWeatherMap gratuite pour obtenir les conditions actuelles et les prévisions. Le widget reste désactivé (aucune erreur sur le tableau de bord) jusqu'à ce que vous ajoutiez la clé.",
       "notConfiguredDocsLabel": "Où obtenir une clé API gratuite →",
-      "saveFailed": "Impossible d'enregistrer la position météo. Veuillez réessayer."
+      "saveFailed": "Impossible d'enregistrer la position météo. Veuillez réessayer.",
+      "effectsLabel": "Effets météo sur l'accueil",
+      "effectsHint": "Neige, pluie, givre, vent, brouillard et chaleur sur l'écran d'accueil quand le temps s'y prête. Rien ne couvre un bouton, et un appareil réglé pour réduire les animations n'affiche que les effets fixes.",
+      "effectsIntensityLabel": "Intensité",
+      "effectsIntensitySubtle": "Discrète",
+      "effectsIntensityNormal": "Normale",
+      "effectsTemperatureLabel": "Température comparée",
+      "effectsTemperatureMeasured": "Mesurée",
+      "effectsTemperatureFeelsLike": "Ressentie",
+      "effectsThreshold": {
+        "freezingAtC": "Gel à partir de (ou en dessous)",
+        "heatAtC": "Chaleur à partir de",
+        "windAtKmh": "Vent à partir de"
+      },
+      "effectsListLabel": "Effets",
+      "effectsListHint": "Désactivez ceux que vous ne voulez pas. Aperçu en affiche un ici même pendant une minute, quel que soit le temps.",
+      "effectsPreview": "Aperçu",
+      "effectsPreviewStop": "Arrêter",
+      "effectName": {
+        "snow": "Neige",
+        "rain": "Pluie",
+        "storm": "Orage",
+        "freezing": "Givre",
+        "wind": "Vent",
+        "fog": "Brouillard",
+        "heat": "Chaleur"
+      },
+      "effectWhen": {
+        "snow": "Des flocons qui tombent, quand il neige",
+        "rain": "Des traits de pluie, sous la pluie ou la bruine",
+        "storm": "Une pluie plus forte et un éclair de temps en temps, par orage",
+        "freezing": "Des cristaux de glace qui poussent depuis les bords, à la température de gel ou en dessous",
+        "wind": "Des rafales et des feuilles, et la neige ou la pluie en biais, à partir de la vitesse du vent",
+        "fog": "Une brume lente, par brume ou brouillard",
+        "heat": "L'éclat du soleil dans le coin et une lumière chaude qui monte, à partir de la température de chaleur"
+      }
     },
     "notifications": {
       "title": "Notifications",
@@ -3048,6 +3083,7 @@
       "screensaver_presence": "capteur de présence, détecteur de mouvement, mouvement, réveil, Home Assistant",
       "weather_location-type": "emplacement, ville, coordonnées, latitude, longitude",
       "weather_location": "ville, commune, lieu, emplacement, rechercher une ville",
+      "weather_effects": "effets météo, neige, pluie, givre, gel, vent, brouillard, chaleur, animation, effets, accueil",
       "notifications_push": "push, état, autoriser, permission, bloqué, s'abonner, cet appareil",
       "notifications_shopping": "liste de courses, courses, nouveaux articles, rappels",
       "notifications_tasks": "tâches, à faire, corvées, rappels, échéance",

@@ -4,6 +4,7 @@ import { Fragment } from "react";
 import { useTranslations } from "next-intl";
 import { Clock } from "@/components/widgets/clock";
 import { Weather } from "@/components/widgets/weather";
+import { WeatherEffects } from "@/components/weather-effects";
 import { UpcomingEvents } from "@/components/widgets/upcoming-events";
 import { FamilyMembers } from "@/components/widgets/family-members";
 import { ScheduleWidget } from "@/components/widgets/schedule-widget";
@@ -148,6 +149,7 @@ export default function DashboardPage() {
     // taller than its viewport, so pages that fit still scrolled (audit KB-21).
     <main id="main-content" className="relative overflow-hidden hide-status-bar">
       <div className="page-gradient pointer-events-none fixed inset-0 z-0" />
+      <WeatherEffects />
       {/* `has-fab` reserves a corner's worth of space at the end of the column
           so the floating lights button stops sitting on top of the last
           widget's content (audit KB-04). */}
