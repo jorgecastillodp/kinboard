@@ -1365,7 +1365,7 @@
       "notConfiguredDocsLabel": "Où obtenir une clé API gratuite →",
       "saveFailed": "Impossible d'enregistrer la position météo. Veuillez réessayer.",
       "effectsLabel": "Effets météo sur l'accueil",
-      "effectsHint": "Neige, pluie, givre, vent, brouillard et chaleur sur l'écran d'accueil quand le temps s'y prête. Rien ne couvre un bouton, et un appareil réglé pour réduire les animations n'affiche que les effets fixes.",
+      "effectsHint": "Neige, pluie, givre, vent, brouillard et chaleur sur l'écran d'accueil quand le temps s'y prête. Rien ne couvre un bouton. Un appareil dont les animations sont Réduites (Paramètres → Design), ou réglé pour réduire les animations, n'affiche que les effets fixes, et un appareil sur Désactivées n'en affiche aucun.",
       "effectsIntensityLabel": "Intensité",
       "effectsIntensitySubtle": "Discrète",
       "effectsIntensityNormal": "Normale",

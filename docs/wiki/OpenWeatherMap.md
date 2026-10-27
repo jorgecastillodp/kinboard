@@ -25,7 +25,7 @@ The weather map's rain overlay is served by OpenWeatherMap as metric tiles and k
 
 - **Thresholds** for freezing, hot and windy are typed in your units (°C or °F, km/h or mph) and kept as they are when you change units. Compare the measured or the "feels like" temperature.
 - **Strength**: Subtle or Normal. Each effect can be switched off on its own, and **Preview** shows one right there on the settings page for a minute (or until **Stop**), whatever the weather. `/?weather-preview=snow,wind` does the same on Home.
-- **Out of the way**: nothing covers a button. Moving effects are drawn behind the widgets at most 30 times a second and stop when the page is hidden; a device set to reduce motion only gets the still ones (frost, a plain haze, the warm edge, a darker sky in rain) and no lightning.
+- **Out of the way**: nothing covers a button. Moving effects are drawn behind the widgets at most 30 times a second and stop when the page is hidden; a device with Animations set to Reduced (Settings → Theme), or asking for reduced motion, only gets the still ones (frost, a plain haze, the warm edge, a darker sky in rain) and no lightning, and a device set to Off, such as a Raspberry Pi that stutters, gets none.
 
 ## Setup
 

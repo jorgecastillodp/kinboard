@@ -1034,7 +1034,7 @@ html[data-screensaver] nav {
 
 /* Weather effects on Home (components/weather-effects.tsx). The still
    layers; what moves is canvas. Only the fades and the haze's slow drift are
-   animated here, and both stop for reduced motion. */
+   animated here, and both stop when motion is reduced or off. */
 .weather-frost {
   animation: weather-fade-in 4s ease-out both;
 }
@@ -1063,10 +1063,9 @@ html[data-screensaver] nav {
   from { transform: translateX(-3%); }
   to { transform: translateX(3%); }
 }
-@media (prefers-reduced-motion: reduce) {
-  .weather-frost,
-  .weather-heat,
-  .weather-fog {
-    animation: none;
-  }
+/* Reduced or off on this device (lib/motion.ts). */
+:root:not([data-motion="full"]) .weather-frost,
+:root:not([data-motion="full"]) .weather-heat,
+:root:not([data-motion="full"]) .weather-fog {
+  animation: none;
 }

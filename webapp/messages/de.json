@@ -1365,7 +1365,7 @@
       "notConfiguredDocsLabel": "Kostenlosen API-Schlüssel anfordern →",
       "saveFailed": "Wetter-Standort konnte nicht gespeichert werden. Bitte erneut versuchen.",
       "effectsLabel": "Wettereffekte auf der Startseite",
-      "effectsHint": "Schnee, Regen, Frost, Wind, Nebel und Hitze auf der Startseite, wenn das Wetter danach ist. Nichts verdeckt eine Schaltfläche, und ein Gerät mit reduzierter Bewegung zeigt nur die ruhigen.",
+      "effectsHint": "Schnee, Regen, Frost, Wind, Nebel und Hitze auf der Startseite, wenn das Wetter danach ist. Nichts verdeckt eine Schaltfläche. Ein Gerät mit Animationen auf Reduziert (Einstellungen → Design) oder mit reduzierter Bewegung zeigt nur die ruhigen, eines mit Aus gar keine.",
       "effectsIntensityLabel": "Stärke",
       "effectsIntensitySubtle": "Dezent",
       "effectsIntensityNormal": "Normal",

@@ -104,12 +104,14 @@ test("a preview names effects Kinboard has, and nothing else", () => {
   expect(parsePreview("")).toEqual([]);
 });
 
-test("the overlay never takes a tap, stops when hidden or for reduced motion, and keeps a frame cap", () => {
+test("the overlay never takes a tap, follows the device's animation switch, stops when hidden, and keeps a frame cap", () => {
   const overlay = codeOnly(read("src/components/weather-effects.tsx"));
   const layers = overlay.match(/className="[^"]*fixed inset-0[^"]*"/g) ?? [];
   expect(layers.length).toBe(6);
   for (const layer of layers) expect(layer, layer).toContain("pointer-events-none");
-  expect(overlay).toContain('window.matchMedia("(prefers-reduced-motion: reduce)")');
+  // Reduced (or the OS asking) keeps the still layers; Off draws nothing.
+  expect(overlay).toContain('const reducedMotion = motion !== "full";');
+  expect(overlay).toContain('if (effects.length === 0 || motion === "off") return null;');
   expect(overlay).toContain("{!reducedMotion && moving.length > 0 && (");
   expect(overlay).toContain('{on.has("storm") && !reducedMotion && <StormGlow strength={strength} />}');
   expect(overlay).toContain("const onVisibility = () => (document.hidden ? stop() : start());");
@@ -123,7 +125,7 @@ test("the overlay never takes a tap, stops when hidden or for reduced motion, an
   expect(overlay).toMatch(/}, 9_000 \+ Math\.random\(\) \* 11_000\);/);
   expect(overlay).toContain("transition-opacity duration-700");
   const css = read("src/app/globals.css");
-  expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{\s*\.weather-frost,\s*\.weather-heat,\s*\.weather-fog \{\s*animation: none;/);
+  expect(css).toMatch(/:root:not\(\[data-motion="full"\]\) \.weather-frost,\s*:root:not\(\[data-motion="full"\]\) \.weather-heat,\s*:root:not\(\[data-motion="full"\]\) \.weather-fog \{\s*animation: none;/);
 });
 
 test("Home draws it; Settings -> Weather sets it, findable in the settings search", () => {

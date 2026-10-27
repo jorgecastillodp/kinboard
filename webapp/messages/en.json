@@ -1365,7 +1365,7 @@
       "notConfiguredDocsLabel": "Where to get a free API key →",
       "saveFailed": "Could not save the weather location. Please try again.",
       "effectsLabel": "Weather effects on Home",
-      "effectsHint": "Snow, rain, frost, wind, fog and heat on the Home screen when the weather calls for it. Nothing covers a button, and a device set to reduce motion only gets the still ones.",
+      "effectsHint": "Snow, rain, frost, wind, fog and heat on the Home screen when the weather calls for it. Nothing covers a button. A device with Animations set to Reduced (Settings → Theme), or asking for reduced motion, only gets the still ones, and one set to Off shows none.",
       "effectsIntensityLabel": "Strength",
       "effectsIntensitySubtle": "Subtle",
       "effectsIntensityNormal": "Normal",
