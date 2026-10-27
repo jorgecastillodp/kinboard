@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { prefersReducedMotion } from "@/lib/motion";
 
 const HIGHLIGHT = "settings-anchor-highlight";
 const HIGHLIGHT_MS = 2000;
@@ -52,7 +53,7 @@ export function useSettingsAnchor() {
           if (performance.now() - started < FIND_FOR_MS) frame = requestAnimationFrame(find);
           return;
         }
-        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const reduce = prefersReducedMotion();
         el.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
         unlight();
         // Restart the animation when the same section is opened twice running.

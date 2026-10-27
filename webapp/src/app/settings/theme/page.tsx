@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { motion } from "framer-motion";
-import { Palette, Moon, Sun, Clock, Loader2, Type } from "lucide-react";
+import { Palette, Moon, Sun, Clock, Loader2, Type, Wind } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { format } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useSetting, useUpdateSetting, useTextScale, type TextScale } from "@/hooks";
+import { useSetting, useUpdateSetting, useTextScale, type TextScale, useMotionPreference } from "@/hooks";
+import { MOTION_PREFERENCES } from "@/lib/motion";
 import { useTheme } from "next-themes";
 import { PageHeader } from "@/components/page-header";
 import { ALL_PALETTE_CLASSES, type Palette as ThemePalette } from "@/hooks/use-theme-settings";
@@ -88,6 +89,9 @@ export default function ThemeSettingsPage() {
 
   // Per-device text scale — localStorage, not the Supabase settings above.
   const [textScale, setTextScale] = useTextScale();
+  // Per-device animations (lib/motion.ts) — a Pi on the wall turns them off
+  // without taking them from everyone's phone.
+  const [motionPreference, setMotionPreference] = useMotionPreference();
 
   const themeOverride = settings?.themeOverride ?? null;
   const palette: Palette = settings?.palette ?? "sand";
@@ -366,6 +370,31 @@ export default function ThemeSettingsPage() {
                     ))}
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">{t("textScaleHint")}</p>
+                </div>
+
+                {/* Animations (per-device, localStorage) */}
+                <div className="p-4" data-setting="animations">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Wind className="size-5 text-primary" />
+                    <Label className="font-medium">{t("motionLabel")}</Label>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {MOTION_PREFERENCES.map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setMotionPreference(m)}
+                        aria-pressed={motionPreference === m}
+                        className={`rounded-lg border px-3 py-2 text-sm font-medium text-center transition-all ${
+                          motionPreference === m
+                            ? "border-primary bg-primary/10 text-primary ring-1 ring-primary"
+                            : "border-border text-muted-foreground hover:bg-muted/50"
+                        }`}
+                      >
+                        {t(`motion_${m}`)}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">{t("motionHint")}</p>
                 </div>
               </Card>
             </motion.div>

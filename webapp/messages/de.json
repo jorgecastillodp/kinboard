@@ -1283,6 +1283,11 @@
       "textScaleLarge": "Größer",
       "textScaleXL": "Am größten",
       "textScaleHint": "Wird pro Gerät gespeichert — direkt am Kiosk einstellen.",
+      "motionLabel": "Animationen",
+      "motion_auto": "An",
+      "motion_reduced": "Reduziert",
+      "motion_off": "Aus",
+      "motionHint": "Wird pro Gerät gespeichert, für einen Bildschirm, der ruckelt, etwa einen Raspberry Pi. Reduziert hält an, was sich über den Bildschirm bewegt; Aus lässt auch Überblendungen und stehende Effekte weg. An folgt weiterhin der Einstellung „Bewegung reduzieren“ des Geräts.",
       "previewHeading": "Vorschau"
     },
     "screensaver": {
@@ -3043,6 +3048,7 @@
       "theme_monthly-theme": "Monatsthema, Jahreszeiten, Saison, Weihnachten, Halloween, Ostern, Deko",
       "theme_palette": "Grundton, Farbton, Palette, Farben, warm, kühl, grau",
       "theme_appearance": "Dunkelmodus, Hellmodus, dunkel, 24-Stunden, Uhr, Sekunden, Textgröße, Schriftgröße, größere Schrift",
+      "theme_animations": "animationen, bewegung, effekte, bewegung reduzieren, leistung, langsam, ruckeln, raspberry pi",
       "screensaver_timeout": "Wartezeit, Inaktivität, Leerlauf, Minuten, wann, starten",
       "screensaver_rotation": "Bildwechsel, Diashow, Intervall, Fotos wechseln, Sekunden",
       "screensaver_presence": "Präsenzsensor, Bewegungsmelder, Bewegung, aufwecken, Anwesenheit, Home Assistant",

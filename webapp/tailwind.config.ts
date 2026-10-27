@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
 const config: Config = {
   darkMode: ["class"],
@@ -181,7 +182,16 @@ const config: Config = {
   		}
   	}
   },
-  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
+  plugins: [
+    require("tailwindcss-animate"),
+    require("@tailwindcss/typography"),
+    // `reduce-motion:` follows this device's animation switch as well as the
+    // OS setting (lib/motion.ts). Use it instead of `motion-reduce:`, which
+    // only sees the OS.
+    plugin(({ addVariant }) => {
+      addVariant("reduce-motion", ':root:not([data-motion="full"]) &');
+    }),
+  ],
 };
 
 export default config;

@@ -11,9 +11,10 @@ interface MarqueeTextProps {
 /**
  * Single-line text that gently scrolls (marquee) ONLY when it overflows its
  * container, then alternates back — so the full title stays readable without
- * truncation. Non-overflowing text is static. Disabled under
- * `prefers-reduced-motion` (clips to the start). The animation runs only on
- * the specific overflowing instances, keeping kiosk repaint cost minimal.
+ * truncation. Non-overflowing text is static. Disabled when motion is
+ * reduced or off, by the OS or this device's switch (clips to the start). The
+ * animation runs only on the specific overflowing instances, keeping kiosk
+ * repaint cost minimal.
  */
 export function MarqueeText({ text, className }: MarqueeTextProps) {
   const containerRef = useRef<HTMLSpanElement>(null);

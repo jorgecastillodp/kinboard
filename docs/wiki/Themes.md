@@ -47,6 +47,18 @@ Settings → Theme → **Show seconds** toggle. Adds `:ss` to the clock widget. 
 
 Settings → Theme → **Text size**: three sizes (Normal / Large / XL). Stored **per device** in `localStorage`, not per family — so a wall kiosk can go large enough to read from across the kitchen while everyone's phones stay at a normal size. Applies app-wide, not just the clock.
 
+## Animations
+
+Settings → Theme → **Animations**: On / Reduced / Off, stored **per device** like the text size, so a Raspberry Pi on the wall can turn them off while phones and tablets keep them.
+
+- **On** animates, unless the device itself asks for reduced motion (the operating system's accessibility setting), in which case it behaves as Reduced.
+- **Reduced** stops anything that moves across the screen or loops: page transitions, shimmer, the creatures, the energy flow, the marquee.
+- **Off** also leaves out fades and still decorative effects. Use it on a display that stutters.
+
+The choice applies from the first frame after a reload. A Pi in Chromium kiosk mode doesn't need a launch flag for this any more.
+
+For contributors: the level is on `<html data-motion="full|reduced|off">`. Anything that animates should ask `useMotion()` / `motionLevel()` (`lib/motion.ts`), key CSS off `:root:not([data-motion="full"])`, or use the Tailwind variant `reduce-motion:`. A check in `e2e/motion.spec.ts` fails on direct `prefers-reduced-motion` queries, framer's `useReducedMotion` and Tailwind's `motion-reduce:`, because none of those see the switch.
+
 ## Locales
 
 Kinboard ships **English (en)**, **German (de)**, and **French (fr)** out of the box. The whole UI is translated — 2200+ strings, parity-checked in CI. Push notification text also follows the family's chosen language (with correct pluralization in all three), not just the UI.

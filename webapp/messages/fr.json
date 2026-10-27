@@ -1283,6 +1283,11 @@
       "textScaleLarge": "Plus grand",
       "textScaleXL": "Le plus grand",
       "textScaleHint": "Enregistré par appareil — réglez-le sur la borne elle-même.",
+      "motionLabel": "Animations",
+      "motion_auto": "Activées",
+      "motion_reduced": "Réduites",
+      "motion_off": "Désactivées",
+      "motionHint": "Enregistré par appareil, pour un écran qui saccade, comme un Raspberry Pi. Réduites arrête ce qui se déplace à l’écran ; Désactivées retire aussi les fondus et les effets fixes. Activées suit toujours le réglage « réduire les animations » de l’appareil.",
       "previewHeading": "Aperçu"
     },
     "screensaver": {
@@ -3043,6 +3048,7 @@
       "theme_monthly-theme": "thème mensuel, saisons, Noël, Halloween, Pâques, décoration",
       "theme_palette": "ton neutre, palette, couleurs, chaud, froid, gris",
       "theme_appearance": "mode sombre, mode clair, 24 heures, horloge, secondes, taille du texte, police",
+      "theme_animations": "animations, mouvement, effets, réduire les animations, performances, lent, saccades, raspberry pi",
       "screensaver_timeout": "délai, inactivité, minutes, quand, démarrer",
       "screensaver_rotation": "rotation des photos, diaporama, intervalle, changer de photo, secondes",
       "screensaver_presence": "capteur de présence, détecteur de mouvement, mouvement, réveil, Home Assistant",
