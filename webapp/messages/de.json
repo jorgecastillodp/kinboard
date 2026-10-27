@@ -1363,7 +1363,42 @@
       "notConfiguredTitle": "OpenWeatherMap-API-Schlüssel nicht gesetzt",
       "notConfiguredDescription": "Das Wetter-Widget benötigt einen kostenlosen OpenWeatherMap-API-Schlüssel, um aktuelle Bedingungen und Vorhersagen abzurufen. Das Widget bleibt deaktiviert (kein Fehler im Dashboard), bis der Schlüssel hinterlegt ist.",
       "notConfiguredDocsLabel": "Kostenlosen API-Schlüssel anfordern →",
-      "saveFailed": "Wetter-Standort konnte nicht gespeichert werden. Bitte erneut versuchen."
+      "saveFailed": "Wetter-Standort konnte nicht gespeichert werden. Bitte erneut versuchen.",
+      "effectsLabel": "Wettereffekte auf der Startseite",
+      "effectsHint": "Schnee, Regen, Frost, Wind, Nebel und Hitze auf der Startseite, wenn das Wetter danach ist. Nichts verdeckt eine Schaltfläche. Ein Gerät mit Animationen auf Reduziert (Einstellungen → Design) oder mit reduzierter Bewegung zeigt nur die ruhigen, eines mit Aus gar keine.",
+      "effectsIntensityLabel": "Stärke",
+      "effectsIntensitySubtle": "Dezent",
+      "effectsIntensityNormal": "Normal",
+      "effectsTemperatureLabel": "Verglichene Temperatur",
+      "effectsTemperatureMeasured": "Gemessen",
+      "effectsTemperatureFeelsLike": "Gefühlt",
+      "effectsThreshold": {
+        "freezingAtC": "Frost bei höchstens",
+        "heatAtC": "Hitze ab",
+        "windAtKmh": "Wind ab"
+      },
+      "effectsListLabel": "Effekte",
+      "effectsListHint": "Schalte aus, was du nicht möchtest. Vorschau zeigt einen Effekt eine Minute lang direkt hier, egal bei welchem Wetter.",
+      "effectsPreview": "Vorschau",
+      "effectsPreviewStop": "Stopp",
+      "effectName": {
+        "snow": "Schnee",
+        "rain": "Regen",
+        "storm": "Gewitter",
+        "freezing": "Frost",
+        "wind": "Wind",
+        "fog": "Nebel",
+        "heat": "Hitze"
+      },
+      "effectWhen": {
+        "snow": "Fallende Flocken, wenn es schneit",
+        "rain": "Regenstreifen, bei Regen oder Nieselregen",
+        "storm": "Stärkerer Regen und ab und zu ein Blitz, bei Gewitter",
+        "freezing": "Eiskristalle, die von den Rändern her wachsen, bei oder unter der Frosttemperatur",
+        "wind": "Böen und Blätter, und schräger Schnee oder Regen, ab der Windgeschwindigkeit",
+        "fog": "Ein langsamer Dunst, bei Dunst oder Nebel",
+        "heat": "Sonnenglanz in der Ecke und aufsteigendes warmes Licht, ab der Hitzetemperatur"
+      }
     },
     "notifications": {
       "title": "Benachrichtigungen",
@@ -3054,6 +3089,7 @@
       "screensaver_presence": "Präsenzsensor, Bewegungsmelder, Bewegung, aufwecken, Anwesenheit, Home Assistant",
       "weather_location-type": "Standort, Ort, Stadt, Koordinaten, Breitengrad, Längengrad",
       "weather_location": "Stadt, Ort, Wohnort, Standort, Stadt suchen",
+      "weather_effects": "Wettereffekte, Schnee, Regen, Frost, Wind, Nebel, Hitze, Animation, Effekte, Startseite",
       "notifications_push": "Push, Status, erlauben, Berechtigung, blockiert, abonnieren, dieses Gerät",
       "notifications_shopping": "Einkaufsliste, Einkauf, neue Artikel, Erinnerungen",
       "notifications_tasks": "Aufgaben, To-dos, Hausarbeit, Erinnerungen, fällig",

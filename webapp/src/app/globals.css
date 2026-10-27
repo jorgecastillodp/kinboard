@@ -1060,3 +1060,41 @@ html[data-screensaver] nav {
   animation: none;
   outline-color: hsl(var(--primary));
 }
+
+/* Weather effects on Home (components/weather-effects.tsx). The still
+   layers; what moves is canvas. Only the fades and the haze's slow drift are
+   animated here, and both stop when motion is reduced or off. */
+.weather-frost {
+  animation: weather-fade-in 4s ease-out both;
+}
+.weather-heat {
+  background:
+    linear-gradient(to top, rgba(255, 140, 60, 0.18), transparent 30%),
+    radial-gradient(ellipse 70% 45% at 100% 0%, rgba(255, 190, 110, 0.12), transparent 70%);
+  animation: weather-fade-in 4s ease-out both;
+}
+.weather-fog {
+  /* Wider than the screen, so the drift never shows an edge. */
+  inset: 0 -10%;
+  background: linear-gradient(to top, rgba(205, 210, 218, 0.4), rgba(205, 210, 218, 0.12) 60%, rgba(205, 210, 218, 0.05));
+  animation: weather-fog-drift 60s ease-in-out infinite alternate;
+}
+.weather-gloom {
+  background: linear-gradient(to bottom, rgba(20, 28, 45, 0.45), rgba(20, 28, 45, 0.15));
+}
+.weather-storm {
+  background: radial-gradient(ellipse at top, rgba(220, 230, 255, 0.9), transparent 70%);
+}
+@keyframes weather-fade-in {
+  from { opacity: 0; }
+}
+@keyframes weather-fog-drift {
+  from { transform: translateX(-3%); }
+  to { transform: translateX(3%); }
+}
+/* Reduced or off on this device (lib/motion.ts). */
+:root:not([data-motion="full"]) .weather-frost,
+:root:not([data-motion="full"]) .weather-heat,
+:root:not([data-motion="full"]) .weather-fog {
+  animation: none;
+}

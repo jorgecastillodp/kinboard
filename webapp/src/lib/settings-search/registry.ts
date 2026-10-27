@@ -245,6 +245,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   ...sectionsOf(weather, [
     { anchor: "location-type", labelKey: "settings.weather.locationTypeHeading" },
     { anchor: "location", labelKey: "settings.weather.locationCityHeading" },
+    { anchor: "effects", labelKey: "settings.weather.effectsLabel", descriptionKey: "settings.weather.effectsHint" },
   ]),
   ...sectionsOf(notifications, [
     { anchor: "push", labelKey: "settings.notifications.pushStatusHeading" },
