@@ -1831,6 +1831,8 @@
       "overview": "Aperçu",
       "navLabel": "Afficher dans la navigation",
       "navHint": "Une entrée à part dans le menu, qui ouvre le tableau de bord sur sa propre page. Il reste un onglet sous Domotique, et chaque appareil peut le masquer dans Paramètres → Navigation.",
+      "microphoneLabel": "Autoriser le micro",
+      "microphoneHint": "Pour une carte d'enregistrement vocal ou d'interphone sur ce tableau de bord. Le navigateur demande l'autorisation la première fois ; les autres onglets et la caméra restent désactivés.",
       "navIconLabel": "Icône du menu",
       "navIconHint": "L'icône à côté de son nom dans le menu."
     },

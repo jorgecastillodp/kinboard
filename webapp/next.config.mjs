@@ -121,8 +121,17 @@ const nextConfig = {
       // Belt to frame-ancestors' braces, for anything that still reads it.
       { key: "X-Frame-Options", value: "DENY" },
       { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-      // Drop ambient access to sensors the app doesn't use.
-      { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), interest-cohort=()" },
+      // Drop ambient access to sensors the app doesn't use. The microphone is
+      // the exception: a Home Assistant dashboard tab may hand it to its frame,
+      // for a voice-recorder or intercom card, when the family switches that on
+      // for the tab (ha-dashboard-frame.tsx). A cross-origin frame gets it only
+      // if its <iframe> asks with allow="microphone", and that tab is the only
+      // frame in the app (ha-embed.spec.ts holds both). It can't be narrowed to
+      // the tab's routes: moving between pages here doesn't load a new
+      // document, and a page keeps the policy of the document it opened with,
+      // so a display that started on Home would still refuse it. Nor to the
+      // tab's origin: that is each family's own Home Assistant address.
+      { key: "Permissions-Policy", value: "camera=(), microphone=*, geolocation=(), interest-cohort=()" },
       // Clickjacking + a couple of cheap wins, none of which constrain scripts:
       // the dashboard cannot be framed, forms cannot be pointed elsewhere, and
       // <base> cannot be hijacked.

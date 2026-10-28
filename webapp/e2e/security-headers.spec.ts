@@ -41,6 +41,14 @@ test("the CSP deliberately omits script-src", () => {
   expect(value).toContain("frame-ancestors");
 });
 
+test("the Permissions-Policy keeps the camera and location off, and the microphone only for a frame that asks", () => {
+  // Exactly this: a dashboard tab switched on hands the microphone to its
+  // frame with allow="microphone" (ha-dashboard-frame.tsx), and that is the
+  // only frame in the app (ha-embed.spec.ts); nothing else is loosened.
+  expect(config).toContain('{ key: "Permissions-Policy", value: "camera=(), microphone=*, geolocation=(), interest-cohort=()" }');
+  expect(config.match(/Permissions-Policy/g)?.length).toBe(1);
+});
+
 test("the headers apply to every path", () => {
   expect(config).toContain('source: "/:path*"');
 });

@@ -1831,6 +1831,8 @@
       "overview": "Übersicht",
       "navLabel": "In der Navigation zeigen",
       "navHint": "Ein eigener Eintrag im Menü, der das Dashboard auf einer eigenen Seite öffnet. Unter Hausautomation bleibt es ein Tab, und jedes Gerät kann es unter Einstellungen → Navigation ausblenden.",
+      "microphoneLabel": "Mikrofon erlauben",
+      "microphoneHint": "Für eine Sprachaufnahme- oder Gegensprechkarte auf diesem Dashboard. Der Browser fragt beim ersten Mal um Erlaubnis; andere Tabs und die Kamera bleiben aus.",
       "navIconLabel": "Icon im Menü",
       "navIconHint": "Das Symbol neben dem Namen im Menü."
     },

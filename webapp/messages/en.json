@@ -1831,6 +1831,8 @@
       "overview": "Overview",
       "navLabel": "Show in the navigation",
       "navHint": "An entry of its own in the menu that opens the dashboard on a page of its own. It stays a tab under Home automation, and each device can hide it under Settings → Navigation.",
+      "microphoneLabel": "Allow the microphone",
+      "microphoneHint": "For a voice-recorder or intercom card on this dashboard. The browser asks for permission the first time; other tabs, and the camera, stay off.",
       "navIconLabel": "Menu icon",
       "navIconHint": "The icon beside its name in the menu."
     },

@@ -365,6 +365,12 @@ export interface HaEmbeddedDashboard {
   in_nav?: boolean;
   /** That entry's icon: a Lucide icon from lib/dashboard-nav-icons.ts, or none for the dashboard icon. */
   nav_icon?: string | null;
+  /**
+   * Let the dashboard use the microphone, for a voice-recorder or intercom
+   * card: the frame asks for it (allow="microphone"), and the browser asks the
+   * person the first time. Off unless switched on; the camera never.
+   */
+  allow_microphone?: boolean;
 }
 
 /** One of the household's Home Assistant dashboards, as listed for picking. */

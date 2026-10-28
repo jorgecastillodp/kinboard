@@ -31,10 +31,13 @@ interface HaDashboardFrameProps {
  * `allow-top-navigation`, so nothing framed can send the whole display away
  * from Kinboard. That holds only while Home Assistant is on an origin of its
  * own (a sibling subdomain is fine): under Kinboard's own origin, scripts and
- * the same origin together could reach into Kinboard's page. Camera and
- * microphone stay unavailable in here — Kinboard's Permissions-Policy turns
- * them off for the page and every frame in it, so a camera card's talk button
- * cannot work in a tab.
+ * the same origin together could reach into Kinboard's page. The camera stays
+ * unavailable in here (Kinboard's Permissions-Policy turns it off for the page
+ * and every frame in it). The microphone is passed on only when the family
+ * switched it on for this tab (`allow_microphone`), for a voice-recorder or
+ * intercom card: `allow="microphone"` with no origin list goes to the frame's
+ * own origin, Home Assistant's, which `allow-same-origin` keeps; the browser
+ * still asks the person the first time.
  */
 export function HaDashboardFrame({ dashboard, baseUrl }: HaDashboardFrameProps) {
   const t = useTranslations("homeAutomation");
@@ -76,7 +79,7 @@ export function HaDashboardFrame({ dashboard, baseUrl }: HaDashboardFrameProps) 
         src={src}
         title={t("dashboardFrameTitle", { name: dashboard.title })}
         className="absolute inset-0 size-full border-0"
-        allow="fullscreen; autoplay"
+        allow={dashboard.allow_microphone ? "fullscreen; autoplay; microphone" : "fullscreen; autoplay"}
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals"
         referrerPolicy="no-referrer"
         onLoad={() => setLoaded(true)}

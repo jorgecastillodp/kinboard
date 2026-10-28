@@ -1541,6 +1541,7 @@ async function setDashboardTabs(
     kiosk?: boolean;
     in_nav?: boolean;
     nav_icon?: string | null;
+    allow_microphone?: boolean;
   }[],
 ): Promise<void> {
   const failure = await page.evaluate(
@@ -1658,6 +1659,47 @@ test.describe("Home Assistant's own dashboards as tabs", () => {
       await expect(device).toBeVisible();
       await expect(page.locator("iframe")).toHaveCount(0);
       expect(opened.every((url) => url.startsWith("https://home-assistant.invalid/"))).toBe(true);
+    } finally {
+      await deleteThrowawayFamily(page, house.familyId, house.familyName);
+    }
+  });
+
+  test("a tab's frame has the microphone only when switched on, also when the display started on Home", async ({
+    page,
+    baseURL,
+    browserName,
+  }, testInfo) => {
+    test.skip(browserName !== "chromium" || testInfo.project.name === "mobile", "asks Chromium's permissions policy; opens Home automation from the bar");
+    await stubHomeAssistantPages(page);
+    const house = await stubbedHouse(page, baseURL, testInfo, []);
+    // What the browser lets the page inside a frame use, asked from in there.
+    const allows = (title: string, feature: string) =>
+      page
+        .frameLocator(`iframe[title="${title}, from Home Assistant"]`)
+        .locator("#where")
+        .evaluate((_, f) => (document as any).featurePolicy?.allowsFeature(f) ?? null, feature);
+    try {
+      await setDashboardTabs(page, house.familyId, [
+        { id: "probe-mic-on", title: "Probe announce", path: "dashboard-announce", hide_sidebar: true, hide_header: true, allow_microphone: true },
+        { id: "probe-mic-off", title: "Probe quiet", path: "dashboard-quiet", hide_sidebar: true, hide_header: true },
+      ]);
+      expect((await savedHomeAssistant(page, house.familyId)).embedded_dashboards.map((d: any) => d.allow_microphone)).toEqual([true, false]);
+
+      // Like the wall display: Kinboard opened on Home, then Home automation from the bar,
+      // without a new document (and so with Home's permissions policy).
+      await page.goto("/", { waitUntil: "domcontentloaded" });
+      await page.locator("nav").getByRole("link", { name: "Automation", exact: true }).click();
+      await expect(page.getByRole("heading", { level: 1, name: "Home automation" })).toBeVisible({ timeout: 30_000 });
+      const views = page.getByRole("group", { name: "Devices and dashboards" });
+
+      await views.getByRole("radio", { name: "Probe announce" }).click();
+      await expect(page.locator('iframe[title="Probe announce, from Home Assistant"]')).toHaveAttribute("allow", "fullscreen; autoplay; microphone", { timeout: 20_000 });
+      await expect.poll(() => allows("Probe announce", "microphone"), { timeout: 20_000 }).toBe(true);
+      expect(await allows("Probe announce", "camera")).toBe(false);
+
+      await views.getByRole("radio", { name: "Probe quiet" }).click();
+      await expect(page.locator('iframe[title="Probe quiet, from Home Assistant"]')).toHaveAttribute("allow", "fullscreen; autoplay", { timeout: 20_000 });
+      await expect.poll(() => allows("Probe quiet", "microphone"), { timeout: 20_000 }).toBe(false);
     } finally {
       await deleteThrowawayFamily(page, house.familyId, house.familyName);
     }
