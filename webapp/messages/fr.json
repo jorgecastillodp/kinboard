@@ -660,6 +660,7 @@
     "dueInDays": "Dans {count, plural, one {# jour} other {# jours}}",
     "overdueByDays": "{count, plural, =0 {À faire aujourd'hui} one {# jour de retard} other {# jours de retard}}",
     "lastDone": "Dernière : {date}",
+    "lastDoneBy": "Dernière : {date}, {name}",
     "deleteAria": "Supprimer {title}",
     "priority": {
       "low": "Basse",
@@ -1010,12 +1011,13 @@
     "joinCodeExpiresAt": "Expire le {date}",
     "copyJoinCodeAria": "Copier le code d'accès",
     "regenerateCode": "Régénérer le code",
-    "regenerateConfirm": "Changer le code invalide l'ancien — tous les appareils connectés devront rejoindre à nouveau. Continuer ?",
+    "regenerateConfirm": "L'ancien code ne fonctionnera plus et tous les autres appareils seront déconnectés, écran mural compris. Ils auront besoin du nouveau code pour rejoindre. Cet appareil reste connecté. Continuer ?",
     "ttlNever": "Jamais",
     "ttl1h": "1 heure",
     "ttl24h": "24 heures",
     "ttl7d": "7 jours",
     "regenerateSuccess": "Code de jonction régénéré",
+    "regenerateFailed": "Le code de jonction n'a pas pu être modifié",
     "renameFamilyAria": "Renommer la famille",
     "saveFamilyNameAria": "Enregistrer le nom",
     "cancelRenameAria": "Annuler le renommage",
@@ -1281,6 +1283,11 @@
       "textScaleLarge": "Plus grand",
       "textScaleXL": "Le plus grand",
       "textScaleHint": "Enregistré par appareil — réglez-le sur la borne elle-même.",
+      "motionLabel": "Animations",
+      "motion_auto": "Activées",
+      "motion_reduced": "Réduites",
+      "motion_off": "Désactivées",
+      "motionHint": "Enregistré par appareil, pour un écran qui saccade, comme un Raspberry Pi. Réduites arrête ce qui se déplace à l’écran ; Désactivées retire aussi les fondus et les effets fixes. Activées suit toujours le réglage « réduire les animations » de l’appareil.",
       "previewHeading": "Aperçu"
     },
     "screensaver": {
@@ -1358,7 +1365,7 @@
       "notConfiguredDocsLabel": "Où obtenir une clé API gratuite →",
       "saveFailed": "Impossible d'enregistrer la position météo. Veuillez réessayer.",
       "effectsLabel": "Effets météo sur l'accueil",
-      "effectsHint": "Neige, pluie, givre, vent, brouillard et chaleur sur l'écran d'accueil quand le temps s'y prête. Rien ne couvre un bouton, et un appareil réglé pour réduire les animations n'affiche que les effets fixes.",
+      "effectsHint": "Neige, pluie, givre, vent, brouillard et chaleur sur l'écran d'accueil quand le temps s'y prête. Rien ne couvre un bouton. Un appareil dont les animations sont Réduites (Paramètres → Design), ou réglé pour réduire les animations, n'affiche que les effets fixes, et un appareil sur Désactivées n'en affiche aucun.",
       "effectsIntensityLabel": "Intensité",
       "effectsIntensitySubtle": "Discrète",
       "effectsIntensityNormal": "Normale",
@@ -1805,6 +1812,8 @@
       "hideHeaderLabel": "Masquer l'en-tête de Home Assistant",
       "hideHeaderHint": "Les onglets propres au tableau de bord (ses vues) sont dans l'en-tête. Laissez-le visible pour un tableau de bord qui a plusieurs vues.",
       "kioskHint": "Les deux nécessitent la carte kiosk-mode de HACS. Sans elle, ils ne font rien.",
+      "microphoneLabel": "Autoriser le microphone",
+      "microphoneHint": "Pour une carte d'enregistrement vocal ou d'interphone. Le navigateur le demande une fois, au nom de Kinboard et non de Home Assistant. Ne fonctionne que si Kinboard est ouvert en https://.",
       "moveUpAria": "Monter {name}",
       "moveDownAria": "Descendre {name}",
       "removeAria": "Retirer {name}",
@@ -3076,6 +3085,7 @@
       "theme_monthly-theme": "thème mensuel, saisons, Noël, Halloween, Pâques, décoration",
       "theme_palette": "ton neutre, palette, couleurs, chaud, froid, gris",
       "theme_appearance": "mode sombre, mode clair, 24 heures, horloge, secondes, taille du texte, police",
+      "theme_animations": "animations, mouvement, effets, réduire les animations, performances, lent, saccades, raspberry pi",
       "screensaver_timeout": "délai, inactivité, minutes, quand, démarrer",
       "screensaver_rotation": "rotation des photos, diaporama, intervalle, changer de photo, secondes",
       "screensaver_presence": "capteur de présence, détecteur de mouvement, mouvement, réveil, Home Assistant",
@@ -4254,6 +4264,10 @@
     "loadFailed": "Impossible de charger la famille",
     "statPointsToSpend": "Points à dépenser",
     "rewardsShortcut": "Vers les récompenses"
+  },
+  "doneBy": {
+    "title": "Qui l'a fait ?",
+    "expected": "Sa tâche"
   },
   "tasksWidget": {
     "loadingAria": "Chargement des tâches",

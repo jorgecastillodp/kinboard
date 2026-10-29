@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useMotion } from "@/hooks/use-motion";
 import { useSetting } from "@/hooks/use-supabase-queries";
 import { useWeather, useWeatherUnits } from "@/hooks/use-weather";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
@@ -24,9 +25,11 @@ import {
  * one canvas behind the widgets from sprites drawn once (flakes, drops,
  * leaves, mist, the sun), at most 30 frames a second, with a capped number of
  * particles, and stops while the page is hidden. Frost is a second canvas,
- * drawn once, at the screen's edges. A device asking for reduced motion gets
- * the still layers only (frost, a plain haze, the warm edge, a darker sky in
- * rain) and no lightning.
+ * drawn once, at the screen's edges. It follows the device's animation switch
+ * (Settings -> Theme, lib/motion.ts): Reduced, or a device asking for reduced
+ * motion, gets the still layers only (frost, a plain haze, the warm edge, a
+ * darker sky in rain) and no lightning; Off draws nothing at all, for a
+ * display such as a Raspberry Pi that can't afford even those.
  *
  * `preview` shows those effects whatever the weather (the settings page's
  * Preview buttons, in place). On Home, `?weather-preview=snow,wind` does the
@@ -42,7 +45,8 @@ export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] 
   const { data: weather } = useWeather();
   const { system } = useWeatherUnits();
   const [preview, setPreview] = useState<WeatherEffect[]>([]);
-  const reducedMotion = usePrefersReducedMotion();
+  const motion = useMotion();
+  const reducedMotion = motion !== "full";
 
   useEffect(() => {
     if (forced) return;
@@ -81,7 +85,7 @@ export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] 
   }, [forced]);
 
   const effects = forced && forced.length > 0 ? forced : preview.length > 0 ? preview : activeEffects(weather, settings, system);
-  if (effects.length === 0) return null;
+  if (effects.length === 0 || motion === "off") return null;
   const on = new Set(effects);
   const intensity = settings.intensity;
   const strength = intensity === "normal" ? 1 : 0.65;
@@ -112,18 +116,6 @@ export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] 
       {on.has("storm") && !reducedMotion && <StormGlow strength={strength} />}
     </div>
   );
-}
-
-function usePrefersReducedMotion() {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setReduced(query.matches);
-    update();
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
-  return reduced;
 }
 
 /** Tells the canvas to draw a bolt, so the glow and the bolt come together. */

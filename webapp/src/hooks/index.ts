@@ -187,6 +187,9 @@ export {
   type TextScale,
 } from "./use-theme-settings";
 
+// Motion (per-device animation switch, lib/motion.ts)
+export { useMotion, useMotionPreference } from "./use-motion";
+
 // News Hook
 export { useNews, type NewsItem } from "./use-news";
 

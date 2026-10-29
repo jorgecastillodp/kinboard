@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
 const config: Config = {
   darkMode: ["class"],
@@ -6,6 +7,9 @@ const config: Config = {
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    // useThemeSettings puts the palette-* classes on <html>; without this
+    // the light-mode palettes are compiled away (css-tokens-compiled.spec).
+    "./src/hooks/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
   	container: {
@@ -181,7 +185,16 @@ const config: Config = {
   		}
   	}
   },
-  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
+  plugins: [
+    require("tailwindcss-animate"),
+    require("@tailwindcss/typography"),
+    // `reduce-motion:` follows this device's animation switch as well as the
+    // OS setting (lib/motion.ts). Use it instead of `motion-reduce:`, which
+    // only sees the OS.
+    plugin(({ addVariant }) => {
+      addVariant("reduce-motion", ':root:not([data-motion="full"]) &');
+    }),
+  ],
 };
 
 export default config;

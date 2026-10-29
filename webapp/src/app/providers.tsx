@@ -22,6 +22,7 @@ import { AuthGuard } from "@/components/auth-guard";
 import { clearUnlock, isSettingsPath } from "@/lib/pin-session";
 import { PWAProvider } from "@/components/pwa-provider";
 import { KioskProvider } from "@/components/kiosk-provider";
+import { MotionProvider } from "@/components/motion-provider";
 import { TimerAlarm } from "@/components/timer-alarm";
 import { ThemeSettingsProvider } from "@/components/theme-settings-provider";
 import { usePathname } from "next/navigation";
@@ -251,32 +252,34 @@ export function Providers({ children }: { children: ReactNode }) {
         enableSystem
         disableTransitionOnChange
       >
-        <Toaster position="bottom-right" richColors />
-        <WhatsNewNotice />
-        <SettingsUnlockReaper />
-        <StorageMigration>
-          <AuthGuard>
-            <ThemeSettingsProvider>
-              <KioskProvider>
-                <PWAProvider>
-                  <RealtimeProvider>
-                    <ErrorBoundary>
-                      <ScreensaverProvider>
-                        <PageShell>
-                          {children}
-                        </PageShell>
-                        <ShellChrome />
-                        <RealtimeStatusPill />
-                        <TimerAlarm />
-                        <KeyboardShortcutsDialog />
-                      </ScreensaverProvider>
-                    </ErrorBoundary>
-                  </RealtimeProvider>
-                </PWAProvider>
-              </KioskProvider>
-            </ThemeSettingsProvider>
-          </AuthGuard>
-        </StorageMigration>
+        <MotionProvider>
+          <Toaster position="bottom-right" richColors />
+          <WhatsNewNotice />
+          <SettingsUnlockReaper />
+          <StorageMigration>
+            <AuthGuard>
+              <ThemeSettingsProvider>
+                <KioskProvider>
+                  <PWAProvider>
+                    <RealtimeProvider>
+                      <ErrorBoundary>
+                        <ScreensaverProvider>
+                          <PageShell>
+                            {children}
+                          </PageShell>
+                          <ShellChrome />
+                          <RealtimeStatusPill />
+                          <TimerAlarm />
+                          <KeyboardShortcutsDialog />
+                        </ScreensaverProvider>
+                      </ErrorBoundary>
+                    </RealtimeProvider>
+                  </PWAProvider>
+                </KioskProvider>
+              </ThemeSettingsProvider>
+            </AuthGuard>
+          </StorageMigration>
+        </MotionProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

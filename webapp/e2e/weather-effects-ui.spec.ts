@@ -91,6 +91,24 @@ test.describe("weather effects on Home", () => {
       await expect(page.locator(".weather-frost")).toHaveCount(1);
       await expect(page.getByTestId("weather-effects-motion")).toHaveCount(0);
       await expect(page.locator(".weather-storm")).toHaveCount(0);
+
+      // The device's own switch (Settings -> Theme -> Animations), with the OS
+      // asking for nothing: Reduced is the same still layers, Off draws none.
+      await page.emulateMedia({ reducedMotion: "no-preference" });
+      await page.evaluate(() => localStorage.setItem("kinboard_motion", "reduced"));
+      await page.goto("/?weather-preview=snow,freezing,storm", { waitUntil: "domcontentloaded" });
+      await expect(overlay(page)).toHaveAttribute("data-effects", "snow,storm,freezing", { timeout: 30_000 });
+      await expect(page.locator(".weather-frost")).toHaveCount(1);
+      await expect(page.getByTestId("weather-effects-motion")).toHaveCount(0);
+      await expect(page.locator(".weather-storm")).toHaveCount(0);
+
+      await page.evaluate(() => localStorage.setItem("kinboard_motion", "off"));
+      await page.goto("/?weather-preview=snow,freezing,storm", { waitUntil: "domcontentloaded" });
+      await page.waitForSelector(".hero-block", { timeout: 30_000 });
+      await page.waitForTimeout(3_000);
+      await expect(overlay(page)).toHaveCount(0);
+      await expect(page.locator(".weather-frost")).toHaveCount(0);
+      await page.evaluate(() => localStorage.removeItem("kinboard_motion"));
     } finally {
       await deleteThrowawayFamily(page, familyId, familyName);
     }

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { motion } from "framer-motion";
-import { Palette, Moon, Sun, Clock, Loader2, Type } from "lucide-react";
+import { Palette, Moon, Sun, Clock, Loader2, Type, Wind } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { format } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useSetting, useUpdateSetting, useTextScale, type TextScale } from "@/hooks";
+import { useSetting, useUpdateSetting, useTextScale, type TextScale, useMotionPreference } from "@/hooks";
+import { MOTION_PREFERENCES } from "@/lib/motion";
 import { useTheme } from "next-themes";
 import { PageHeader } from "@/components/page-header";
 import { ALL_PALETTE_CLASSES, type Palette as ThemePalette } from "@/hooks/use-theme-settings";
@@ -39,12 +40,31 @@ type Palette = ThemePalette;
 
 // Neutral palettes — same accent/month themes, different neutral tones: three
 // warm ones and Graphite, which has no tint at all.
-// Swatch HSL values mirror globals.css (light-mode background/card/border).
-const PALETTES: { id: Palette; bg: string; card: string; border: string }[] = [
-  { id: "sand", bg: "38 37% 88%", card: "43 54% 97%", border: "37 31% 85%" },
-  { id: "salbei", bg: "72 25% 92%", card: "75 50% 98%", border: "77 19% 85%" },
-  { id: "warmgrey", bg: "37 18% 91%", card: "40 33% 98%", border: "37 18% 86%" },
-  { id: "graphite", bg: "0 0% 94%", card: "0 0% 99%", border: "0 0% 85%" },
+// Swatch HSL values mirror globals.css: background/card/border/foreground, in
+// light and in dark mode. The picker shows the mode the device is in, so a
+// dark wall display previews the colours it will actually get.
+type Swatch = { bg: string; card: string; border: string; text: string };
+const PALETTES: { id: Palette; light: Swatch; dark: Swatch }[] = [
+  {
+    id: "sand",
+    light: { bg: "38 37% 88%", card: "43 54% 97%", border: "37 31% 85%", text: "30 14% 14%" },
+    dark: { bg: "28 30% 10%", card: "30 27% 14%", border: "32 20% 23%", text: "38 42% 91%" },
+  },
+  {
+    id: "salbei",
+    light: { bg: "72 25% 92%", card: "75 50% 98%", border: "77 19% 85%", text: "90 17% 14%" },
+    dark: { bg: "90 30% 9%", card: "88 26% 13%", border: "86 19% 22%", text: "77 33% 92%" },
+  },
+  {
+    id: "warmgrey",
+    light: { bg: "37 18% 91%", card: "40 33% 98%", border: "37 18% 86%", text: "30 12% 13%" },
+    dark: { bg: "45 9% 10%", card: "45 8% 14%", border: "42 7% 23%", text: "40 20% 92%" },
+  },
+  {
+    id: "graphite",
+    light: { bg: "0 0% 94%", card: "0 0% 99%", border: "0 0% 85%", text: "0 0% 9%" },
+    dark: { bg: "0 0% 5%", card: "0 0% 9%", border: "0 0% 18%", text: "0 0% 93%" },
+  },
 ];
 
 // Per-device text scale (localStorage, not the Supabase theme blob above —
@@ -88,6 +108,9 @@ export default function ThemeSettingsPage() {
 
   // Per-device text scale — localStorage, not the Supabase settings above.
   const [textScale, setTextScale] = useTextScale();
+  // Per-device animations (lib/motion.ts) — a Pi on the wall turns them off
+  // without taking them from everyone's phone.
+  const [motionPreference, setMotionPreference] = useMotionPreference();
 
   const themeOverride = settings?.themeOverride ?? null;
   const palette: Palette = settings?.palette ?? "sand";
@@ -250,7 +273,7 @@ export default function ThemeSettingsPage() {
               <Card className="p-4">
                 <p className="text-sm text-muted-foreground mb-4">{t("paletteIntro")}</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {PALETTES.map((p) => (
+                  {PALETTES.map(({ id, light, dark }) => ({ id, ...(isDarkMode ? dark : light) })).map((p) => (
                     <button
                       key={p.id}
                       onClick={() => handlePaletteChange(p.id)}
@@ -267,7 +290,7 @@ export default function ThemeSettingsPage() {
                         className="mb-2 h-10 rounded-lg border"
                         style={{ backgroundColor: `hsl(${p.card})`, borderColor: `hsl(${p.border})` }}
                       />
-                      <span className="text-xs font-medium" style={{ color: "hsl(30 14% 14%)" }}>
+                      <span className="text-xs font-medium" style={{ color: `hsl(${p.text})` }}>
                         {t(`palette_${p.id}`)}
                       </span>
                     </button>
@@ -366,6 +389,31 @@ export default function ThemeSettingsPage() {
                     ))}
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">{t("textScaleHint")}</p>
+                </div>
+
+                {/* Animations (per-device, localStorage) */}
+                <div className="p-4" data-setting="animations">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Wind className="size-5 text-primary" />
+                    <Label className="font-medium">{t("motionLabel")}</Label>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {MOTION_PREFERENCES.map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setMotionPreference(m)}
+                        aria-pressed={motionPreference === m}
+                        className={`rounded-lg border px-3 py-2 text-sm font-medium text-center transition-all ${
+                          motionPreference === m
+                            ? "border-primary bg-primary/10 text-primary ring-1 ring-primary"
+                            : "border-border text-muted-foreground hover:bg-muted/50"
+                        }`}
+                      >
+                        {t(`motion_${m}`)}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">{t("motionHint")}</p>
                 </div>
               </Card>
             </motion.div>

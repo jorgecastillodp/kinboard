@@ -660,6 +660,7 @@
     "dueInDays": "In {count, plural, one {# day} other {# days}}",
     "overdueByDays": "{count, plural, =0 {Due today} one {# day overdue} other {# days overdue}}",
     "lastDone": "Last: {date}",
+    "lastDoneBy": "Last: {date}, {name}",
     "deleteAria": "Delete {title}",
     "priority": {
       "low": "Low",
@@ -1010,12 +1011,13 @@
     "joinCodeExpiresAt": "Expires {date}",
     "copyJoinCodeAria": "Copy join code",
     "regenerateCode": "Regenerate code",
-    "regenerateConfirm": "Rotating the code invalidates the old one — all connected devices will need to rejoin. Continue?",
+    "regenerateConfirm": "Rotating the code invalidates the old one and signs out every other device, the wall display included. They need the new code to rejoin. This device stays signed in. Continue?",
     "ttlNever": "Never",
     "ttl1h": "1 hour",
     "ttl24h": "24 hours",
     "ttl7d": "7 days",
     "regenerateSuccess": "Join code regenerated",
+    "regenerateFailed": "The join code could not be changed",
     "renameFamilyAria": "Rename family",
     "saveFamilyNameAria": "Save name",
     "cancelRenameAria": "Cancel rename",
@@ -1281,6 +1283,11 @@
       "textScaleLarge": "Larger",
       "textScaleXL": "Largest",
       "textScaleHint": "Saved per device — set it on the kiosk itself.",
+      "motionLabel": "Animations",
+      "motion_auto": "On",
+      "motion_reduced": "Reduced",
+      "motion_off": "Off",
+      "motionHint": "Saved per device, for a display that stutters, such as a Raspberry Pi. Reduced stops things moving across the screen; Off also leaves out fades and still effects. On still follows the device's own reduce-motion setting.",
       "previewHeading": "Preview"
     },
     "screensaver": {
@@ -1358,7 +1365,7 @@
       "notConfiguredDocsLabel": "Where to get a free API key →",
       "saveFailed": "Could not save the weather location. Please try again.",
       "effectsLabel": "Weather effects on Home",
-      "effectsHint": "Snow, rain, frost, wind, fog and heat on the Home screen when the weather calls for it. Nothing covers a button, and a device set to reduce motion only gets the still ones.",
+      "effectsHint": "Snow, rain, frost, wind, fog and heat on the Home screen when the weather calls for it. Nothing covers a button. A device with Animations set to Reduced (Settings → Design), or asking for reduced motion, only gets the still ones, and one set to Off shows none.",
       "effectsIntensityLabel": "Strength",
       "effectsIntensitySubtle": "Subtle",
       "effectsIntensityNormal": "Normal",
@@ -1805,6 +1812,8 @@
       "hideHeaderLabel": "Hide Home Assistant's header",
       "hideHeaderHint": "The dashboard's own tabs (its views) are in the header. Leave it showing for a dashboard with more than one view.",
       "kioskHint": "Both need the kiosk-mode card from HACS. Without it, they do nothing.",
+      "microphoneLabel": "Allow the microphone",
+      "microphoneHint": "For a voice-recorder or intercom card. The browser asks once, naming Kinboard rather than Home Assistant. Works only when Kinboard is opened over https://.",
       "moveUpAria": "Move {name} up",
       "moveDownAria": "Move {name} down",
       "removeAria": "Remove {name}",
@@ -3076,6 +3085,7 @@
       "theme_monthly-theme": "monthly theme, seasons, season, Christmas, Halloween, Easter, decoration",
       "theme_palette": "neutral tone, palette, colours, colors, warm, cool, grey",
       "theme_appearance": "dark mode, light mode, 24-hour clock, seconds, text size, font size, bigger text",
+      "theme_animations": "animations, motion, effects, reduce motion, performance, slow, stutter, raspberry pi",
       "screensaver_timeout": "timeout, idle, inactivity, minutes, when, start",
       "screensaver_rotation": "photo rotation, slideshow, interval, change photos, seconds",
       "screensaver_presence": "presence sensor, motion sensor, motion, wake, someone there, Home Assistant",
@@ -4254,6 +4264,10 @@
     "loadFailed": "Couldn't load your family",
     "statPointsToSpend": "Points to spend",
     "rewardsShortcut": "To the rewards"
+  },
+  "doneBy": {
+    "title": "Who did it?",
+    "expected": "Their task"
   },
   "tasksWidget": {
     "loadingAria": "Loading tasks",

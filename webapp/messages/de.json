@@ -660,6 +660,7 @@
     "dueInDays": "In {count, plural, one {# Tag} other {# Tagen}}",
     "overdueByDays": "{count, plural, =0 {Heute fällig} one {# Tag überfällig} other {# Tage überfällig}}",
     "lastDone": "Zuletzt: {date}",
+    "lastDoneBy": "Zuletzt: {date}, {name}",
     "deleteAria": "{title} löschen",
     "priority": {
       "low": "Niedrig",
@@ -1010,12 +1011,13 @@
     "joinCodeExpiresAt": "Läuft ab am {date}",
     "copyJoinCodeAria": "Beitrittscode kopieren",
     "regenerateCode": "Code neu generieren",
-    "regenerateConfirm": "Den Code zu ändern macht den alten ungültig – alle verbundenen Geräte müssen erneut beitreten. Fortfahren?",
+    "regenerateConfirm": "Der alte Code wird ungültig, und alle anderen Geräte werden abgemeldet, auch die Wandanzeige. Sie brauchen den neuen Code, um wieder beizutreten. Dieses Gerät bleibt angemeldet. Fortfahren?",
     "ttlNever": "Nie",
     "ttl1h": "1 Stunde",
     "ttl24h": "24 Stunden",
     "ttl7d": "7 Tage",
     "regenerateSuccess": "Beitrittscode erneuert",
+    "regenerateFailed": "Der Beitrittscode konnte nicht geändert werden",
     "renameFamilyAria": "Familie umbenennen",
     "saveFamilyNameAria": "Namen speichern",
     "cancelRenameAria": "Umbenennen abbrechen",
@@ -1281,6 +1283,11 @@
       "textScaleLarge": "Größer",
       "textScaleXL": "Am größten",
       "textScaleHint": "Wird pro Gerät gespeichert — direkt am Kiosk einstellen.",
+      "motionLabel": "Animationen",
+      "motion_auto": "An",
+      "motion_reduced": "Reduziert",
+      "motion_off": "Aus",
+      "motionHint": "Wird pro Gerät gespeichert, für einen Bildschirm, der ruckelt, etwa einen Raspberry Pi. Reduziert hält an, was sich über den Bildschirm bewegt; Aus lässt auch Überblendungen und stehende Effekte weg. An folgt weiterhin der Einstellung „Bewegung reduzieren“ des Geräts.",
       "previewHeading": "Vorschau"
     },
     "screensaver": {
@@ -1358,7 +1365,7 @@
       "notConfiguredDocsLabel": "Kostenlosen API-Schlüssel anfordern →",
       "saveFailed": "Wetter-Standort konnte nicht gespeichert werden. Bitte erneut versuchen.",
       "effectsLabel": "Wettereffekte auf der Startseite",
-      "effectsHint": "Schnee, Regen, Frost, Wind, Nebel und Hitze auf der Startseite, wenn das Wetter danach ist. Nichts verdeckt eine Schaltfläche, und ein Gerät mit reduzierter Bewegung zeigt nur die ruhigen.",
+      "effectsHint": "Schnee, Regen, Frost, Wind, Nebel und Hitze auf der Startseite, wenn das Wetter danach ist. Nichts verdeckt eine Schaltfläche. Ein Gerät mit Animationen auf Reduziert (Einstellungen → Design) oder mit reduzierter Bewegung zeigt nur die ruhigen, eines mit Aus gar keine.",
       "effectsIntensityLabel": "Stärke",
       "effectsIntensitySubtle": "Dezent",
       "effectsIntensityNormal": "Normal",
@@ -1805,6 +1812,8 @@
       "hideHeaderLabel": "Kopfzeile von Home Assistant ausblenden",
       "hideHeaderHint": "Die eigenen Tabs des Dashboards (seine Ansichten) stehen in der Kopfzeile. Bei einem Dashboard mit mehreren Ansichten lass sie sichtbar.",
       "kioskHint": "Beides braucht die Karte kiosk-mode aus HACS. Ohne sie bewirkt es nichts.",
+      "microphoneLabel": "Mikrofon erlauben",
+      "microphoneHint": "Für eine Sprachaufnahme- oder Gegensprech-Karte. Der Browser fragt einmal nach und nennt dabei Kinboard, nicht Home Assistant. Klappt nur, wenn Kinboard über https:// geöffnet ist.",
       "moveUpAria": "{name} nach oben",
       "moveDownAria": "{name} nach unten",
       "removeAria": "{name} entfernen",
@@ -3076,6 +3085,7 @@
       "theme_monthly-theme": "Monatsthema, Jahreszeiten, Saison, Weihnachten, Halloween, Ostern, Deko",
       "theme_palette": "Grundton, Farbton, Palette, Farben, warm, kühl, grau",
       "theme_appearance": "Dunkelmodus, Hellmodus, dunkel, 24-Stunden, Uhr, Sekunden, Textgröße, Schriftgröße, größere Schrift",
+      "theme_animations": "animationen, bewegung, effekte, bewegung reduzieren, leistung, langsam, ruckeln, raspberry pi",
       "screensaver_timeout": "Wartezeit, Inaktivität, Leerlauf, Minuten, wann, starten",
       "screensaver_rotation": "Bildwechsel, Diashow, Intervall, Fotos wechseln, Sekunden",
       "screensaver_presence": "Präsenzsensor, Bewegungsmelder, Bewegung, aufwecken, Anwesenheit, Home Assistant",
@@ -4254,6 +4264,10 @@
     "loadFailed": "Familie konnte nicht geladen werden",
     "statPointsToSpend": "Punkte zum Einlösen",
     "rewardsShortcut": "Zu den Belohnungen"
+  },
+  "doneBy": {
+    "title": "Wer hat's gemacht?",
+    "expected": "Ist dran"
   },
   "tasksWidget": {
     "loadingAria": "Aufgaben werden geladen",

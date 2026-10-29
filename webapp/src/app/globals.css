@@ -197,21 +197,25 @@
   }
 
   .dark {
-    --background: 26 16% 9%;
+    /* Dark neutrals carry their palette's tint at 20-30% saturation. At the
+       old 11-16% every palette sat within ~6 RGB steps of the others and
+       read as the same near-black on a wall panel. Muted text stays >= 5.4:1
+       on cards and muted surfaces in every palette. */
+    --background: 28 30% 10%;
     --foreground: 38 42% 91%;
-    --card: 33 15% 12%;
+    --card: 30 27% 14%;
     --card-foreground: 38 42% 91%;
-    --popover: 33 15% 12%;
+    --popover: 30 27% 14%;
     --popover-foreground: 38 42% 91%;
 
     --primary: 190 62% 56%;
     --primary-foreground: 160 30% 10%;
 
-    --secondary: 36 13% 15%;
+    --secondary: 32 24% 18%;
     --secondary-foreground: 38 42% 91%;
-    --muted: 36 13% 15%;
-    --muted-foreground: 38 12% 61%;
-    --label-foreground: 38 16% 72%;
+    --muted: 32 24% 18%;
+    --muted-foreground: 36 20% 65%;
+    --label-foreground: 36 24% 75%;
     /* Toward white on a dark card, not black. 20% is the computed minimum;
        28% ships for headroom. */
     --person-text-mix: #ffffff;
@@ -221,24 +225,24 @@
     --state-light: 45 85% 60%;
     --state-cool: 210 68% 62%;
     --state-alert: 10 72% 60%;
-    --state-off: 38 12% 61%;
+    --state-off: 36 20% 65%;
 
     --warning-strong: 37 72% 62%;
     --info-strong: 210 70% 68%;
     --success-strong: 155 45% 60%;
-    --accent: 36 13% 15%;
+    --accent: 32 24% 18%;
     --accent-foreground: 38 42% 91%;
     --destructive: 10 72% 60%;
     --destructive-foreground: 160 30% 10%;
-    --border: 36 11% 18%;
-    --input: 36 11% 18%;
+    --border: 32 20% 23%;
+    --input: 32 20% 23%;
     --ring: 190 62% 56%;
 
     --success: 155 41% 51%; --success-foreground: 160 30% 10%;
     --warning: 37 72% 56%; --warning-foreground: 36 40% 10%;
     --info: 210 68% 62%;       --info-foreground: 160 30% 10%;
 
-    --priority-low: 38 12% 61%;
+    --priority-low: 36 20% 65%;
     --priority-medium: 37 72% 56%;
     --priority-high: 10 72% 60%;
 
@@ -318,13 +322,13 @@
     --shadow-rgb:40 50 30;
   }
   .dark.palette-salbei {
-    --background:87 23% 8%; --foreground:77 33% 92%;
-    --card:84 18% 11%; --card-foreground:77 33% 92%;
-    --popover:84 18% 11%; --popover-foreground:77 33% 92%;
-    --secondary:77 22% 13%; --secondary-foreground:77 33% 92%;
-    --muted:77 22% 13%; --muted-foreground:75 11% 58%; --label-foreground:75 15% 70%;
-    --accent:77 22% 13%; --accent-foreground:77 33% 92%;
-    --border:79 17% 18%; --input:79 17% 18%; --priority-low:75 11% 58%;
+    --background:90 30% 9%; --foreground:77 33% 92%;
+    --card:88 26% 13%; --card-foreground:77 33% 92%;
+    --popover:88 26% 13%; --popover-foreground:77 33% 92%;
+    --secondary:86 23% 17%; --secondary-foreground:77 33% 92%;
+    --muted:86 23% 17%; --muted-foreground:80 16% 64%; --label-foreground:78 20% 74%;
+    --accent:86 23% 17%; --accent-foreground:77 33% 92%;
+    --border:86 19% 22%; --input:86 19% 22%; --priority-low:80 16% 64%;
   }
 
   .palette-warmgrey {
@@ -338,13 +342,16 @@
     --shadow-rgb:50 45 40;
   }
   .dark.palette-warmgrey {
-    --background:45 21% 7%; --foreground:37 30% 92%;
-    --card:38 14% 11%; --card-foreground:37 30% 92%;
-    --popover:38 14% 11%; --popover-foreground:37 30% 92%;
-    --secondary:36 14% 15%; --secondary-foreground:37 30% 92%;
-    --muted:36 14% 15%; --muted-foreground:36 10% 60%; --label-foreground:36 14% 71%;
-    --accent:36 14% 15%; --accent-foreground:37 30% 92%;
-    --border:36 11% 18%; --input:36 11% 18%; --priority-low:36 10% 60%;
+    /* A grey with a little warmth: Sand's brown at a third of its saturation,
+       nudged toward yellow, so the two don't read as one colour (Delta E >= 5
+       between any two dark palettes; palette-tint.spec.ts). */
+    --background:45 9% 10%; --foreground:40 20% 92%;
+    --card:45 8% 14%; --card-foreground:40 20% 92%;
+    --popover:45 8% 14%; --popover-foreground:40 20% 92%;
+    --secondary:42 8% 18%; --secondary-foreground:40 20% 92%;
+    --muted:42 8% 18%; --muted-foreground:40 8% 64%; --label-foreground:40 10% 74%;
+    --accent:42 8% 18%; --accent-foreground:40 20% 92%;
+    --border:42 7% 23%; --input:42 7% 23%; --priority-low:40 8% 64%;
   }
 
   /* Graphite: the one palette with no tint. Every other neutral leans warm
@@ -682,9 +689,31 @@
   }
 
   /* Page background gradient - the app's visual signature */
+  /* The month's wash, behind every page: a glow from the top and a rise
+     from the bottom in the month's accent, over the palette's background.
+     One fixed layer for the whole app; body is its own stacking context so
+     z-index -1 lands above body's background and below everything else.
+     Static, so it costs a Pi nothing after the first paint. */
+  body {
+    position: relative;
+    z-index: 0;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 90% 55% at 50% 0%, hsl(var(--month-primary) / var(--month-wash-top)), transparent 70%),
+      linear-gradient(to top, hsl(var(--month-primary) / var(--month-wash-bottom)), transparent 45%);
+  }
+  :root { --month-wash-top: 0.07; --month-wash-bottom: 0.05; }
+  .dark { --month-wash-top: 0.14; --month-wash-bottom: 0.10; }
+  /* The wash used to be drawn per page, and only on some. The elements stay
+     in place; the wash is body::before now, so they draw nothing. */
   .page-gradient {
-    @apply fixed inset-0 pointer-events-none;
-    background: linear-gradient(to bottom, hsl(var(--background)), hsl(var(--background)), hsl(var(--month-primary) / 0.05));
+    display: none;
   }
 }
 
@@ -731,7 +760,7 @@
 }
 /* Runs only while `data-flowing` is set on the diagram. An always-on kitchen
    display should not carry perpetual motion in the corner once the numbers have
-   settled (audit KB-54); prefers-reduced-motion still disables it outright. */
+   settled (audit KB-54); reduced motion still disables it outright. */
 .flow-dash {
   animation: marchDash 1s linear infinite;
   animation-play-state: paused;
@@ -751,9 +780,8 @@
 .marquee-scroll {
   animation: marquee-scroll 8s ease-in-out infinite alternate;
 }
-@media (prefers-reduced-motion: reduce) {
-  .marquee-scroll { animation: none; }
-}
+/* Reduced or off on this device (lib/motion.ts; the OS setting feeds in there). */
+:root:not([data-motion="full"]) .marquee-scroll { animation: none; }
 .flow-dash-reverse {
   animation: marchDashReverse 1s linear infinite;
 }
@@ -862,9 +890,8 @@ html[data-screensaver] nav {
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.4s ease-in-out infinite;
 }
-@media (prefers-reduced-motion: reduce) {
-  .skeleton-shimmer { animation: none; background: hsl(var(--muted)); }
-}
+/* Reduced or off on this device (lib/motion.ts; the OS setting feeds in there). */
+:root:not([data-motion="full"]) .skeleton-shimmer { animation: none; background: hsl(var(--muted)); }
 
 .birthday-shimmer {
   background-image: linear-gradient(
@@ -877,28 +904,27 @@ html[data-screensaver] nav {
   animation: birthday-shimmer 4s ease-in-out infinite;
 }
 
-/* Respect reduced motion preferences */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-
-  .screensaver-photo-in,
-  .screensaver-photo-out {
-    animation: none !important;
-    opacity: 1 !important;
-  }
-
-  .flow-dash,
-  .flow-dash-reverse {
-    animation: none !important;
-    stroke-dashoffset: 0 !important;
-  }
+/* Animations reduced or off on this device: lib/motion.ts sets <html data-motion>
+   from the device's own switch (Settings → Theme) and the OS reduced-motion
+   setting. Key new motion rules off :root:not([data-motion="full"]), not off
+   @media (prefers-reduced-motion), or the switch won't reach them. */
+:root:not([data-motion="full"]) *,
+:root:not([data-motion="full"]) *::before,
+:root:not([data-motion="full"]) *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+:root:not([data-motion="full"]) .screensaver-photo-in,
+:root:not([data-motion="full"]) .screensaver-photo-out {
+  animation: none !important;
+  opacity: 1 !important;
+}
+:root:not([data-motion="full"]) .flow-dash,
+:root:not([data-motion="full"]) .flow-dash-reverse {
+  animation: none !important;
+  stroke-dashoffset: 0 !important;
 }
 
 /* PIN input shake animation */
@@ -991,12 +1017,25 @@ html[data-screensaver] nav {
 }
 @keyframes creature-label-fade { 0% { opacity: 0; } 15%, 70% { opacity: 1; } 100% { opacity: 0; } }
 
-@media (prefers-reduced-motion: reduce) {
-  .creature-reaction-label { animation: creature-label-fade 1500ms linear forwards; }
-  .creature-breathe, .creature-blink, .creature-flap, .creature-wobble, .creature-zzz, .creature-tail-sway, .creature-gill, .creature-gill-r, .creature-led,
-  .creature-hop, .creature-shake, .creature-pop, .creature-grow-out, .creature-flash, .creature-particle, .creature-img-in {
-    animation: none !important;
-  }
+/* Reduced or off on this device (lib/motion.ts; the OS setting feeds in there). */
+:root:not([data-motion="full"]) .creature-reaction-label { animation: creature-label-fade 1500ms linear forwards; }
+:root:not([data-motion="full"]) .creature-breathe,
+:root:not([data-motion="full"]) .creature-blink,
+:root:not([data-motion="full"]) .creature-flap,
+:root:not([data-motion="full"]) .creature-wobble,
+:root:not([data-motion="full"]) .creature-zzz,
+:root:not([data-motion="full"]) .creature-tail-sway,
+:root:not([data-motion="full"]) .creature-gill,
+:root:not([data-motion="full"]) .creature-gill-r,
+:root:not([data-motion="full"]) .creature-led,
+:root:not([data-motion="full"]) .creature-hop,
+:root:not([data-motion="full"]) .creature-shake,
+:root:not([data-motion="full"]) .creature-pop,
+:root:not([data-motion="full"]) .creature-grow-out,
+:root:not([data-motion="full"]) .creature-flash,
+:root:not([data-motion="full"]) .creature-particle,
+:root:not([data-motion="full"]) .creature-img-in {
+  animation: none !important;
 }
 
 /* Settings search: a result opens its section under the fixed header and
@@ -1016,16 +1055,15 @@ html[data-screensaver] nav {
   0%, 60% { outline-color: hsl(var(--primary)); }
   100% { outline-color: hsl(var(--primary) / 0); }
 }
-@media (prefers-reduced-motion: reduce) {
-  .settings-anchor-highlight {
-    animation: none;
-    outline-color: hsl(var(--primary));
-  }
+/* Reduced or off on this device (lib/motion.ts; the OS setting feeds in there). */
+:root:not([data-motion="full"]) .settings-anchor-highlight {
+  animation: none;
+  outline-color: hsl(var(--primary));
 }
 
 /* Weather effects on Home (components/weather-effects.tsx). The still
    layers; what moves is canvas. Only the fades and the haze's slow drift are
-   animated here, and both stop for reduced motion. */
+   animated here, and both stop when motion is reduced or off. */
 .weather-frost {
   animation: weather-fade-in 4s ease-out both;
 }
@@ -1054,10 +1092,9 @@ html[data-screensaver] nav {
   from { transform: translateX(-3%); }
   to { transform: translateX(3%); }
 }
-@media (prefers-reduced-motion: reduce) {
-  .weather-frost,
-  .weather-heat,
-  .weather-fog {
-    animation: none;
-  }
+/* Reduced or off on this device (lib/motion.ts). */
+:root:not([data-motion="full"]) .weather-frost,
+:root:not([data-motion="full"]) .weather-heat,
+:root:not([data-motion="full"]) .weather-fog {
+  animation: none;
 }

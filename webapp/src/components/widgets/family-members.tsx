@@ -195,7 +195,7 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
                     color={member.color}
                     avatarUrl={member.avatar_url}
                     size={64}
-                    className="transition-transform [transition-duration:120ms] group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+                    className="transition-transform [transition-duration:120ms] group-hover:scale-105 reduce-motion:transition-none reduce-motion:group-hover:scale-100"
                   />
                   <span className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                     {member.name}
