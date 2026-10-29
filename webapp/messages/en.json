@@ -1832,7 +1832,7 @@
       "navLabel": "Show in the navigation",
       "navHint": "An entry of its own in the menu that opens the dashboard on a page of its own. It stays a tab under Home automation, and each device can hide it under Settings → Navigation.",
       "microphoneLabel": "Allow the microphone",
-      "microphoneHint": "For a voice-recorder or intercom card on this dashboard. The browser asks for permission the first time; other tabs, and the camera, stay off.",
+      "microphoneHint": "For a voice-recorder or intercom card on this dashboard: only this family's Home Assistant address gets the microphone, never Kinboard itself. The browser asks for permission the first time; a screen already open needs a reload.",
       "navIconLabel": "Menu icon",
       "navIconHint": "The icon beside its name in the menu."
     },
@@ -3924,6 +3924,8 @@
     "dashboardNoAddress": "This dashboard has no address a browser can open. Check its path and Home Assistant's address in the settings.",
     "dashboardMixedContent": "Kinboard is open on https://, but Home Assistant's address starts with http://, so the browser won't show it here. Set an https:// address for the browser in the settings.",
     "dashboardSettingsLink": "Open the settings",
+    "dashboardMicReload": "This tab may use the microphone once Kinboard reloads on this screen.",
+    "dashboardMicReloadButton": "Reload",
     "tapAgain": "Tap again",
     "dashboardPageSubtitle": "From Home Assistant",
     "dashboardPageMissing": "This dashboard isn't in Kinboard any more. It may have been removed under Settings → Home Assistant.",

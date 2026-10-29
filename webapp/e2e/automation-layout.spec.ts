@@ -1664,7 +1664,7 @@ test.describe("Home Assistant's own dashboards as tabs", () => {
     }
   });
 
-  test("a tab's frame has the microphone only when switched on, also when the display started on Home", async ({
+  test("only a tab switched on gets the microphone, for its Home Assistant address alone; never Kinboard itself", async ({
     page,
     baseURL,
     browserName,
@@ -1673,33 +1673,60 @@ test.describe("Home Assistant's own dashboards as tabs", () => {
     await stubHomeAssistantPages(page);
     const house = await stubbedHouse(page, baseURL, testInfo, []);
     // What the browser lets the page inside a frame use, asked from in there.
-    const allows = (title: string, feature: string) =>
+    const frameAllows = (title: string, feature: string) =>
       page
         .frameLocator(`iframe[title="${title}, from Home Assistant"]`)
         .locator("#where")
         .evaluate((_, f) => (document as any).featurePolicy?.allowsFeature(f) ?? null, feature);
+    const kinboardAllows = () => page.evaluate(() => (document as any).featurePolicy?.allowsFeature("microphone") ?? null);
+    const DEFAULT = "camera=(), microphone=(), geolocation=(), interest-cohort=()";
     try {
+      // Before anything is switched on: the default, on the page the display opens with.
+      const before = await page.goto("/", { waitUntil: "domcontentloaded" });
+      expect(before?.headers()["permissions-policy"]).toBe(DEFAULT);
+
       await setDashboardTabs(page, house.familyId, [
         { id: "probe-mic-on", title: "Probe announce", path: "dashboard-announce", hide_sidebar: true, hide_header: true, allow_microphone: true },
         { id: "probe-mic-off", title: "Probe quiet", path: "dashboard-quiet", hide_sidebar: true, hide_header: true },
       ]);
       expect((await savedHomeAssistant(page, house.familyId)).embedded_dashboards.map((d: any) => d.allow_microphone)).toEqual([true, false]);
 
-      // Like the wall display: Kinboard opened on Home, then Home automation from the bar,
-      // without a new document (and so with Home's permissions policy).
-      await page.goto("/", { waitUntil: "domcontentloaded" });
+      // Home automation from the bar, without a new document: still the page's old
+      // policy, so the tab says to reload, and the microphone is refused.
       await page.locator("nav").getByRole("link", { name: "Automation", exact: true }).click();
       await expect(page.getByRole("heading", { level: 1, name: "Home automation" })).toBeVisible({ timeout: 30_000 });
       const views = page.getByRole("group", { name: "Devices and dashboards" });
-
       await views.getByRole("radio", { name: "Probe announce" }).click();
       await expect(page.locator('iframe[title="Probe announce, from Home Assistant"]')).toHaveAttribute("allow", "fullscreen; autoplay; microphone", { timeout: 20_000 });
-      await expect.poll(() => allows("Probe announce", "microphone"), { timeout: 20_000 }).toBe(true);
-      expect(await allows("Probe announce", "camera")).toBe(false);
+      const notice = page.getByRole("status").filter({ hasText: "once Kinboard reloads" });
+      await expect(notice).toBeVisible({ timeout: 20_000 });
+      await expect.poll(() => frameAllows("Probe announce", "microphone"), { timeout: 20_000 }).toBe(false);
 
+      // Reloaded: the family's policy names its Home Assistant address, and only that.
+      const reloaded = page.waitForResponse((r) => r.request().resourceType() === "document");
+      await notice.getByRole("button", { name: "Reload" }).click();
+      expect((await reloaded).headers()["permissions-policy"]).toBe(
+        'camera=(), microphone=("https://home-assistant.invalid"), geolocation=(), interest-cohort=()',
+      );
+      await expect(page.getByRole("heading", { level: 1, name: "Home automation" })).toBeVisible({ timeout: 30_000 });
+      await expect(views.getByRole("radio", { name: "Probe announce" })).toHaveAttribute("aria-checked", "true", { timeout: 20_000 });
+      await expect.poll(() => frameAllows("Probe announce", "microphone"), { timeout: 20_000 }).toBe(true);
+      await expect(notice).toHaveCount(0);
+      expect(await frameAllows("Probe announce", "camera")).toBe(false);
+      // Kinboard's own page may not use it, whatever the browser's permission says.
+      expect(await kinboardAllows()).toBe(false);
+
+      // The tab not switched on: no microphone.
       await views.getByRole("radio", { name: "Probe quiet" }).click();
       await expect(page.locator('iframe[title="Probe quiet, from Home Assistant"]')).toHaveAttribute("allow", "fullscreen; autoplay", { timeout: 20_000 });
-      await expect.poll(() => allows("Probe quiet", "microphone"), { timeout: 20_000 }).toBe(false);
+      await expect.poll(() => frameAllows("Probe quiet", "microphone"), { timeout: 20_000 }).toBe(false);
+
+      // Switched off again: the next page load is back to the default.
+      await setDashboardTabs(page, house.familyId, [
+        { id: "probe-mic-on", title: "Probe announce", path: "dashboard-announce", hide_sidebar: true, hide_header: true },
+      ]);
+      const after = await page.goto("/", { waitUntil: "domcontentloaded" });
+      expect(after?.headers()["permissions-policy"]).toBe(DEFAULT);
     } finally {
       await deleteThrowawayFamily(page, house.familyId, house.familyName);
     }

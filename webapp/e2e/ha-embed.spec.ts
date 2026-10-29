@@ -274,8 +274,8 @@ test("the frame: Home Assistant's address, a name, no sandbox, and a message ins
   // The microphone only for a tab switched on; never the camera.
   expect(frame).toContain('allow={dashboard.allow_microphone ? "fullscreen; autoplay; microphone" : "fullscreen; autoplay"}');
   expect(frame).not.toMatch(/allow=[^\n]*camera/);
-  // The only frame in the app: the header lets a frame that asks have the microphone,
-  // so a new frame anywhere must be looked at against it (security-headers.spec.ts).
+  // The only frame in the app: a family's policy lets its Home Assistant address have the
+  // microphone, so a new frame anywhere must be looked at against it (microphone-policy.spec.ts).
   const frames = execSync("grep -rln '<iframe' src --include=*.tsx --include=*.ts", { cwd: process.cwd() }).toString().trim().split("\n");
   expect(frames).toEqual(["src/components/home-assistant/ha-dashboard-frame.tsx"]);
   // Only the browser knows the page's protocol: checked after mount.
@@ -353,7 +353,7 @@ test("every new string is there in every language, with the same placeholders", 
   const load = (lang: string) => JSON.parse(read(`messages/${lang}.json`));
   const [en, de, fr] = ["en", "de", "fr"].map(load);
   const groups: Array<[string, (m: Record<string, any>) => Record<string, string>, string[]]> = [
-    ["homeAutomation", (m) => m.homeAutomation, ["viewsAria", "tabDevices", "dashboardFrameTitle", "dashboardLoading", "dashboardSlowHint", "dashboardHelpLink", "dashboardNoAddress", "dashboardMixedContent", "dashboardSettingsLink"]],
+    ["homeAutomation", (m) => m.homeAutomation, ["viewsAria", "tabDevices", "dashboardFrameTitle", "dashboardLoading", "dashboardSlowHint", "dashboardHelpLink", "dashboardNoAddress", "dashboardMixedContent", "dashboardSettingsLink", "dashboardMicReload", "dashboardMicReloadButton"]],
     ["settings.homeassistant", (m) => m.settings.homeassistant, ["embedHeading", "embedDescription", "embedManageButton"]],
     ["settings.homeassistantDashboards", (m) => m.settings.homeassistantDashboards, Object.keys(en.settings.homeassistantDashboards)],
   ];
