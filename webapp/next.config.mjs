@@ -121,10 +121,8 @@ const nextConfig = {
       // Belt to frame-ancestors' braces, for anything that still reads it.
       { key: "X-Frame-Options", value: "DENY" },
       { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-      // Permissions-Policy is not here: src/proxy.ts sends it, per family
-      // (lib/microphone-policy.ts). No camera, microphone or location by
-      // default; a family that allows the microphone for a Home Assistant
-      // dashboard tab lets exactly its Home Assistant address have it.
+      // Drop ambient access to sensors the app doesn't use.
+      { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), interest-cohort=()" },
       // Clickjacking + a couple of cheap wins, none of which constrain scripts:
       // the dashboard cannot be framed, forms cannot be pointed elsewhere, and
       // <base> cannot be hijacked.

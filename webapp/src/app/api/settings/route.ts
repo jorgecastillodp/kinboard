@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { forgetMicrophonePolicy } from "@/lib/microphone-policy-server";
 import { createAdminClient } from "@/lib/supabase/server";
 import {
   SECRET_FIELDS,
@@ -258,9 +257,6 @@ export async function PUT(request: NextRequest) {
     );
   }
 
-  // The microphone a dashboard tab may have depends on these settings.
-  if (key === SETTINGS_KEYS.homeAssistant) forgetMicrophonePolicy(family_id);
-
   if (SECRET_FIELDS[key]) {
     const secrets = await getStoredSecrets(family_id, key);
     return NextResponse.json({
@@ -312,8 +308,6 @@ export async function DELETE(request: NextRequest) {
       { status: 500 }
     );
   }
-
-  if (key === SETTINGS_KEYS.homeAssistant) forgetMicrophonePolicy(family_id);
 
   if (SECRET_FIELDS[key]) {
     try {

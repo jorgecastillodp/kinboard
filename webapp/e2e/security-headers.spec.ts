@@ -16,6 +16,7 @@ test("the required headers are configured", () => {
     "X-Content-Type-Options",
     "X-Frame-Options",
     "Referrer-Policy",
+    "Permissions-Policy",
     "Content-Security-Policy",
   ]) {
     expect(config, h).toContain(h);
@@ -38,15 +39,6 @@ test("the CSP deliberately omits script-src", () => {
   const value = csp.slice(csp.indexOf("value:"), csp.indexOf("},", csp.indexOf("value:")));
   expect(value).not.toContain("script-src");
   expect(value).toContain("frame-ancestors");
-});
-
-test("the Permissions-Policy is sent per family by the proxy, off by default", () => {
-  // src/proxy.ts sends it on every response (microphone-policy.spec.ts has
-  // the rules): no camera, microphone or location, unless a family allowed
-  // the microphone for a Home Assistant tab, and then only for that address.
-  const proxy = readFileSync(join(__dirname, "..", "src", "proxy.ts"), "utf8");
-  expect(proxy).toContain('response.headers.set("Permissions-Policy", policy);');
-  expect(config).not.toMatch(/key: "Permissions-Policy"/);
 });
 
 test("the headers apply to every path", () => {

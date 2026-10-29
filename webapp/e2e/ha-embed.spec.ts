@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { execSync } from "node:child_process";
 import { readFileSync } from "fs";
 import { join } from "path";
 import {
@@ -110,7 +109,7 @@ test("the tabs come from the settings in their order, without broken entries; a 
     good[1],
   ];
   // Not in the navigation unless switched on, and no icon of its own.
-  const normalised = (d: object) => ({ ...d, in_nav: false, nav_icon: null, allow_microphone: false });
+  const normalised = (d: object) => ({ ...d, in_nav: false, nav_icon: null });
   expect(embeddedDashboards({ embedded_dashboards: mixed as never })).toEqual(good.map(normalised));
   // A tab saved with the single switch it once had reads as both, and nothing of it is kept.
   expect(
@@ -128,11 +127,6 @@ test("the tabs come from the settings in their order, without broken entries; a 
       { id: "g", title: "Old, unset", path: "dashboard-unset", hide_sidebar: false, hide_header: false },
     ].map(normalised),
   );
-  // The microphone only when switched on, and only by a real true.
-  const mic = (allow_microphone: unknown) =>
-    embeddedDashboards({ embedded_dashboards: [{ ...good[0], allow_microphone }] as never })[0].allow_microphone;
-  expect(mic(true)).toBe(true);
-  for (const value of [false, undefined, "true", 1, null]) expect(mic(value), String(value)).toBe(false);
   expect(kioskQuery({ hide_sidebar: true, hide_header: true })).toBe("?kiosk");
   expect(kioskQuery({ hide_sidebar: true, hide_header: false })).toBe("?hide_sidebar");
   expect(kioskQuery({ hide_sidebar: false, hide_header: true })).toBe("?hide_header");
@@ -271,13 +265,6 @@ test("the frame: Home Assistant's address, a name, no sandbox, and a message ins
     'sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals"',
   );
   expect(frame).not.toContain("allow-top-navigation");
-  // The microphone only for a tab switched on; never the camera.
-  expect(frame).toContain('allow={dashboard.allow_microphone ? "fullscreen; autoplay; microphone" : "fullscreen; autoplay"}');
-  expect(frame).not.toMatch(/allow=[^\n]*camera/);
-  // The only frame in the app: a family's policy lets its Home Assistant address have the
-  // microphone, so a new frame anywhere must be looked at against it (microphone-policy.spec.ts).
-  const frames = execSync("grep -rln '<iframe' src --include=*.tsx --include=*.ts", { cwd: process.cwd() }).toString().trim().split("\n");
-  expect(frames).toEqual(["src/components/home-assistant/ha-dashboard-frame.tsx"]);
   // Only the browser knows the page's protocol: checked after mount.
   expect(frame).toMatch(/useEffect\(\(\) => \{[\s\S]*?setMixed\(src !== null && blockedAsMixedContent\(window\.location\.protocol, src\)\);/);
   expect(frame).toContain("if (src === null || mixed) {");
@@ -328,9 +315,6 @@ test("the settings page saves each change with the Home Assistant settings and t
   expect(settings).toMatch(/checked=\{dashboard\.hide_sidebar\}[\s\S]*?d\.id === dashboard\.id \? \{ \.\.\.d, hide_sidebar \} : d/);
   expect(settings).toMatch(/checked=\{dashboard\.hide_header\}[\s\S]*?d\.id === dashboard\.id \? \{ \.\.\.d, hide_header \} : d/);
   expect(settings).toContain('{t("hideHeaderHint")}');
-  // And one for the microphone, off unless switched on.
-  expect(settings).toMatch(/checked=\{dashboard\.allow_microphone === true\}[\s\S]*?d\.id === dashboard\.id \? \{ \.\.\.d, allow_microphone \} : d/);
-  expect(settings).toContain('{t("microphoneHint")}');
   expect(settings).toContain("embedded_dashboards: moveDashboard(dashboards, index, -1)");
   expect(settings).toContain("embedded_dashboards: moveDashboard(dashboards, index, 1)");
   expect(settings).toContain("if (dashboards.some((d) => cleanDashboardPath(d.path) === cleanPath)) {");
@@ -353,7 +337,7 @@ test("every new string is there in every language, with the same placeholders", 
   const load = (lang: string) => JSON.parse(read(`messages/${lang}.json`));
   const [en, de, fr] = ["en", "de", "fr"].map(load);
   const groups: Array<[string, (m: Record<string, any>) => Record<string, string>, string[]]> = [
-    ["homeAutomation", (m) => m.homeAutomation, ["viewsAria", "tabDevices", "dashboardFrameTitle", "dashboardLoading", "dashboardSlowHint", "dashboardHelpLink", "dashboardNoAddress", "dashboardMixedContent", "dashboardSettingsLink", "dashboardMicReload", "dashboardMicReloadButton"]],
+    ["homeAutomation", (m) => m.homeAutomation, ["viewsAria", "tabDevices", "dashboardFrameTitle", "dashboardLoading", "dashboardSlowHint", "dashboardHelpLink", "dashboardNoAddress", "dashboardMixedContent", "dashboardSettingsLink"]],
     ["settings.homeassistant", (m) => m.settings.homeassistant, ["embedHeading", "embedDescription", "embedManageButton"]],
     ["settings.homeassistantDashboards", (m) => m.settings.homeassistantDashboards, Object.keys(en.settings.homeassistantDashboards)],
   ];

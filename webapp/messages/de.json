@@ -1831,8 +1831,6 @@
       "overview": "Übersicht",
       "navLabel": "In der Navigation zeigen",
       "navHint": "Ein eigener Eintrag im Menü, der das Dashboard auf einer eigenen Seite öffnet. Unter Hausautomation bleibt es ein Tab, und jedes Gerät kann es unter Einstellungen → Navigation ausblenden.",
-      "microphoneLabel": "Mikrofon erlauben",
-      "microphoneHint": "Für eine Sprachaufnahme- oder Gegensprechkarte auf diesem Dashboard: Nur die Home-Assistant-Adresse dieser Familie bekommt das Mikrofon, nie Kinboard selbst. Der Browser fragt beim ersten Mal um Erlaubnis; ein bereits offener Bildschirm muss neu laden.",
       "navIconLabel": "Icon im Menü",
       "navIconHint": "Das Symbol neben dem Namen im Menü."
     },
@@ -3924,8 +3922,6 @@
     "dashboardNoAddress": "Dieses Dashboard hat keine Adresse, die ein Browser öffnen kann. Prüfe in den Einstellungen seinen Pfad und die Adresse von Home Assistant.",
     "dashboardMixedContent": "Kinboard ist über https:// geöffnet, die Adresse von Home Assistant beginnt aber mit http://, deshalb zeigt der Browser es hier nicht an. Hinterlege in den Einstellungen eine https://-Adresse für den Browser.",
     "dashboardSettingsLink": "Einstellungen öffnen",
-    "dashboardMicReload": "Dieser Tab darf das Mikrofon nutzen, sobald Kinboard auf diesem Bildschirm neu lädt.",
-    "dashboardMicReloadButton": "Neu laden",
     "tapAgain": "Nochmal tippen",
     "dashboardPageSubtitle": "Aus Home Assistant",
     "dashboardPageMissing": "Dieses Dashboard ist nicht mehr in Kinboard. Vielleicht wurde es unter Einstellungen → Home Assistant entfernt.",

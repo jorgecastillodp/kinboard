@@ -146,7 +146,7 @@ export function embeddedDashboards(
   const tabs: HaEmbeddedDashboard[] = [];
   for (const entry of list) {
     if (!entry || typeof entry !== "object") continue;
-    const { id, title, path, hide_sidebar, hide_header, kiosk, in_nav, nav_icon, allow_microphone } = entry as Record<string, unknown>;
+    const { id, title, path, hide_sidebar, hide_header, kiosk, in_nav, nav_icon } = entry as Record<string, unknown>;
     if (typeof id !== "string" || id === "" || typeof title !== "string") continue;
     if (typeof path !== "string" || cleanDashboardPath(path) === null) continue;
     const both = kiosk === true;
@@ -158,7 +158,6 @@ export function embeddedDashboards(
       hide_header: typeof hide_header === "boolean" ? hide_header : both,
       in_nav: in_nav === true,
       nav_icon: navIcon(nav_icon),
-      allow_microphone: allow_microphone === true,
     });
   }
   return tabs;

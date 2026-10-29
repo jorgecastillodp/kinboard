@@ -31,16 +31,10 @@ interface HaDashboardFrameProps {
  * `allow-top-navigation`, so nothing framed can send the whole display away
  * from Kinboard. That holds only while Home Assistant is on an origin of its
  * own (a sibling subdomain is fine): under Kinboard's own origin, scripts and
- * the same origin together could reach into Kinboard's page. The camera stays
- * unavailable in here (Kinboard's Permissions-Policy turns it off for the page
- * and every frame in it). The microphone is passed on only when the family
- * switched it on for this tab (`allow_microphone`), for a voice-recorder or
- * intercom card: `allow="microphone"` with no origin list goes to the frame's
- * own origin, Home Assistant's, which `allow-same-origin` keeps; the browser
- * still asks the person the first time. Kinboard's Permissions-Policy has to
- * name that origin too (src/proxy.ts, lib/microphone-policy.ts), and a page
- * keeps the policy it loaded with: a tab switched on after this page loaded
- * says to reload (Chromium tells; elsewhere nothing is shown).
+ * the same origin together could reach into Kinboard's page. Camera and
+ * microphone stay unavailable in here — Kinboard's Permissions-Policy turns
+ * them off for the page and every frame in it, so a camera card's talk button
+ * cannot work in a tab.
  */
 export function HaDashboardFrame({ dashboard, baseUrl }: HaDashboardFrameProps) {
   const t = useTranslations("homeAutomation");
@@ -49,17 +43,6 @@ export function HaDashboardFrame({ dashboard, baseUrl }: HaDashboardFrameProps) 
   const [hint, setHint] = useState(true);
   // The page's protocol is only known in the browser; the first render is the server's.
   const [mixed, setMixed] = useState(false);
-  const [micNeedsReload, setMicNeedsReload] = useState(false);
-
-  useEffect(() => {
-    const policy = (document as unknown as { featurePolicy?: { getAllowlistForFeature(f: string): string[] } }).featurePolicy;
-    if (!dashboard.allow_microphone || src === null || !policy?.getAllowlistForFeature) {
-      setMicNeedsReload(false);
-      return;
-    }
-    const allowed = policy.getAllowlistForFeature("microphone");
-    setMicNeedsReload(!allowed.includes("*") && !allowed.includes(new URL(src).origin));
-  }, [dashboard.allow_microphone, src]);
 
   useEffect(() => {
     setLoaded(false);
@@ -93,19 +76,11 @@ export function HaDashboardFrame({ dashboard, baseUrl }: HaDashboardFrameProps) 
         src={src}
         title={t("dashboardFrameTitle", { name: dashboard.title })}
         className="absolute inset-0 size-full border-0"
-        allow={dashboard.allow_microphone ? "fullscreen; autoplay; microphone" : "fullscreen; autoplay"}
+        allow="fullscreen; autoplay"
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals"
         referrerPolicy="no-referrer"
         onLoad={() => setLoaded(true)}
       />
-      {micNeedsReload && (
-        <div role="status" className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-card px-4 py-2 text-xs">
-          <span>{t("dashboardMicReload")}</span>
-          <Button size="sm" variant="outline" className="h-7" onClick={() => window.location.reload()}>
-            {t("dashboardMicReloadButton")}
-          </Button>
-        </div>
-      )}
       {!loaded && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card p-6 text-center">
           <Loader2 className="size-6 animate-spin text-muted-foreground" aria-hidden="true" />

@@ -318,26 +318,6 @@ export default function HaDashboardsSettingsPage() {
                         }
                       />
                     </div>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <Label htmlFor={`ha-mic-${dashboard.id}`} className="text-sm">
-                          {t("microphoneLabel")}
-                        </Label>
-                        <p className="text-xs text-muted-foreground">{t("microphoneHint")}</p>
-                      </div>
-                      <Switch
-                        id={`ha-mic-${dashboard.id}`}
-                        checked={dashboard.allow_microphone === true}
-                        disabled={busy}
-                        onCheckedChange={(allow_microphone) =>
-                          void save({
-                            embedded_dashboards: dashboards.map((d) =>
-                              d.id === dashboard.id ? { ...d, allow_microphone } : d,
-                            ),
-                          })
-                        }
-                      />
-                    </div>
                     {dashboard.in_nav && (
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">

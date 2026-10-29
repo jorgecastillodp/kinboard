@@ -93,7 +93,7 @@ Good to know:
 - **Its own origin.** The tab is sandboxed so that Home Assistant can't navigate the whole display away from Kinboard, and that only holds while Home Assistant is on an origin of its own: a sibling subdomain (`ha.example.org` beside `kinboard.example.org`) is fine; served from Kinboard's own origin, it would have full access to Kinboard's page.
 - **One domain.** With Kinboard and Home Assistant under one domain (`kinboard.example.org`, `ha.example.org`) the sign-in stays. On different domains some browsers, Safari especially, may not keep a sign-in made inside another page.
 - **Screensaver.** Kinboard can't see taps inside a dashboard. It counts the first one, so a long stay in a dashboard tab can still bring the screensaver on.
-- **Microphone and camera.** Both are off in a tab, and Kinboard's own pages never get either. For a voice-recorder or intercom card, switch on *Allow the microphone* for that tab under **Settings → Home Assistant → Home Assistant dashboards**: your family's screens then let exactly your Home Assistant address have the microphone, in that tab only (other families on the same server are not affected). The browser asks for permission the first time (on Android, Chrome's own microphone permission must be on as well), and a screen that was already open needs a reload; the tab says so.
+- **Microphone and camera.** Kinboard turns them off for its pages and everything shown in them, so a camera card's talk button doesn't work in a tab.
 
 ## Entity domain support
 

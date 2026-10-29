@@ -6,8 +6,6 @@ import {
   sanitiseCorrelationId,
 } from "@/lib/correlation";
 import { serverSupabaseUrl } from "@/lib/supabase/api-base";
-import { DEFAULT_PERMISSIONS_POLICY } from "@/lib/microphone-policy";
-import { permissionsPolicyFor } from "@/lib/microphone-policy-server";
 
 interface CookieToSet {
   name: string;
@@ -71,25 +69,6 @@ export async function proxy(request: NextRequest) {
   // handling above replaces `response` wholesale when it refreshes a token,
   // which would drop a header set any earlier.
   response.headers.set(CORRELATION_HEADER, correlationId);
-
-  // The Permissions-Policy (lib/microphone-policy.ts): the default on
-  // everything, and on a page load the family's own, which may let its Home
-  // Assistant address have the microphone. Only a page load reads the
-  // session: the policy belongs to the document, and assets and API calls
-  // don't open one. Any failure there gives the default.
-  const pageLoad =
-    request.method === "GET" &&
-    (request.headers.get("sec-fetch-dest") === "document" ||
-      (!request.headers.has("rsc") && (request.headers.get("accept") ?? "").includes("text/html")));
-  let policy = DEFAULT_PERMISSIONS_POLICY;
-  if (pageLoad) {
-    try {
-      policy = await permissionsPolicyFor(request.cookies);
-    } catch {
-      policy = DEFAULT_PERMISSIONS_POLICY;
-    }
-  }
-  response.headers.set("Permissions-Policy", policy);
 
   return response;
 }
