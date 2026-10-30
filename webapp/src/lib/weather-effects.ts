@@ -103,9 +103,17 @@ export interface WeatherReading {
   windSpeed: number;
   /** OpenWeatherMap's main condition: Snow, Rain, Drizzle, Thunderstorm, Mist, Fog, Haze, Clear, Clouds... */
   conditionMain?: string;
-  /** The chance of rain in the forecast's next slot (the next few hours), percent. */
-  rainChance?: number;
+  /**
+   * The forecast's next slot (the next few hours): its chance of precipitation,
+   * percent, and its main condition. OpenWeatherMap's chance is of any
+   * precipitation, snow included, so it counts towards rain only when the slot
+   * itself is rain, drizzle or a thunderstorm.
+   */
+  nextSlot?: { chance: number; conditionMain?: string };
 }
+
+/** A forecast slot whose precipitation is rain. */
+const RAIN_SLOT = new Set(["Rain", "Drizzle", "Thunderstorm"]);
 
 /** The effects the weather calls for, in a fixed order. */
 export function activeEffects(weather: WeatherReading | null | undefined, s: WeatherEffectsSettings, units: UnitSystem): WeatherEffect[] {
@@ -115,7 +123,8 @@ export function activeEffects(weather: WeatherReading | null | undefined, s: Wea
   if (main === "Snow") on.add("snow");
   // Raining now counts as certain; otherwise the chance of rain against the family's threshold.
   if (main === "Rain" || main === "Drizzle") on.add("rain");
-  if (finite(weather.rainChance) && weather.rainChance >= s.rainChanceAt) on.add("rain");
+  const slot = weather.nextSlot;
+  if (slot && RAIN_SLOT.has(slot.conditionMain ?? "") && finite(slot.chance) && slot.chance >= s.rainChanceAt) on.add("rain");
   if (main === "Thunderstorm") {
     on.add("storm");
     on.add("rain");

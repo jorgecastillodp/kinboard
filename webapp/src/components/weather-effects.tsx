@@ -44,10 +44,13 @@ export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] 
   const settings = useMemo(() => normalizeWeatherEffects(stored), [stored]);
   const { data: weather } = useWeather();
   // The chance of rain is the forecast's: its next slot, the next few hours.
-  // The same query as the weather widget's, so no request of its own.
-  const { data: forecast } = useWeatherForecast();
-  const rainChance = forecast?.hourly?.[0]?.precipProbability;
-  const reading = useMemo(() => (weather ? { ...weather, rainChance } : weather), [weather, rainChance]);
+  // The weather widget's query; asked for here only when the rain effect is on.
+  const { data: forecast } = useWeatherForecast({ enabled: settings.enabled && settings.effects.rain });
+  const slot = forecast?.hourly?.[0];
+  const reading = useMemo(
+    () => (weather ? { ...weather, nextSlot: slot ? { chance: slot.precipProbability, conditionMain: slot.conditionMain } : undefined } : weather),
+    [weather, slot],
+  );
   const { system } = useWeatherUnits();
   const [preview, setPreview] = useState<WeatherEffect[]>([]);
   const motion = useMotion();
