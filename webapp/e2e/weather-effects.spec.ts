@@ -63,6 +63,40 @@ test("thresholds are metric whatever the units: freezing, heat and wind, at the 
   expect(activeEffects({ temp: -5, feelsLike: -12, windSpeed: 40, conditionMain: "Snow" }, on, "metric")).toEqual(["snow", "freezing", "wind"]);
 });
 
+test("rain: raining now, or the chance of rain at or above the family's threshold (50% by default)", () => {
+  expect(DEFAULT_WEATHER_EFFECTS.rainChanceAt).toBe(50);
+  expect(activeEffects({ ...mild, rainChance: 50 }, on, "metric")).toEqual(["rain"]);
+  expect(activeEffects({ ...mild, rainChance: 49 }, on, "metric")).toEqual([]);
+  expect(activeEffects({ ...mild, rainChance: 80 }, { ...on, rainChanceAt: 90 }, "metric")).toEqual([]);
+  expect(activeEffects({ ...mild, temp: 60, rainChance: 90 }, { ...on, rainChanceAt: 90 }, "imperial")).toEqual(["rain"]);
+  // Raining now counts as certain, whatever the forecast says.
+  expect(activeEffects({ ...mild, conditionMain: "Drizzle", rainChance: 10 }, { ...on, rainChanceAt: 90 }, "metric")).toEqual(["rain"]);
+  // No forecast: only the condition decides.
+  expect(activeEffects({ ...mild, rainChance: undefined }, on, "metric")).toEqual([]);
+  // The rain switch still wins.
+  expect(activeEffects({ ...mild, rainChance: 100 }, { ...on, effects: { ...on.effects, rain: false } }, "metric")).toEqual([]);
+  // Stored, it is held to 1..100 (0 would always rain) and read back as a whole percent in any units.
+  expect(normalizeWeatherEffects({ rainChanceAt: 0 }).rainChanceAt).toBe(1);
+  expect(normalizeWeatherEffects({ rainChanceAt: 1 }).rainChanceAt).toBe(1);
+  expect(activeEffects({ ...mild, rainChance: 1 }, { ...on, rainChanceAt: 1 }, "metric")).toEqual(["rain"]);
+  expect(activeEffects({ ...mild, rainChance: 0 }, { ...on, rainChanceAt: 1 }, "metric")).toEqual([]);
+  expect(normalizeWeatherEffects({ rainChanceAt: 150 }).rainChanceAt).toBe(100);
+  expect(normalizeWeatherEffects({}).rainChanceAt).toBe(50);
+  expect(displayThreshold("rainChanceAt", DEFAULT_WEATHER_EFFECTS, "imperial")).toBe(50);
+  expect(storedThreshold("rainChanceAt", 70, "imperial")).toBe(70);
+  expect(storedThreshold("rainChanceAt", 101, "metric")).toBe(100);
+});
+
+test("the overlay takes the chance of rain from the forecast's next slot, the weather widget's own query", () => {
+  const overlay = codeOnly(read("src/components/weather-effects.tsx"));
+  expect(overlay).toContain("const { data: forecast } = useWeatherForecast();");
+  expect(overlay).toContain("const rainChance = forecast?.hourly?.[0]?.precipProbability;");
+  expect(overlay).toContain("activeEffects(reading, settings, system)");
+  const settings = codeOnly(read("src/components/settings/weather-effects-settings.tsx"));
+  expect(settings).toContain('const THRESHOLDS: ThresholdKey[] = ["freezingAtC", "heatAtC", "windAtKmh", "rainChanceAt"];');
+  expect(settings).toContain('key === "rainChanceAt" ? "%"');
+});
+
 test("feels like, when chosen; each effect switched off on its own", () => {
   const cold = { ...mild, temp: 3, feelsLike: -2 };
   expect(activeEffects(cold, on, "metric")).toEqual([]);
