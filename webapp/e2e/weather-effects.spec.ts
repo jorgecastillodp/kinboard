@@ -75,8 +75,11 @@ test("rain: raining now, or the chance of rain at or above the family's threshol
   expect(activeEffects({ ...mild, rainChance: undefined }, on, "metric")).toEqual([]);
   // The rain switch still wins.
   expect(activeEffects({ ...mild, rainChance: 100 }, { ...on, effects: { ...on.effects, rain: false } }, "metric")).toEqual([]);
-  // Stored, it is held to 5..100 and read back as a whole percent in any units.
-  expect(normalizeWeatherEffects({ rainChanceAt: 0 }).rainChanceAt).toBe(5);
+  // Stored, it is held to 1..100 (0 would always rain) and read back as a whole percent in any units.
+  expect(normalizeWeatherEffects({ rainChanceAt: 0 }).rainChanceAt).toBe(1);
+  expect(normalizeWeatherEffects({ rainChanceAt: 1 }).rainChanceAt).toBe(1);
+  expect(activeEffects({ ...mild, rainChance: 1 }, { ...on, rainChanceAt: 1 }, "metric")).toEqual(["rain"]);
+  expect(activeEffects({ ...mild, rainChance: 0 }, { ...on, rainChanceAt: 1 }, "metric")).toEqual([]);
   expect(normalizeWeatherEffects({ rainChanceAt: 150 }).rainChanceAt).toBe(100);
   expect(normalizeWeatherEffects({}).rainChanceAt).toBe(50);
   expect(displayThreshold("rainChanceAt", DEFAULT_WEATHER_EFFECTS, "imperial")).toBe(50);

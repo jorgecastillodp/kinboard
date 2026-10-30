@@ -47,7 +47,8 @@ export const THRESHOLD_BOUNDS = {
   freezingAtC: { min: -40, max: 15 },
   heatAtC: { min: 15, max: 55 },
   windAtKmh: { min: 5, max: 150 },
-  rainChanceAt: { min: 5, max: 100 },
+  // 1, not 0: at 0% it would rain on Home whatever the forecast.
+  rainChanceAt: { min: 1, max: 100 },
 } as const;
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
