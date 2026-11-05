@@ -4,6 +4,7 @@ import { join } from "path";
 import { DEFAULT_BEDTIME, creatureMood, formatClock, isSleepyTime, parseClock, readBedtime } from "../src/lib/creature-mood";
 import {
   HOP_MS,
+  PLAY_GAP,
   PLAY_MS,
   bedSpots,
   bounds,
@@ -138,9 +139,9 @@ test("two or more: they find each other and play, with hearts, and only with a f
   const playing = frames.filter((f) => f.every((r) => r.state === "play"));
   expect(playing.length).toBeGreaterThan(0);
   const f = playing[0];
-  // Facing each other, close together.
+  // Facing each other, side by side: close, never on top of each other.
   const [a, b] = f;
-  expect(Math.abs(a.x - b.x)).toBeLessThanOrEqual(80 * 0.8);
+  expect(Math.abs(a.x - b.x)).toBeCloseTo(80 * PLAY_GAP, 0);
   expect(a.dir).toBe(a.x < b.x ? 1 : -1);
   expect(b.dir).toBe(b.x < a.x ? 1 : -1);
   expect(a.partner).toBe("b");
@@ -155,6 +156,32 @@ test("two or more: they find each other and play, with hearts, and only with a f
   // Alone, nobody to play with.
   const alone = run(placeRoamers([{ id: "a", egg: false }], { ...floor, now: 0 }), floor, 120_000, 3);
   expect(alone.frames.some((fr) => fr[0].state === "play" || fr[0].state === "approach")).toBe(false);
+});
+
+test("a game starts side by side: a friend passed on the way is walked back from, one at the edge is played with from the other side", () => {
+  const world = { ...floor, now: 0 };
+  const [lo, hi] = bounds(floor);
+  const gap = 80 * PLAY_GAP;
+  for (const [ax, bx, side] of [
+    [600, 610, -1], // nearly on top of each other: steps back to beside it first
+    [lo, lo + 20, 1], // the friend near the left end, this one between it and the end: walks past, plays from its right
+    [hi, hi - 20, -1], // and at the right end: from its left
+  ] as const) {
+    let roamers: Roamer[] = [
+      { ...placeRoamers([{ id: "a", egg: false }], world)[0], x: ax, state: "approach", partner: "b", since: 0, until: 0 },
+      { ...placeRoamers([{ id: "b", egg: false }], world)[0], x: bx, state: "idle", partner: "a", since: 0, until: 60_000 },
+    ];
+    const rng = seeded(2);
+    let now = 0;
+    while (roamers[0].state === "approach" && now < 20_000) {
+      const out = stepRoamers(roamers, { ...floor, now }, 33, rng);
+      roamers = out.roamers;
+      now += 33;
+    }
+    const [a, b] = roamers;
+    expect(a.state, `${ax}/${bx}`).toBe("play");
+    expect(a.x - b.x, `${ax}/${bx}`).toBeCloseTo(side * gap, 0);
+  }
 });
 
 test("bedtime: each walks to its own spot and lies down; in the morning it gets up and goes on", () => {
@@ -215,6 +242,15 @@ test("Home: off unless switched on, gone with animations off, still with reduced
   expect(home).toContain("isSleepyTime(new Date(minute * MINUTE_MS), timeZone, bedtime)");
   const css = read("src/app/globals.css");
   expect(css).toMatch(/\.home-creature \.creature-zzz \{\s*display: none;/);
+  // Asleep: a drawing lies on its side; a classic picture (no closed eyes) dozes sitting up, dimmed.
+  expect(home).toContain('const picture = effectiveStyle(creature.species, creature.style) === "classic" && !classicIsDrawn(creature.species, creature.style);');
+  expect(home).toContain('data-art={picture ? "picture" : "drawn"}');
+  expect(home).toContain("`scaleX(${r.dir}) rotate(${(-12 * ready + p.tilt).toFixed(1)}deg) scaleY(${(1 - 0.08 * ready).toFixed(3)})`");
+  expect(home).toContain("`rotate(${(-90 * ready + p.tilt).toFixed(1)}deg)`");
+  expect(css).toMatch(/\.home-creature\[data-art="picture"\]\[data-lying="true"\] \.home-creature-body \{\s*filter: brightness\(0\.8\)/);
+  // One shadow each, flat on the floor; the drawing's own is hidden here, or it would turn with a creature lying down.
+  expect(css).toMatch(/\.home-creature \.creature-ground \{\s*display: none;/);
+  expect(home).toContain("el.shadow.style.transform = `translate3d(${left}px, 0, 0) scaleX(${stretch.toFixed(3)})`;");
 });
 
 test("the mood hook and settings: one family bedtime, re-read every minute; the switch and times on Settings -> Creatures", () => {

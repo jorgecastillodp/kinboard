@@ -64,6 +64,8 @@ export const WAKE_MS = 1600;
 export const PLAY_CHANCE = 0.3;
 /** How likely it hops for joy instead of walking on. */
 export const HOP_CHANCE = 0.15;
+/** How far apart two play, in creature widths. */
+export const PLAY_GAP = 0.75;
 
 const free = (r: Roamer) => r.state === "idle" || r.state === "walk";
 
@@ -177,10 +179,12 @@ export function stepRoamers(
           set(r, "idle", now, now + 1000);
           break;
         }
-        // Walk to just beside the friend, then play, both of them.
-        const side = p.x >= r.x ? -1 : 1;
-        const spot = Math.min(hi, Math.max(lo, p.x + side * world.size * 0.7));
-        if (move(r, spot, WALK_PX_PER_S * 1.4, dt) || Math.abs(p.x - r.x) <= world.size * 0.75) {
+        // Walk to just beside the friend, on this side unless that is off the
+        // floor, then play, both of them: side by side, never on top of each other.
+        const gap = world.size * PLAY_GAP;
+        const near = p.x >= r.x ? p.x - gap : p.x + gap;
+        const spot = near < lo || near > hi ? (near < lo ? p.x + gap : p.x - gap) : near;
+        if (move(r, spot, WALK_PX_PER_S * 1.4, dt)) {
           for (const c of [r, p]) {
             set(c, "play", now, now + PLAY_MS);
             c.dir = c === r ? (p.x >= r.x ? 1 : -1) : p.x >= r.x ? -1 : 1;

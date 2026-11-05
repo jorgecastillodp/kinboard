@@ -15,6 +15,7 @@ import { isSleepyTime } from "@/lib/creature-mood";
 import { creatureStage } from "@/lib/creatures/stage";
 import { creatureChildren } from "@/lib/creatures/surfaces";
 import { MINUTE_MS } from "@/lib/minute-clock";
+import { classicIsDrawn, effectiveStyle } from "@/lib/pocket-money/creatures";
 import { readLook } from "@/lib/pocket-money/creatures/look";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { placeRoamers, poke, pose, stepRoamers, type RoamEvent, type Roamer } from "@/lib/creatures/roam";
@@ -34,6 +35,12 @@ import type { Creature, PocketMoneyAccount, Person } from "@/types/database";
  * switch decides: Reduced keeps them standing at their spots (lying down at
  * bedtime), Off leaves them out. Only a creature itself catches a tap: it
  * hops and sends up hearts.
+ *
+ * Asleep, a drawn creature lies on its side with its eyes closed; a classic
+ * picture, which has no moods and so no closed eyes, dozes sitting up
+ * (leaning, settled, dimmed) instead of being turned over like a sticker.
+ * The drawing's own ground shadow is hidden here: each creature gets one that
+ * stays flat on the floor, smaller while it is in the air, longer lying down.
  */
 export function CreaturesOnHome() {
   const { data: on } = useSetting<unknown>(SETTINGS_KEYS.creaturesOnHome, false, { refetchInterval: 60_000 });
@@ -78,7 +85,7 @@ function CreatureFloor({ kids, still }: FloorProps) {
   const castKey = cast.map((c) => `${c.person.id}:${c.tier === 1 ? "egg" : "up"}`).join(",");
 
   const roamers = useRef<Roamer[]>([]);
-  const elements = useRef(new Map<string, { outer: HTMLElement; inner: HTMLElement }>());
+  const elements = useRef(new Map<string, { outer: HTMLElement; inner: HTMLElement; shadow: HTMLElement }>());
   const bursts = useRef(new Map<string, (count: number) => void>());
   const [lying, setLying] = useState<ReadonlySet<string>>(new Set());
   const lyingRef = useRef<ReadonlySet<string>>(new Set());
@@ -128,11 +135,23 @@ function CreatureFloor({ kids, still }: FloorProps) {
         const k = r.state === "asleep" ? Math.min(1, (now - r.since) / 700) : r.state === "waking" ? Math.max(0, 1 - (now - r.since) / 700) : 0;
         const ready = still ? (p.lying ? 1 : 0) : k;
         if (ready > 0.5) nextLying.add(r.id);
-        el.outer.style.transform = `translate3d(${(r.x - size / 2).toFixed(1)}px, ${(-p.lift).toFixed(1)}px, 0)`;
-        el.inner.style.transform =
-          `scaleX(${r.dir}) translate(${(ready * size * 0.5).toFixed(1)}px, ${(-ready * size * 0.5).toFixed(1)}px) ` +
-          `rotate(${(-90 * ready + p.tilt).toFixed(1)}deg)`;
+        const left = (r.x - size / 2).toFixed(1);
+        const picture = el.outer.dataset.art === "picture";
+        el.outer.style.transform = `translate3d(${left}px, ${(-p.lift).toFixed(1)}px, 0)`;
+        el.inner.style.transform = picture
+          ? // Dozing sitting up: leaning over a little and settled down.
+            `scaleX(${r.dir}) rotate(${(-12 * ready + p.tilt).toFixed(1)}deg) scaleY(${(1 - 0.08 * ready).toFixed(3)})`
+          : // On its side: turned about its feet, moved back over its spot and down onto the floor.
+            `scaleX(${r.dir}) translate(${(ready * size * 0.5).toFixed(1)}px, ${(-ready * size * 0.36).toFixed(1)}px) ` +
+            `rotate(${(-90 * ready + p.tilt).toFixed(1)}deg)`;
+        // The shadow stays on the floor: smaller and fainter in the air, longer lying down.
+        const air = Math.min(1, p.lift / (size * 0.4));
+        const stretch = 1 - 0.45 * air + (picture ? 0 : 0.35 * ready);
+        el.shadow.style.transform = `translate3d(${left}px, 0, 0) scaleX(${stretch.toFixed(3)})`;
+        el.shadow.style.opacity = (1 - 0.6 * air).toFixed(2);
         if (el.outer.dataset.state !== r.state) el.outer.dataset.state = r.state;
+        const dir = String(r.dir);
+        if (el.outer.dataset.dir !== dir) el.outer.dataset.dir = dir;
       }
       const prev = lyingRef.current;
       if (nextLying.size !== prev.size || [...nextLying].some((id) => !prev.has(id))) {
@@ -220,8 +239,8 @@ function CreatureFloor({ kids, still }: FloorProps) {
             size={size}
             lying={lying.has(c.person.id)}
             still={still}
-            register={(outer, inner) => {
-              if (outer && inner) elements.current.set(c.person.id, { outer, inner });
+            register={(outer, inner, shadow) => {
+              if (outer && inner && shadow) elements.current.set(c.person.id, { outer, inner, shadow });
               else elements.current.delete(c.person.id);
             }}
             registerBurst={(fn) => {
@@ -252,7 +271,7 @@ function FloorCreature({
   size: number;
   lying: boolean;
   still: boolean;
-  register: (outer: HTMLElement | null, inner: HTMLElement | null) => void;
+  register: (outer: HTMLElement | null, inner: HTMLElement | null, shadow: HTMLElement | null) => void;
   registerBurst: (fn: ((count: number) => void) | null) => void;
   onTap: () => void;
 }) {
@@ -264,11 +283,14 @@ function FloorCreature({
   const look = festive(readLook(creature.look, ownedFor(person.id)));
   const outer = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
+  const shadow = useRef<HTMLSpanElement>(null);
   const { burst, layer } = useParticles();
+  // A classic picture, as CreatureAvatar shows it: no moods, so it dozes instead of lying down.
+  const picture = effectiveStyle(creature.species, creature.style) === "classic" && !classicIsDrawn(creature.species, creature.style);
 
   useEffect(() => {
-    register(outer.current, inner.current);
-    return () => register(null, null);
+    register(outer.current, inner.current, shadow.current);
+    return () => register(null, null, null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
@@ -282,40 +304,49 @@ function FloorCreature({
   const stageName = tPM(`species.${creature.species}.tier${tier}` as never);
 
   return (
-    <div
-      ref={outer}
-      className="home-creature absolute bottom-0 left-0 will-change-transform"
-      style={{ width: size, height: size }}
-      data-testid="home-creature"
-      data-person={person.id}
-      data-lying={lying ? "true" : "false"}
-    >
-      <div ref={inner} className="home-creature-body size-full" style={{ transformOrigin: "50% 100%" }}>
-        <button
-          type="button"
-          className="pointer-events-auto block size-full rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50"
-          aria-label={t("tapAria", { name: person.name })}
-          onClick={onTap}
-        >
-          <CreatureAvatar
-            species={creature.species}
-            tier={tier as never}
-            style={creature.style}
-            look={look}
-            mood={shownMood}
-            size={size}
-            animated={!still && !lying}
-            label=""
-          />
-        </button>
+    <>
+      <span
+        ref={shadow}
+        className="home-creature-shadow absolute left-0 will-change-transform"
+        style={{ width: size, bottom: Math.round(size * 0.03), height: Math.round(size * 0.1) }}
+        aria-hidden="true"
+      />
+      <div
+        ref={outer}
+        className="home-creature absolute bottom-0 left-0 will-change-transform"
+        style={{ width: size, height: size, ["--home-creature-size" as string]: `${size}px` }}
+        data-testid="home-creature"
+        data-person={person.id}
+        data-art={picture ? "picture" : "drawn"}
+        data-lying={lying ? "true" : "false"}
+      >
+        <div ref={inner} className="home-creature-body size-full" style={{ transformOrigin: "50% 100%" }}>
+          <button
+            type="button"
+            className="pointer-events-auto block size-full rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50"
+            aria-label={t("tapAria", { name: person.name })}
+            onClick={onTap}
+          >
+            <CreatureAvatar
+              species={creature.species}
+              tier={tier as never}
+              style={creature.style}
+              look={look}
+              mood={shownMood}
+              size={size}
+              animated={!still && !lying}
+              label=""
+            />
+          </button>
+        </div>
+        {lying && (
+          <span className="home-creature-zzz" aria-hidden="true">
+            <span>z</span>
+            <span>z</span>
+          </span>
+        )}
+        {layer}
       </div>
-      {lying && (
-        <span className="home-creature-zzz" aria-hidden="true">
-          <span>z</span>
-          <span>z</span>
-        </span>
-      )}
-      {layer}
-    </div>
+    </>
   );
 }
