@@ -107,6 +107,17 @@ test("on the floor: each at its own spot, and never past either end however long
   }
 });
 
+test("a floor that shrinks (the screen turned): every creature is back on it at once", () => {
+  const wide = placeRoamers(
+    [{ id: "a", egg: false }, { id: "b", egg: false }, { id: "c", egg: false }],
+    { ...floor, now: 0 },
+  );
+  const narrow = { ...floor, width: 500 };
+  const [lo, hi] = bounds(narrow);
+  const { roamers } = stepRoamers(wide, { ...narrow, now: 0 }, 33, seeded(1));
+  for (const r of roamers) expect(r.x >= lo && r.x <= hi, `${r.id} at ${r.x}`).toBe(true);
+});
+
 test("an egg stays at its spot and wobbles; it never walks, plays or sleeps on its side", () => {
   const start = placeRoamers([{ id: "egg", egg: true }, { id: "b", egg: false }], { ...floor, now: 0 });
   const { frames } = run(start, floor, 60_000);
