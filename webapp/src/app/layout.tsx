@@ -8,6 +8,8 @@ import { ChunkErrorRecovery } from "@/components/chunk-error-recovery";
 import { display, sans, mono } from "./fonts";
 import { publicApiEnv } from "@/lib/supabase/api-base";
 import { MOTION_INIT_SCRIPT } from "@/lib/motion";
+import { FESTIVAL_INIT_SCRIPT } from "@/lib/festival-settings";
+import { FESTIVAL_CSS } from "@/lib/festivals/kits";
 
 export const metadata: Metadata = {
   title: "Kinboard",
@@ -61,9 +63,7 @@ export default async function RootLayout({
   // this is a runtime fallback the browser-side supabase client reads
   // first via window.__ENV. See lib/supabase/client.ts.
   //
-  // The API address is decided here, per request (RFC-018): `same-origin`
-  // when Kong serves the app, otherwise API_EXTERNAL_URL. See
-  // lib/supabase/api-base.ts.
+  // The API is on the page's own origin (lib/supabase/api-base.ts).
   const publicEnv = publicApiEnv(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "");
 
   return (
@@ -73,6 +73,10 @@ export default async function RootLayout({
       >
         {/* Before anything paints: this device's animation level (lib/motion.ts). */}
         <script dangerouslySetInnerHTML={{ __html: MOTION_INIT_SCRIPT }} />
+        {/* …and the festival it last showed, so the wash and the dressing are there from the first frame (RFC-020). */}
+        <script dangerouslySetInnerHTML={{ __html: FESTIVAL_INIT_SCRIPT }} />
+        {/* Every festival's wash and dressing, keyed off <html data-festival> (lib/festivals/kits/). */}
+        <style id="festival-css" dangerouslySetInnerHTML={{ __html: FESTIVAL_CSS }} />
         <script
            
           dangerouslySetInnerHTML={{

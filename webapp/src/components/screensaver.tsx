@@ -19,6 +19,7 @@ import { entryListDay, HOLIDAY_COLOR, holidayEndPattern, keyToDate } from "@/lib
 import { toLocalDateKey } from "@/lib/local-date";
 import { useTimeFormat } from "@/hooks/use-time-format";
 import { choosePhotoFit, aspectOf } from "@/lib/photo-fit";
+import { FestivalVisitor } from "@/components/weather-effects";
 
 // Parse date string safely without timezone shift
 // "1990-01-28" should be January 28th local, not UTC midnight
@@ -693,6 +694,11 @@ export function Screensaver({ photos }: ScreensaverProps) {
         )}
       </div>
 
+      {/* A festival's visitor (RFC-020): above the photo, below the clock and
+          everything else here, every two minutes. Its passes move pixels
+          against burn-in alongside BURN_IN_OFFSETS. */}
+      <FestivalVisitor placement="screensaver" />
+
       {/* News list - top left (always rendered for data-no-wake) */}
       {(screensaverSettings.showNews ?? true) && news && news.length > 0 && (
         <div
@@ -998,8 +1004,9 @@ export function Screensaver({ photos }: ScreensaverProps) {
       <div
         className="absolute inset-x-4 bottom-12 flex flex-col-reverse gap-6 safe-area-inset landscape:lg:contents"
       >
-      {/* Clock overlay - bottom left (compact for mobile & portrait) */}
+      {/* Clock overlay - bottom left (compact for mobile & portrait). A festival's fireworks go up over it (RFC-020). */}
       <div
+        data-festival-anchor="screensaver-clock"
         className="landscape:lg:absolute landscape:lg:bottom-12 landscape:lg:left-12 safe-area-inset screensaver-slide-up"
         style={{ animationDelay: "0.5s", ...burnInStyle }}
       >

@@ -113,7 +113,8 @@ export default function DashboardPage() {
     weekOverview: <WeekOverviewWidget className="sm:col-span-2" />,
     mealPlan: <MealPlanWidget />,
     wasteCollection: <WasteCollectionWidget maxItems={3} />,
-    tasks: <TasksWidget maxItems={4} />,
+    // A festival's dressing can single out the Tasks card: St Nicholas's boot stands on it (RFC-020 §3.3).
+    tasks: <TasksWidget maxItems={4} className="festival-tasks" />,
     shopping: <ShoppingWidget maxItems={4} />,
     notes: <NotesWidget maxItems={3} />,
     vehicles: <VehiclesWidget />,
@@ -173,6 +174,8 @@ export default function DashboardPage() {
         <section
           className={`relative z-[1] flex items-center justify-center hero-block ${homeLayout === "compact" ? "flex-col portrait:md:grid portrait:md:grid-cols-2 portrait:md:gap-6 py-4" : "flex-1 flex-col"}`}
           aria-label={t("ariaClock")}
+          // Where a festival's fireworks go up (RFC-020 §3.3): over the clock in here.
+          data-festival-anchor="clock"
         >
           <div className={homeLayout === "compact" ? "min-w-0 text-center" : "contents"}>
             <Clock size={homeLayout === "compact" ? "lg" : "xl"} showDate showSeconds={showSeconds} showGreeting />
@@ -217,7 +220,7 @@ export default function DashboardPage() {
             the screens being talked to (RFC-005 §6). */}
         {w.messages && <MessageTakeover />}
 
-        <section className="relative z-[1] mt-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 portrait:lg:grid-cols-2 2xl:grid-cols-5 min-[2000px]:grid-cols-6 auto-rows-min items-start gap-4 md:gap-6 w-full max-w-[2200px] mx-auto" aria-label={t("ariaWidgets")}>
+        <section className="festival-grid relative z-[1] mt-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 portrait:lg:grid-cols-2 2xl:grid-cols-5 min-[2000px]:grid-cols-6 auto-rows-min items-start gap-4 md:gap-6 w-full max-w-[2200px] mx-auto" aria-label={t("ariaWidgets")}>
           <FloatingLightsFab />
           {/* First, and across the whole width: this is what the family has to
               act on, and it renders nothing at all when there is nothing — so
