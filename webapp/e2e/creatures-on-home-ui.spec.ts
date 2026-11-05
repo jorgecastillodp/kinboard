@@ -135,7 +135,8 @@ test.describe("creatures on Home", () => {
         await expect(page.locator(`[data-testid="home-creature"][data-person="${id}"]`)).toHaveAttribute("data-lying", "true", { timeout: 20_000 });
       }
       await expect(page.locator(".home-creature-zzz")).toHaveCount(2);
-      await putSetting(page, familyId, "creature_bedtime", null);
+      // Back to the default the way the card's button does it (a setting can't be saved empty).
+      await putSetting(page, familyId, "creature_bedtime", { sleep: "20:00", wake: "06:30" });
 
       // Reduced motion: they stand still.
       await page.emulateMedia({ reducedMotion: "reduce" });

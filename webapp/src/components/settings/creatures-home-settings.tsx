@@ -103,7 +103,9 @@ export function CreaturesHomeSettings() {
           <button
             type="button"
             className="mt-2 text-xs font-medium text-month-primary underline-offset-2 hover:underline"
-            onClick={() => void save(SETTINGS_KEYS.creatureBedtime, null)}
+            onClick={() =>
+              void save(SETTINGS_KEYS.creatureBedtime, { sleep: formatClock(DEFAULT_BEDTIME.sleep), wake: formatClock(DEFAULT_BEDTIME.wake) })
+            }
           >
             {t("bedtimeReset", { sleep: formatClock(DEFAULT_BEDTIME.sleep), wake: formatClock(DEFAULT_BEDTIME.wake) })}
           </button>
