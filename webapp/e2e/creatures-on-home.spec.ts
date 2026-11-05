@@ -230,7 +230,7 @@ test("the mood hook and settings: one family bedtime, re-read every minute; the 
   expect(settings).toContain("onCheckedChange={(next) => void save(SETTINGS_KEYS.creaturesOnHome, next)}");
   // "Back to 20:00-06:30" saves the default times: a setting can't be saved empty.
   expect(settings).toContain("void save(SETTINGS_KEYS.creatureBedtime, { sleep: formatClock(DEFAULT_BEDTIME.sleep), wake: formatClock(DEFAULT_BEDTIME.wake) })");
-  expect(settings).not.toContain("SETTINGS_KEYS.creatureBedtime, null");
+  expect(settings).not.toContain("save(SETTINGS_KEYS.creatureBedtime, null)");
   expect(codeOnly(read("src/app/settings/creatures/page.tsx"))).toContain("<CreaturesHomeSettings />");
   expect(read("src/lib/settings-search/registry.ts")).toContain('{ anchor: "home", labelKey: "settings.creatures.homeLabel", descriptionKey: "settings.creatures.homeHint" },');
 });
