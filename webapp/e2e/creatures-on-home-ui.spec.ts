@@ -97,6 +97,9 @@ test.describe("creatures on Home", () => {
       await gotoAfterJoin(page, "/");
       const kids = await setUp(page, familyId);
       expect(kids).toHaveLength(2);
+      // No bedtime (the same time twice) while they should walk, whatever the hour: the default
+      // 20:00 to 06:30 would put them to bed for anyone running this in the evening.
+      await putSetting(page, familyId, "creature_bedtime", { sleep: "12:00", wake: "12:00" });
 
       // Off until switched on, on Settings -> Creatures.
       await expect(floor(page)).toHaveCount(0);
