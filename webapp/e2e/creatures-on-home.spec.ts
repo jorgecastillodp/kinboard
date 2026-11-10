@@ -144,7 +144,7 @@ test("an egg stays at its spot and wobbles; it never walks or plays, and at bedt
   // Drawn upright, dimmed, with the z's: an egg is not turned on its side.
   const home = codeOnly(read("src/components/creatures-on-home.tsx"));
   expect(home).toContain("sleepingRef.current = bedtimeNow ? new Set(cast.map((c) => c.person.id)) : new Set();");
-  expect(home).toContain("`scaleX(${r.dir}) rotate(${p.tilt.toFixed(1)}deg)`");
+  expect(home).toMatch(/el\.inner\.style\.transform = r\.egg\s*\?[^:]*`scaleX\(\$\{r\.dir\}\) rotate\(\$\{p\.tilt\.toFixed\(1\)\}deg\)`/);
   expect(home).toContain('data-egg={tier === 1 ? "true" : "false"}');
 });
 
