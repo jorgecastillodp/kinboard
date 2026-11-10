@@ -1132,8 +1132,9 @@ html[data-screensaver] nav {
   transform-origin: 50% 50%;
   pointer-events: none;
 }
-/* A classic picture dozing: dimmed a little. */
-.home-creature[data-art="picture"][data-lying="true"] .home-creature-body {
+/* A classic picture dozing, or an egg asleep: dimmed a little. */
+.home-creature[data-art="picture"][data-lying="true"] .home-creature-body,
+.home-creature[data-egg="true"][data-lying="true"] .home-creature-body {
   filter: brightness(0.8) saturate(0.85);
 }
 .home-creature-zzz {
@@ -1162,6 +1163,10 @@ html[data-screensaver] nav {
 .home-creature[data-art="picture"] .home-creature-zzz {
   bottom: 72%;
   left: 62%;
+}
+.home-creature[data-egg="true"][data-art] .home-creature-zzz {
+  bottom: 66%;
+  left: 60%;
 }
 .home-creature-zzz span {
   animation: home-creature-zzz 2.6s ease-in-out infinite;

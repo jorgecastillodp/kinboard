@@ -119,7 +119,7 @@ test("a floor that shrinks (the screen turned): every creature is back on it at 
   for (const r of roamers) expect(r.x >= lo && r.x <= hi, `${r.id} at ${r.x}`).toBe(true);
 });
 
-test("an egg stays at its spot and wobbles; it never walks, plays or sleeps on its side", () => {
+test("an egg stays at its spot and wobbles; it never walks or plays, and at bedtime sleeps where it is", () => {
   const start = placeRoamers([{ id: "egg", egg: true }, { id: "b", egg: false }], { ...floor, now: 0 });
   const { frames } = run(start, floor, 60_000);
   for (const f of frames) {
@@ -130,8 +130,22 @@ test("an egg stays at its spot and wobbles; it never walks, plays or sleeps on i
   }
   const egg = frames[0].find((r) => r.id === "egg")!;
   expect(Math.abs(pose({ ...egg, since: 0 }, 300, 80).tilt)).toBeGreaterThan(0);
-  const asleep = run(start, { ...floor, sleeping: new Set(["egg", "b"]) }, 5_000).roamers.find((r) => r.id === "egg")!;
-  expect(asleep.state).toBe("egg");
+  // Bedtime: asleep at its spot, no wobble; a tap there gives one heart and leaves it asleep.
+  const night = run(start, { ...floor, sleeping: new Set(["egg", "b"]) }, 5_000).roamers;
+  const asleep = night.find((r) => r.id === "egg")!;
+  expect(asleep.state).toBe("asleep");
+  expect(asleep.x).toBe(400);
+  expect(pose(asleep, 6_000, 80)).toEqual({ lift: 0, tilt: 0, lying: true });
+  const tapped = poke(night, "egg", 6_000);
+  expect(tapped.roamers.find((r) => r.id === "egg")!.state).toBe("asleep");
+  expect(tapped.events).toEqual([{ kind: "hearts", x: 400, count: 1 }]);
+  // Morning: an egg again, wobbling.
+  expect(run(night, floor, 1_000, 7, 6_000).roamers.find((r) => r.id === "egg")!.state).toBe("egg");
+  // Drawn upright, dimmed, with the z's: an egg is not turned on its side.
+  const home = codeOnly(read("src/components/creatures-on-home.tsx"));
+  expect(home).toContain("sleepingRef.current = bedtimeNow ? new Set(cast.map((c) => c.person.id)) : new Set();");
+  expect(home).toContain("`scaleX(${r.dir}) rotate(${p.tilt.toFixed(1)}deg)`");
+  expect(home).toContain('data-egg={tier === 1 ? "true" : "false"}');
 });
 
 test("two or more: they find each other and play, with hearts, and only with a free friend", () => {
@@ -251,7 +265,7 @@ test("Home: off unless switched on, gone with animations off, still with reduced
   expect(home).toContain('data-art={picture ? "picture" : "drawn"}');
   expect(home).toContain("`scaleX(${r.dir}) rotate(${(-12 * ready + p.tilt).toFixed(1)}deg) scaleY(${(1 - 0.08 * ready).toFixed(3)})`");
   expect(home).toContain("`rotate(${(-90 * ready + p.tilt).toFixed(1)}deg)`");
-  expect(css).toMatch(/\.home-creature\[data-art="picture"\]\[data-lying="true"\] \.home-creature-body \{\s*filter: brightness\(0\.8\)/);
+  expect(css).toMatch(/\.home-creature\[data-art="picture"\]\[data-lying="true"\] \.home-creature-body,\s*\.home-creature\[data-egg="true"\]\[data-lying="true"\] \.home-creature-body \{\s*filter: brightness\(0\.8\)/);
   // One shadow each, flat on the floor; the drawing's own is hidden here, or it would turn with a creature lying down.
   expect(css).toMatch(/\.home-creature \.creature-ground \{\s*display: none;/);
   expect(home).toContain("el.shadow.style.transform = `translate3d(${left}px, 0, 0) scaleX(${stretch.toFixed(3)})`;");

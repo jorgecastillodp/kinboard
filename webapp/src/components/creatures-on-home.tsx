@@ -96,7 +96,7 @@ function CreatureFloor({ kids, still }: FloorProps) {
   const [lying, setLying] = useState<ReadonlySet<string>>(new Set());
   const lyingRef = useRef<ReadonlySet<string>>(new Set());
   const sleepingRef = useRef<ReadonlySet<string>>(new Set());
-  sleepingRef.current = bedtimeNow ? new Set(cast.filter((c) => c.tier > 1).map((c) => c.person.id)) : new Set();
+  sleepingRef.current = bedtimeNow ? new Set(cast.map((c) => c.person.id)) : new Set();
 
   useEffect(() => {
     const el = floorRef.current;
@@ -144,7 +144,10 @@ function CreatureFloor({ kids, still }: FloorProps) {
         const left = (r.x - size / 2).toFixed(1);
         const picture = el.outer.dataset.art === "picture";
         el.outer.style.transform = `translate3d(${left}px, ${(-p.lift).toFixed(1)}px, 0)`;
-        el.inner.style.transform = picture
+        el.inner.style.transform = r.egg
+          ? // An egg sleeps where it stands: it just stops wobbling (and dims, in CSS).
+            `scaleX(${r.dir}) rotate(${p.tilt.toFixed(1)}deg)`
+          : picture
           ? // Dozing sitting up: leaning over a little and settled down.
             `scaleX(${r.dir}) rotate(${(-12 * ready + p.tilt).toFixed(1)}deg) scaleY(${(1 - 0.08 * ready).toFixed(3)})`
           : // On its side: turned about its feet, moved back over its spot and down onto the floor.
@@ -152,7 +155,7 @@ function CreatureFloor({ kids, still }: FloorProps) {
             `rotate(${(-90 * ready + p.tilt).toFixed(1)}deg)`;
         // The shadow stays on the floor: smaller and fainter in the air, longer lying down.
         const air = Math.min(1, p.lift / (size * 0.4));
-        const stretch = (picture ? PICTURE_SCALE : 1) * (1 - 0.45 * air) + (picture ? 0 : 0.35 * ready);
+        const stretch = (picture ? PICTURE_SCALE : 1) * (1 - 0.45 * air) + (picture || r.egg ? 0 : 0.35 * ready);
         el.shadow.style.transform = `translate3d(${left}px, 0, 0) scaleX(${stretch.toFixed(3)})`;
         el.shadow.style.opacity = (1 - 0.6 * air).toFixed(2);
         if (el.outer.dataset.state !== r.state) el.outer.dataset.state = r.state;
@@ -324,6 +327,7 @@ function FloorCreature({
         data-testid="home-creature"
         data-person={person.id}
         data-art={picture ? "picture" : "drawn"}
+        data-egg={tier === 1 ? "true" : "false"}
         data-lying={lying ? "true" : "false"}
       >
         <div ref={inner} className="home-creature-body size-full" style={{ transformOrigin: "50% 100%" }}>

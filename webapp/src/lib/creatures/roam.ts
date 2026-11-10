@@ -145,7 +145,10 @@ export function stepRoamers(
     r.x = Math.min(hi, Math.max(lo, r.x));
     const bed = Math.min(hi, Math.max(lo, beds[i]));
     if (r.egg) {
-      if (r.state !== "egg") set(r, "egg", now);
+      // An egg stays at its spot: wobbling now and then, asleep at bedtime.
+      const sleeps = world.sleeping.has(r.id);
+      if (sleeps && r.state !== "asleep") set(r, "asleep", now);
+      else if (!sleeps && r.state !== "egg") set(r, "egg", now);
       r.x = bed;
       return;
     }
