@@ -53,6 +53,12 @@ export function CreaturesOnHome() {
 }
 
 const FRAME_MS = 1000 / 30;
+/**
+ * A classic picture fills about 94% of its frame and a drawing about three
+ * quarters, so at the same size the pictures look bigger (the galaxy most of
+ * all, a full square). On Home they are drawn at this share of the size.
+ */
+const PICTURE_SCALE = 0.8;
 
 interface FloorProps {
   kids: Array<{ person: Person; creature: Creature }>;
@@ -63,7 +69,7 @@ function CreatureFloor({ kids, still }: FloorProps) {
   const t = useTranslations("creaturesOnHome");
   const floorRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
-  const size = Math.round(Math.min(84, Math.max(56, width / 15)));
+  const size = Math.round(Math.min(72, Math.max(50, width / 18)));
   const { data: accounts = [] } = usePocketMoneyAccounts();
   const { totalsFor } = usePointTotals();
 
@@ -146,7 +152,7 @@ function CreatureFloor({ kids, still }: FloorProps) {
             `rotate(${(-90 * ready + p.tilt).toFixed(1)}deg)`;
         // The shadow stays on the floor: smaller and fainter in the air, longer lying down.
         const air = Math.min(1, p.lift / (size * 0.4));
-        const stretch = 1 - 0.45 * air + (picture ? 0 : 0.35 * ready);
+        const stretch = (picture ? PICTURE_SCALE : 1) * (1 - 0.45 * air) + (picture ? 0 : 0.35 * ready);
         el.shadow.style.transform = `translate3d(${left}px, 0, 0) scaleX(${stretch.toFixed(3)})`;
         el.shadow.style.opacity = (1 - 0.6 * air).toFixed(2);
         if (el.outer.dataset.state !== r.state) el.outer.dataset.state = r.state;
@@ -323,7 +329,7 @@ function FloorCreature({
         <div ref={inner} className="home-creature-body size-full" style={{ transformOrigin: "50% 100%" }}>
           <button
             type="button"
-            className="pointer-events-auto block size-full rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50"
+            className="pointer-events-auto flex size-full items-end justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50"
             aria-label={t("tapAria", { name: person.name })}
             onClick={onTap}
           >
@@ -333,7 +339,7 @@ function FloorCreature({
               style={creature.style}
               look={look}
               mood={shownMood}
-              size={size}
+              size={picture ? Math.round(size * PICTURE_SCALE) : size}
               animated={!still && !lying}
               label=""
             />

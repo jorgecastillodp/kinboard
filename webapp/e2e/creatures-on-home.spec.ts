@@ -233,7 +233,11 @@ test("Home: off unless switched on, gone with animations off, still with reduced
   expect(home).toContain("const onVisibility = () => (document.hidden ? stop() : start());");
   expect(home).toContain('className="creature-floor pointer-events-none fixed inset-x-0 z-[15]"');
   expect(home).toContain('style={{ bottom: "var(--nav-spacing, 0px)", height: Math.round(size * 1.6) }}');
-  expect(home).toContain('className="pointer-events-auto block size-full rounded-full');
+  expect(home).toContain('className="pointer-events-auto flex size-full items-end justify-center rounded-full');
+  // A little smaller than the widget's: 50 to 72 px; a classic picture at 0.8 of that, as it fills its frame.
+  expect(home).toContain("const size = Math.round(Math.min(72, Math.max(50, width / 18)));");
+  expect(home).toContain("const PICTURE_SCALE = 0.8;");
+  expect(home).toContain("size={picture ? Math.round(size * PICTURE_SCALE) : size}");
   // The same creature as the widget: its stage, its look, its festival outfit, its mood.
   expect(home).toContain("creatureStage({ creature, account, earnedPoints: totalsFor(person.id).earned })");
   expect(home).toContain("const look = festive(readLook(creature.look, ownedFor(person.id)));");
