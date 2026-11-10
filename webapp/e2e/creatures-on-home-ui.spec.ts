@@ -6,7 +6,7 @@ import { createThrowawayFamily, deleteThrowawayFamily, gotoAfterJoin } from "./t
  * two children whose creatures have hatched (a 50-point task each, ticked),
  * the switch on Settings -> Creatures, then on Home the creatures walking,
  * hopping when tapped while taps elsewhere on the floor go through, lying
- * down at the family's bedtime, standing still with reduced motion and gone
+ * down at the family's bedtime (an egg too, upright), standing still with reduced motion and gone
  * with animations off. The rules are in creatures-on-home.spec.ts.
  */
 
@@ -45,6 +45,23 @@ async function setUp(page: Page, familyId: string) {
       await rest(`todos?id=eq.${task.id}`, "PATCH", { completed: true });
     }
     return ids;
+  }, familyId);
+}
+
+/** A third child whose creature hasn't hatched: an egg, no points. */
+async function addEgg(page: Page, familyId: string): Promise<string> {
+  return page.evaluate(async (familyId) => {
+    const { token } = await (await fetch("/api/session/token", { cache: "no-store" })).json();
+    const r = await fetch("/rest/v1/people", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify([{ family_id: familyId, name: "Probe Cleo", is_child: true, color: "#8E56E8" }]),
+    });
+    if (!r.ok) throw new Error(`egg child: ${r.status}`);
+    const [{ id }] = await r.json();
+    const c = await fetch("/api/creatures", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ person_id: id, species: "owl" }) });
+    if (!c.ok) throw new Error(`egg creature: ${c.status}`);
+    return id as string;
   }, familyId);
 }
 
@@ -129,19 +146,24 @@ test.describe("creatures on Home", () => {
         const hhmm = (d: Date) => new Intl.DateTimeFormat("en-GB", { timeZone: zone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
         return { sleep: hhmm(new Date(Date.now() - 60_000)), wake: hhmm(new Date(Date.now() + 120 * 60_000)) };
       });
+      // An egg sleeps too, where it stands (it is not turned on its side).
+      const egg = await addEgg(page, familyId);
       await putSetting(page, familyId, "creature_bedtime", clock);
       await page.reload({ waitUntil: "domcontentloaded" });
-      for (const id of kids) {
+      for (const id of [...kids, egg]) {
         await expect(page.locator(`[data-testid="home-creature"][data-person="${id}"]`)).toHaveAttribute("data-lying", "true", { timeout: 20_000 });
       }
-      await expect(page.locator(".home-creature-zzz")).toHaveCount(2);
+      const eggEl = page.locator(`[data-testid="home-creature"][data-person="${egg}"]`);
+      await expect(eggEl).toHaveAttribute("data-egg", "true");
+      await expect(eggEl.locator(".home-creature-body")).not.toHaveAttribute("style", /rotate\(-[1-9]/);
+      await expect(page.locator(".home-creature-zzz")).toHaveCount(3);
       // Back to the default the way the card's button does it (a setting can't be saved empty).
       await putSetting(page, familyId, "creature_bedtime", { sleep: "20:00", wake: "06:30" });
 
       // Reduced motion: they stand still.
       await page.emulateMedia({ reducedMotion: "reduce" });
       await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(creatures(page)).toHaveCount(2, { timeout: 30_000 });
+      await expect(creatures(page)).toHaveCount(3, { timeout: 30_000 });
       const still1 = await positions(page);
       await page.waitForTimeout(5_000);
       expect(await positions(page)).toEqual(still1);
