@@ -78,7 +78,7 @@ test("the shop shows the family's prices; Settings -> Creatures edits them", () 
   expect(card).toContain('<Card id="prices" data-setting="prices" className="p-4 space-y-4" data-testid="shop-prices">');
   expect(card).toContain("const next = raw === \"\" ? item.cost : Number(raw);");
   expect(card).toContain("if (next === item.cost) delete list[item.id];");
-  expect(codeOnly(read("src/app/settings/creatures/page.tsx"))).toMatch(/<CreaturesHomeSettings \/>\s*<ShopPricesSettings \/>/);
+  expect(codeOnly(read("src/app/settings/creatures/page.tsx"))).toMatch(/<CreaturesHomeSettings \/>\s*<GrowthSettings \/>\s*<ShopPricesSettings \/>/);
   expect(read("src/lib/settings-search/registry.ts")).toContain('{ anchor: "prices", labelKey: "settings.creatures.pricesLabel", descriptionKey: "settings.creatures.pricesHint" },');
 });
 

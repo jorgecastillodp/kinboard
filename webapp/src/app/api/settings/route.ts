@@ -45,6 +45,9 @@ const DEDICATED_ROUTE_KEYS: Record<string, string> = {
   // What the creature shop charges: behind the settings PIN, each price checked,
   // or a child's own screen could make everything cost a point.
   [SETTINGS_KEYS.shopPrices]: "/api/creatures/shop-prices",
+  // How many points each stage needs: behind the PIN, and saving it keeps every
+  // creature at the stage it has (lib/creatures/growth.ts).
+  [SETTINGS_KEYS.growthPoints]: "/api/creatures/growth",
 };
 
 function dedicatedRoute(key: unknown): NextResponse | null {

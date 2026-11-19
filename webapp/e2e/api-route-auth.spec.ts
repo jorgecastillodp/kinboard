@@ -199,6 +199,8 @@ test("a route that still takes family_id checks it against the session", () => {
     // setting is written under, from auth.session.familyId; the request carries
     // item ids and prices only.
     "creatures/shop-prices/route.ts",
+    // How many points each stage needs: the same, the request carries the numbers only.
+    "creatures/growth/route.ts",
     // Answers "do I have a session, and for whom" — the family is the reply.
     "session/token/route.ts",
     // Deletes the caller's own push subscription, scoped to session.familyId.

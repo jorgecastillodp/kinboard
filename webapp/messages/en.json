@@ -3221,7 +3221,15 @@
       "pricesStandard": "standard {count}",
       "pricesInvalid": "A price is a whole number from {min} to {max}.",
       "priceAria": "Price of {item}, in points",
-      "pricesReset": "Back to the standard prices"
+      "pricesReset": "Back to the standard prices",
+      "growthLabel": "Growing",
+      "growthHint": "How many task points a creature needs to reach each stage, counting every point the child has earned. Raising a number never makes a creature smaller: it keeps the stage it has and grows again once the child passes the next number. Creatures growing with pocket money follow the money instead.",
+      "growthHatch": "Stage 2 (hatches)",
+      "growthStage": "Stage {n}",
+      "growthAria": "Points for stage {n}",
+      "growthInvalid": "Each stage needs more points than the one before it, as whole numbers.",
+      "growthReset": "Back to the standard stages",
+      "growthKept": "{count, plural, one {# creature keeps the stage it has} other {# creatures keep the stage they have}}"
     },
     "layouts": {
       "title": "Layouts",
@@ -3502,6 +3510,7 @@
       "creatures": "creature, creatures, dragon, pet, avatar, rewards, points, task points, shop, grows",
       "creatures_children": "creature, switch on, species, dragon, grows with, points, money, shop",
       "creatures_home": "creatures on home, walk, play, pets, animals, bedtime, sleep, wake",
+      "creatures_growth": "growing, grow, stages, hatch, points per stage, level, evolve, creature growth",
       "creatures_prices": "shop prices, price, cost, points, hats, glasses, backgrounds, items, creature shop",
       "creatures_inbox": "reward requests, waiting, approve, deny, inbox, redeem",
       "creatures_rewards": "rewards, points, task points, redeem, prizes, treats",

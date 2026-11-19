@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
@@ -9,6 +10,7 @@ import { useTodoPoints } from "./use-todo-points";
 import { pointsTotal } from "@/lib/todo-points";
 import { pointTotals, type PointTotals } from "@/lib/pocket-money/points";
 import { ownedSet, readShopPrices, type ShopPrices } from "@/lib/pocket-money/creatures/shop";
+import { readGrowthPoints } from "@/lib/pocket-money/points";
 import { queryKeys, useSetting } from "@/hooks/use-supabase-queries";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
@@ -123,6 +125,41 @@ export function useBuyItem() {
 export function useShopPrices(): ShopPrices {
   const { data } = useSetting<unknown>(SETTINGS_KEYS.shopPrices, null, { refetchInterval: 60_000 });
   return readShopPrices(data);
+}
+
+/**
+ * The family's points thresholds for growing (Settings -> Creatures ->
+ * Growing), or the standard ones; re-read every minute like the shop's prices.
+ */
+export function useGrowthPoints(): ReadonlyArray<number> {
+  const { data } = useSetting<unknown>(SETTINGS_KEYS.growthPoints, null, { refetchInterval: 60_000 });
+  return useMemo(() => readGrowthPoints(data), [data]);
+}
+
+/**
+ * A parent sets how many points each stage needs (stages 2 to 8), or null for
+ * the standard ones. Needs the settings PIN; the server keeps every creature
+ * at the stage it has.
+ */
+export function useSaveGrowthPoints() {
+  const qc = useQueryClient();
+  const familyId = useFamilyStore((s) => s.family?.id ?? "");
+  return useMutation({
+    mutationFn: async (points: number[] | null) => {
+      const r = await fetch("/api/creatures/growth", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ points }),
+      });
+      if (!r.ok) throw await failure(r, "growth");
+      return (await r.json()) as { points: number[] | null; kept: number };
+    },
+    // The floors it wrote are on the creatures, so those are read again too.
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.settings(familyId, SETTINGS_KEYS.growthPoints) });
+      qc.invalidateQueries({ queryKey: ["creatures"] });
+    },
+  });
 }
 
 /** A parent sets the shop's prices, the whole list at once. Needs the settings PIN. */

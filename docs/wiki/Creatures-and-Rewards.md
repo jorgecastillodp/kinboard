@@ -22,6 +22,8 @@ Per child, with the creature on:
 | **Shop** | Lets the child buy things for their creature with their points, on their Rewards page (see *The shop* below). Off hides the shop; what was bought stays the child's and stays on. Below the switch is the list of what the child bought, with the dates. |
 | **Look** | The drawing style. The child can change it on their own page too, with no PIN. |
 
+**How many points each stage needs** is the family's to set, under **Settings → Creatures & rewards → Growing** (settings PIN). The standard numbers are 50 points to hatch (stage 2), then 150, 300, 600, 1,000, 1,600 and 2,500 for stage 8, counted over every point the child has earned. Each stage has to need more than the one before. **Raising a number never makes a creature smaller**: on saving, each creature keeps the stage it has (its `best_tier` is raised to it) and grows again once the child passes the next number; lowering one lets creatures grow at once, with the usual celebration. *Back to the standard stages* puts the numbers back, and still shrinks no one. Creatures growing with saved money follow the money, as before.
+
 The stages, the look editor and the cheering when a task is ticked off are described on the [[Pocket Money|Pocket-Money]] page (*Avatar evolution*, *Avatar style*, *Points instead of euros*); they work the same for every creature.
 
 ## Where the creatures show
