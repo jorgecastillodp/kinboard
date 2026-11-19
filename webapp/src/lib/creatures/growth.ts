@@ -14,7 +14,7 @@
 
 import { readGrowthPoints } from "@/lib/pocket-money/points";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
-import { creatureStage, effectiveGrowsWith, type AccountLike, type CreatureLike } from "./stage";
+import { creatureStage, type AccountLike, type CreatureLike } from "./stage";
 
 // The admin client is untyped for these tables, as in the other routes.
 type Db = any;
@@ -40,8 +40,9 @@ export interface GrowingCreature {
 
 /**
  * The floors to write so nobody shrinks when the thresholds change: for each
- * creature growing with points whose stage under the new thresholds would be
- * lower than it is now, the stage it is at now.
+ * creature whose stage under the new thresholds would be lower than it is
+ * now, the stage it is at now. One growing with money never qualifies: its
+ * stage is the balance's, whatever the points thresholds.
  */
 export function floorsToKeep(
   creatures: ReadonlyArray<GrowingCreature>,
@@ -50,7 +51,6 @@ export function floorsToKeep(
 ): Array<{ personId: string; tier: number }> {
   const floors: Array<{ personId: string; tier: number }> = [];
   for (const c of creatures) {
-    if (effectiveGrowsWith(c.creature, c.account) !== "points") continue;
     const now = creatureStage({ ...c, pointThresholds: before }).tier;
     const then = creatureStage({ ...c, pointThresholds: after }).tier;
     if (then < now) floors.push({ personId: c.personId, tier: now });
