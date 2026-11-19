@@ -195,6 +195,10 @@ test("a route that still takes family_id checks it against the session", () => {
     "layouts/[id]/duplicate/route.ts",
     "layouts/defaults/route.ts",
     "devices/[id]/layout/route.ts",
+    // The family's shop prices: the regex matches the `family_id` column the
+    // setting is written under, from auth.session.familyId; the request carries
+    // item ids and prices only.
+    "creatures/shop-prices/route.ts",
     // Answers "do I have a session, and for whom" — the family is the reply.
     "session/token/route.ts",
     // Deletes the caller's own push subscription, scoped to session.familyId.

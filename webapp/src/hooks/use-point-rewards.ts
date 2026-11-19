@@ -8,7 +8,9 @@ import type { PointAwardRow, PointPurchase, PointRedemption, PointReward } from 
 import { useTodoPoints } from "./use-todo-points";
 import { pointsTotal } from "@/lib/todo-points";
 import { pointTotals, type PointTotals } from "@/lib/pocket-money/points";
-import { ownedSet } from "@/lib/pocket-money/creatures/shop";
+import { ownedSet, readShopPrices, type ShopPrices } from "@/lib/pocket-money/creatures/shop";
+import { queryKeys, useSetting } from "@/hooks/use-supabase-queries";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 /**
  * The rewards catalogue, the children's requests and their shop purchases (discussion #349; core
@@ -111,6 +113,33 @@ export function useBuyItem() {
     // A refused purchase changed nothing, but the screen's balance or shop
     // switch may be stale: refetch either way.
     onSettled: () => qc.invalidateQueries({ queryKey: [POINT_PURCHASES_KEY] }),
+  });
+}
+
+/**
+ * The family's own shop prices (Settings -> Creatures), re-read every minute so
+ * a change made on a parent's phone reaches the wall display's shop.
+ */
+export function useShopPrices(): ShopPrices {
+  const { data } = useSetting<unknown>(SETTINGS_KEYS.shopPrices, null, { refetchInterval: 60_000 });
+  return readShopPrices(data);
+}
+
+/** A parent sets the shop's prices, the whole list at once. Needs the settings PIN. */
+export function useSaveShopPrices() {
+  const qc = useQueryClient();
+  const familyId = useFamilyStore((s) => s.family?.id ?? "");
+  return useMutation({
+    mutationFn: async (prices: ShopPrices) => {
+      const r = await fetch("/api/creatures/shop-prices", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prices }),
+      });
+      if (!r.ok) throw await failure(r, "shop prices");
+      return ((await r.json()) as { prices: ShopPrices }).prices;
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.settings(familyId, SETTINGS_KEYS.shopPrices) }),
   });
 }
 

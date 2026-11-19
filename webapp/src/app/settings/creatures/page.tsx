@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { CreaturesHomeSettings } from "@/components/settings/creatures-home-settings";
+import { ShopPricesSettings } from "@/components/settings/shop-prices-settings";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
@@ -115,6 +116,7 @@ export default function CreaturesSettingsPage() {
         </div>
 
         <CreaturesHomeSettings />
+        <ShopPricesSettings />
         <RewardCatalogue />
       </div>
     </main>

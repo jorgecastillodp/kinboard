@@ -3215,7 +3215,13 @@
       "bedtimeHint": "Les créatures dorment entre ces heures : sur l'accueil elles se couchent, dans le widget elles ont l'air endormies.",
       "bedtimeSleep": "Endormies à partir de",
       "bedtimeWake": "Réveillées à",
-      "bedtimeReset": "Revenir à {sleep}–{wake}"
+      "bedtimeReset": "Revenir à {sleep}–{wake}",
+      "pricesLabel": "Prix de la boutique",
+      "pricesHint": "Ce que coûte chaque article de la boutique des créatures, en points de tâches. Un nouveau prix compte dès le prochain achat ; ce qui a déjà été acheté garde son prix d'achat. Videz un champ pour revenir au prix standard.",
+      "pricesStandard": "standard {count}",
+      "pricesInvalid": "Un prix est un nombre entier de {min} à {max}.",
+      "priceAria": "Prix de {item}, en points",
+      "pricesReset": "Revenir aux prix standard"
     },
     "layouts": {
       "title": "Dispositions",
@@ -3496,6 +3502,7 @@
       "creatures": "créature, créatures, dragon, animal, avatar, récompense, récompenses, points, points de tâches, boutique, grandir",
       "creatures_children": "créature, activer, espèce, dragon, grandit avec, points, argent, boutique",
       "creatures_home": "créatures sur l'accueil, promener, jouer, animaux, coucher, dormir, réveil",
+      "creatures_prices": "prix de la boutique, prix, coût, points, chapeaux, lunettes, fonds, boutique des créatures",
       "creatures_inbox": "demandes de récompense, en attente, accepter, refuser, échanger",
       "creatures_rewards": "récompenses, points, points de tâches, échanger, cadeaux",
       "theme_festivals": "fêtes, Noël, Avent, Saint-Nicolas, Saint-Martin, lanternes, traîneau, Père Noël, décorations, festif, Saint-Sylvestre, feu d'artifice, confettis"
