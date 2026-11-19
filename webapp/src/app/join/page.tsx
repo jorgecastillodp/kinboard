@@ -29,10 +29,9 @@ import { safeNextPath } from "@/components/auth-guard";
 import {
   useJoinFamily,
   useCreateFamilyWithDevice,
-  useFindDeviceByFingerprint,
+  useFindRecognizedDevice,
   useQuickRejoin,
 } from "@/hooks";
-import { getDeviceFingerprint } from "@/lib/device-id";
 import { postLocale } from "@/lib/locale-client";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 
@@ -47,6 +46,9 @@ interface RecognizedDevice {
     name: string;
   };
 }
+
+/** A restore the server refused, carrying its reason for the person restoring. */
+class RestoreError extends Error {}
 
 export default function JoinPage() {
   const t = useTranslations("join");
@@ -79,7 +81,7 @@ export default function JoinPage() {
 
   // Fingerprint recognition state
   const [recognizedDevices, setRecognizedDevices] = useState<RecognizedDevice[]>([]);
-  const [isCheckingFingerprint, setIsCheckingFingerprint] = useState(true);
+  const [isCheckingDevice, setIsCheckingDevice] = useState(true);
 
   // Fresh-install detection: when no families exist yet, default to "Create"
   // mode and surface a welcome message instead of asking for a code that
@@ -90,29 +92,26 @@ export default function JoinPage() {
   const searchParams = useSearchParams();
   const joinFamily = useJoinFamily();
   const createFamily = useCreateFamilyWithDevice();
-  const findByFingerprint = useFindDeviceByFingerprint();
+  const findRecognizedDevice = useFindRecognizedDevice();
   const quickRejoin = useQuickRejoin();
 
   const loading = joinFamily.isPending || createFamily.isPending || quickRejoin.isPending;
 
-  // Check fingerprint on mount
+  // Recognize only this browser's saved random device ID.
   useEffect(() => {
-    const checkFingerprint = async () => {
+    const checkDevice = async () => {
       try {
-        const fingerprint = getDeviceFingerprint();
-        if (fingerprint) {
-          const result = await findByFingerprint.mutateAsync(fingerprint);
-          if (result && result.length > 0) {
-            setRecognizedDevices(result);
-          }
+        const result = await findRecognizedDevice.mutateAsync();
+        if (result && result.length > 0) {
+          setRecognizedDevices(result);
         }
       } catch (e) {
-        console.log("Fingerprint check failed:", e);
+        console.log("Device check failed:", e);
       } finally {
-        setIsCheckingFingerprint(false);
+        setIsCheckingDevice(false);
       }
     };
-    checkFingerprint();
+    checkDevice();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -192,7 +191,13 @@ export default function JoinPage() {
         body: JSON.stringify(parsed),
       });
       if (!res.ok) {
-        throw new Error(`Import failed with status ${res.status}`);
+        // The server says what was wrong (an old format, a table that
+        // wouldn't insert, the size, too many attempts); without it the only
+        // message was "is this a Kinboard backup file?" for every failure,
+        // which left a family that had just lost its data guessing (#458).
+        const body = (await res.json().catch(() => null)) as { error?: string; table?: string } | null;
+        const reason = [body?.error, body?.table && `(${body.table})`].filter(Boolean).join(" ");
+        throw new RestoreError(reason || `HTTP ${res.status}`);
       }
       const result: {
         family_id: string;
@@ -214,7 +219,10 @@ export default function JoinPage() {
       router.push(safeNextPath(searchParams.get("next")));
     } catch (err) {
       console.error("join: restore from backup failed:", err);
-      toast.error(t("restoreFailed"));
+      toast.error(t("restoreFailed"), {
+        description: err instanceof Error && err.message ? err.message : undefined,
+        duration: 20_000,
+      });
     } finally {
       setRestoring(false);
       // Reset so the same file can be re-selected after a failed attempt
@@ -258,8 +266,12 @@ export default function JoinPage() {
         className="relative z-10 w-full max-w-6xl"
       >
         {/* Header / Welcome hero */}
-        {!modeChosen && recognizedDevices.length === 0 && !isFreshInstall && !isCheckingFingerprint ? (
-          <div className="grid gap-10 lg:grid-cols-[1.08fr_0.92fr] lg:items-center lg:gap-16">
+        {!modeChosen && recognizedDevices.length === 0 && !isFreshInstall && !isCheckingDevice ? (
+          // Landscape: 1024px at most, centred, and the card no wider than
+          // 24rem. At 1280 wide (1920x1080 at 150%, a tablet) the two columns
+          // ran edge to edge, 64px from each side, and the card's buttons
+          // were 420px bars.
+          <div className="grid gap-10 lg:mx-auto lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:items-center lg:gap-12 xl:gap-16">
             <div>
               <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-medium text-primary">
                 <span className="flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
@@ -267,7 +279,7 @@ export default function JoinPage() {
                 </span>
                 {t("welcomeEyebrow")}
               </div>
-              <h1 className="max-w-2xl text-5xl font-display font-medium leading-[0.98] tracking-tight sm:text-6xl lg:text-7xl">
+              <h1 className="max-w-2xl text-5xl font-display font-medium leading-[0.98] tracking-tight sm:text-6xl lg:text-7xl [@media(orientation:landscape)_and_(max-height:800px)]:text-6xl">
                 {t("welcomeTitle")}
               </h1>
               <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
@@ -399,7 +411,7 @@ export default function JoinPage() {
 
         {/* Quick Rejoin Section (shown when device is recognized) */}
         <AnimatePresence>
-          {!isCheckingFingerprint && recognizedDevices.length > 0 && (
+          {!isCheckingDevice && recognizedDevices.length > 0 && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
@@ -593,14 +605,11 @@ export default function JoinPage() {
           </div>
         )}
 
-        {/* Recovery hint — shows after the fingerprint check has run
-            and found no recognized device, but only on the Join tab
-            (not Create tab / fresh install). Helps users who wiped
-            site data + got a different fingerprint due to a browser
-            update find their family code on another device. */}
+        {/* After site data is cleared, the saved device ID is gone. Show where
+            to find the family code needed to rejoin. */}
         {!isFreshInstall &&
           modeChosen &&
-          !isCheckingFingerprint &&
+          !isCheckingDevice &&
           recognizedDevices.length === 0 &&
           mode === "join" && (
             <motion.div

@@ -48,6 +48,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Device } from "@/types/database";
+import { DeviceLayoutPicker } from "@/components/layouts/device-layout-picker";
+import { useLayoutDefaults, useLayouts } from "@/hooks/use-layouts";
 
 function getDeviceType(userAgent: string | null): string {
   if (!userAgent) return "display";
@@ -86,6 +88,8 @@ export default function DevicesSettingsPage() {
   const deleteDevice = useDeleteDevice();
   const setOwner = useSetDeviceOwner();
   const { data: people = [] } = usePeople();
+  const { data: layouts } = useLayouts();
+  const { data: layoutDefaults } = useLayoutDefaults();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -220,6 +224,7 @@ export default function DevicesSettingsPage() {
                 return (
                   <motion.div
                     key={device.id}
+                    data-device-id={device.id}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}
@@ -229,7 +234,7 @@ export default function DevicesSettingsPage() {
                     // were squeezed on top of it and the kiosk switch ended up
                     // drawn over the device name (audit KB-71). Below `sm` the
                     // controls now get their own row underneath.
-                    className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4"
+                    className="flex flex-col gap-3 p-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-0"
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-4">
                     {/* Icon */}
@@ -303,6 +308,23 @@ export default function DevicesSettingsPage() {
                               {deviceIsOnline ? t("onlineLabel") : formatLastSeen(device.last_seen)}
                             </span>
                           </div>
+                          {/* The size it last reported (POST /api/screen). */}
+                          {device.screen && (
+                            <p className="mt-0.5 text-xs text-muted-foreground tabular-nums" data-testid="device-screen">
+                              {t("screenSize", {
+                                screenWidth: device.screen.screenWidth,
+                                screenHeight: device.screen.screenHeight,
+                                orientation: t(
+                                  device.screen.viewportHeight > device.screen.viewportWidth
+                                    ? "screenPortrait"
+                                    : "screenLandscape",
+                                ),
+                                scale: Math.round(device.screen.pixelRatio * 100),
+                                viewportWidth: device.screen.viewportWidth,
+                                viewportHeight: device.screen.viewportHeight,
+                              })}
+                            </p>
+                          )}
                           {/* Device ID (shown when presence sensor is enabled) */}
                           {device.has_presence_sensor && (
                             <div className="flex items-center gap-1.5 mt-1">
@@ -457,6 +479,14 @@ export default function DevicesSettingsPage() {
                     )}
                     </div>
                     )}
+
+                    {/* Its layout (Settings → Layouts), on a line of its own under the name, once the layouts are known. */}
+                    {/* Only once the family has a layout: until then nothing here changes. */}
+                    {!isEditing && layouts && layouts.length > 0 && layoutDefaults && (
+                      <div className="sm:basis-full sm:pl-[3.75rem]">
+                        <DeviceLayoutPicker device={device} layouts={layouts} defaults={layoutDefaults} />
+                      </div>
+                    )}
                   </motion.div>
                 );
               })
@@ -510,20 +540,11 @@ export default function DevicesSettingsPage() {
 
                 <div>
                   <h4 className="font-medium mb-2">{t("presenceHelpStep2Heading")}</h4>
-                  <p className="text-muted-foreground mb-2">
+                  <p className="text-muted-foreground">
                     {t.rich("presenceHelpStep2Body", {
                       code: (chunks) => <code className="bg-muted px-1 rounded">{chunks}</code>,
                     })}
                   </p>
-                  <pre className="bg-muted p-2 rounded text-xs overflow-x-auto">
-{`# Installation
-pip install aio-ld2410 requests
-
-# Run
-python presence_detector.py \\
-  --device-id YOUR_DEVICE_ID \\
-  --url http://localhost:3000`}
-                  </pre>
                 </div>
 
                 <div>
@@ -540,11 +561,6 @@ python presence_detector.py \\
                       bold: (chunks) => <strong>{chunks}</strong>,
                     })}
                   </p>
-                  <pre className="bg-muted p-2 rounded text-xs overflow-x-auto">
-{`python presence_simulator.py \\
-  --device-id YOUR_DEVICE_ID \\
-  --url http://localhost:3000`}
-                  </pre>
                 </div>
 
                 <div>
@@ -569,6 +585,14 @@ python presence_detector.py \\
                 </div>
 
                 <div className="pt-2 border-t">
+                  <a
+                    href="https://github.com/svenger87/kinboard/wiki/Presence-Sensor"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline underline-offset-2"
+                  >
+                    {t("presenceHelpWikiLink")}
+                  </a>
                   <p className="text-xs text-muted-foreground">
                     {t.rich("presenceHelpTip", {
                       bold: (chunks) => <strong>{chunks}</strong>,

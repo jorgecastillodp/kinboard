@@ -100,6 +100,10 @@ export interface Database {
           fingerprint_history: string[];
           /** Who the device belongs to (RFC-017 §8.2); written only by PATCH /api/devices/[id]. */
           person_id: string | null;
+          /** The screen's size as it last reported it; written only by POST /api/screen. */
+          screen: import("@/lib/device-screen").DeviceScreen | null;
+          /** The layout this screen shows (NULL: the built-in one); written only by the server. */
+          layout_id: string | null;
         };
         Insert: {
           id?: string;
@@ -124,6 +128,34 @@ export interface Database {
           created_at?: string;
           hardware_id?: string | null;
           fingerprint?: string | null;
+        };
+        Relationships: [];
+      };
+      layouts: {
+        // A mapped type, not the interface itself: an interface has no index
+        // signature, so it does not satisfy Supabase's Record<string, unknown> Row.
+        Row: { [K in keyof import("@/lib/layouts/types").Layout]: import("@/lib/layouts/types").Layout[K] };
+        Insert: {
+          id?: string;
+          family_id: string;
+          name: string;
+          width: number;
+          height: number;
+          home?: import("@/lib/layouts/types").LayoutItem[];
+          screensaver?: import("@/lib/layouts/types").LayoutItem[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_id?: string;
+          name?: string;
+          width?: number;
+          height?: number;
+          home?: import("@/lib/layouts/types").LayoutItem[];
+          screensaver?: import("@/lib/layouts/types").LayoutItem[];
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };

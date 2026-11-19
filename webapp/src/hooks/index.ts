@@ -48,7 +48,7 @@ export {
   useFamilyByJoinCode,
   useRegisterDevice,
   useRestoreDeviceSession,
-  useFindDeviceByFingerprint,
+  useFindRecognizedDevice,
   useQuickRejoin,
   useJoinFamily,
   useCreateFamilyWithDevice,
@@ -481,6 +481,7 @@ export {
   usePointAdjustments,
   useAdjustPoints,
   useRemoveAdjustment,
+  usePointAwardHistory,
 } from "./use-point-rewards";
 export {
   useCreatures,
@@ -494,3 +495,5 @@ export type { CreatureChange } from "./use-creatures";
 export { useWeekStart, weekStartForLocale, DEFAULT_WEEK_START } from "./use-week-start";
 export type { WeekStartPreference, WeekStartsOn } from "./use-week-start";
 export { useCurrency, CURRENCIES, DEFAULT_CURRENCY } from "./use-currency";
+export * from "./use-layouts";
+export * from "./use-active-layout";

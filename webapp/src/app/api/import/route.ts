@@ -87,6 +87,8 @@ interface TableSpec {
    * an entire restore. Runs on the copied row, after the id remapping.
    */
   normalize?: (row: Record<string, unknown>) => void;
+  /** Settings rows not restored at all (counted as skipped). */
+  dropSettingKeys?: string[];
 }
 
 function spec(table: string, overrides: Partial<TableSpec> = {}): TableSpec {
@@ -199,7 +201,12 @@ const TABLE_SPECS: TableSpec[] = [
       row.look = restorableLook(row.look);
     },
   }),
-  spec("settings", { settingValueFks: [SETTINGS_KEYS.defaultCalendarId] }),
+  spec("settings", {
+    settingValueFks: [SETTINGS_KEYS.defaultCalendarId],
+    // The layouts it names are not in the export (pg_dumpall backups carry
+    // them), so the ids would point at nothing in the new family.
+    dropSettingKeys: [SETTINGS_KEYS.layoutDefaults],
+  }),
 ];
 
 interface ExportPayload {
@@ -288,10 +295,11 @@ export async function POST(request: NextRequest) {
   // legitimately does it in a loop.
   const ip = clientIp(request);
   const limit = hitLimit(`import:ip:${ip}`, 3, 60_000);
-  if (limit.limited) {
+  const globalLimit = hitLimit("global:import", 12, 60_000);
+  if (limit.limited || globalLimit.limited) {
     return NextResponse.json(
       { error: "too many attempts, slow down" },
-      { status: 429, headers: { "Retry-After": String(Math.ceil(limit.retryAfterMs / 1000)) } },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(Math.max(limit.retryAfterMs, globalLimit.retryAfterMs) / 1000)) } },
     );
   }
 
@@ -458,6 +466,12 @@ export async function POST(request: NextRequest) {
 
     for (const column of tableSpec.forceNullColumns) {
       out[column] = null;
+    }
+
+    if (typeof row.key === "string" && tableSpec.dropSettingKeys?.includes(row.key)) {
+      const key = `${tableSpec.table}:${row.key}`;
+      skipCounts.set(key, (skipCounts.get(key) ?? 0) + 1);
+      return null;
     }
 
     if (tableSpec.settingValueFks.length > 0 && typeof row.key === "string") {

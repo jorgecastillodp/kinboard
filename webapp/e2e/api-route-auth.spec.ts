@@ -67,18 +67,9 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   // The quick-rejoin pair, for the same circular reason as the two above: they
   // run on /join, before a session can exist.
   //
-  // `recognize` reads devices with the service role because RLS — correctly —
-  // will not let an anonymous caller near a table that joins to families and
-  // their join codes. It answers with the family's *name* and the device's
-  // *name* only: enough to render "Sign back in", useless for fishing. Rate
-  // limited, because a fingerprint is guessable and this turns a guess into a
-  // household name.
-  //
-  // `resume` issues the session for a device it recognises. Its trust model is
-  // written out in the route: the device's own random hardware id is proof, a
-  // browser fingerprint is a guess, and accepting the latter is the deliberate
-  // trade that makes recovering a wiped tablet possible. Rate limited harder,
-  // because it hands out credentials.
+  // `recognize` only looks up the device's saved random hardware ID; a
+  // guessable browser fingerprint cannot enumerate households or mint a
+  // session through `resume`. Both are rate limited.
   "session/recognize/route.ts": "runs before a session exists; returns names only, no join code",
   "session/resume/route.ts": "issues the session it is asked for; requiring one would be circular",
 
@@ -196,6 +187,14 @@ test("a route that still takes family_id checks it against the session", () => {
   // from the request: they either use the session's own family, or act on
   // nothing family-scoped at all.
   const NO_FAMILY_ID_IN_REQUEST = new Set([
+    // Layouts (webapp/src/lib/layouts): the regex matches the `family_id`
+    // column each query is scoped by and the local `familyId`, both from
+    // auth.session.familyId; the requests carry layout and device ids only.
+    "layouts/route.ts",
+    "layouts/[id]/route.ts",
+    "layouts/[id]/duplicate/route.ts",
+    "layouts/defaults/route.ts",
+    "devices/[id]/layout/route.ts",
     // Answers "do I have a session, and for whom" — the family is the reply.
     "session/token/route.ts",
     // Deletes the caller's own push subscription, scoped to session.familyId.
@@ -282,6 +281,10 @@ test("a route that still takes family_id checks it against the session", () => {
     // the person are looked up in; the body carries only `{ person_id }`
     // (lib/device-owner.ts refuses any other field).
     "devices/[id]/route.ts",
+    "screen/route.ts",
+    // Presence takes a device id, then looks it up with the family id from
+    // the session. The request never supplies a family id.
+    "presence/route.ts",
     // The live-updates stream. The regex matches the local `familyId`, taken
     // from auth.session.familyId, which the hub filters on; the request is a
     // bare GET with nothing but the session cookie

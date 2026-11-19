@@ -7,6 +7,8 @@ export const SETTINGS_KEYS = {
   weatherEffects: "weather_effects",
   creatureBedtime: "creature_bedtime",
   creaturesOnHome: "creatures_on_home",
+  // RFC-021 §3.1: the same creatures on the screensaver; off unless switched on.
+  creaturesOnIdle: "creatures_on_idle",
   // RFC-020: { enabled, chosen }, chosen null for the country's common
   // festivals (lib/festival-settings.ts).
   festivals: "festivals",
@@ -20,6 +22,9 @@ export const SETTINGS_KEYS = {
   theme: "theme",
   widgetVisibility: "widget_visibility",
   scheduleWidget: "schedule_widget",
+  // { displayMode, recentTransactions }, the dashboard pocket-money
+  // widget's layout (types/widgets.ts).
+  pocketMoneyWidget: "pocket_money_widget",
   // { presets: number[] }, the timer widget's buttons in whole minutes;
   // absent means 3, 5, 10 and 15 (lib/timer-presets.ts).
   timerWidget: "timer_widget",
@@ -56,4 +61,6 @@ export const SETTINGS_KEYS = {
   // Per family, JSON boolean. Off (absent) by default: while no family has
   // switched it on, the OAuth and MCP routes answer 404 (RFC-010, lib/oauth/enabled.ts).
   assistantsEnabled: "assistants_enabled",
+  // Per family, JSON { portrait, landscape }: the layout id a kiosk shows by default per orientation.
+  layoutDefaults: "layout_defaults",
 } as const;

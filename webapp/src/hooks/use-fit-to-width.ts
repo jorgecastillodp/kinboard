@@ -1,0 +1,101 @@
+"use client";
+
+import { useLayoutEffect, useState, type RefObject } from "react";
+
+/**
+ * Font sizes (px) that make each of `targets` exactly as wide as the content
+ * box of `box`, each capped by its own `max(boxWidth)`; null while `enabled`
+ * is off or before the first measurement. A cap gets the box's width and
+ * may read anything else it needs, such as the viewport's height.
+ *
+ * Measured, not computed from character counts: the clock's digits and the
+ * date's words have the display font's own widths, and a date's length changes
+ * from day to day. Text scales linearly with its font size, so the size the
+ * target renders at now and the width it has now give the size that fits:
+ * size × box width ÷ width. Both are read from the same layout.
+ *
+ * It used to set a 100px probe on the target and read the width back. On the
+ * screensaver that read sometimes returned the width at the old size (177px
+ * at 72px), and the clock came out at 217px instead of 156px, 40% wider than
+ * the cards it was fitted to (found by scripts/screen-matrix.mjs). Reading
+ * what is rendered cannot mix two states.
+ *
+ * Measured again when the box resizes, when the web font arrives, and
+ * whenever `deps` change (the minute, the date).
+ */
+export function useFitToWidth(
+  box: RefObject<HTMLElement | null>,
+  targets: { ref: RefObject<HTMLElement | null>; max?: (width: number) => number }[],
+  enabled: boolean,
+  deps: unknown[],
+): number[] | null {
+  const [sizes, setSizes] = useState<number[] | null>(null);
+
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!enabled || !el) {
+      setSizes(null);
+      return;
+    }
+    const measure = () => {
+      const style = getComputedStyle(el);
+      const width = el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      if (width <= 0) return;
+      const next = targets.map(({ ref, max }) => {
+        const t = ref.current;
+        if (!t) return 0;
+        // The size the text renders at: the first text-bearing child's, which
+        // is the row's own when the children inherit it.
+        const text = (t.firstElementChild as HTMLElement | null) ?? t;
+        const size = parseFloat(getComputedStyle(text).fontSize);
+        const now = t.getBoundingClientRect().width;
+        if (!(size > 0) || now <= 0) return 0;
+        const fit = Math.floor((size * width) / now);
+        return max ? Math.min(fit, Math.floor(max(width))) : fit;
+      });
+      // A change of one pixel to a size already fitted is ignored. Where the
+      // fitted text just reaches the box, the box caps its width and the next
+      // reading comes out a fraction over: 119px measures as 118, 118 as 119,
+      // about thirty times a second, and the screensaver never stood still
+      // (a 390px kiosk, holiday-widgets-ui). One pixel of font is about two
+      // and a half of width, well inside what anyone can see.
+      setSizes((prev) =>
+        prev && prev.length === next.length && prev.every((v, i) => Math.abs(v - next[i]) <= 1) ? prev : next,
+      );
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    // The targets too: the web font swapping in changes their width without
+    // touching the box, and document.fonts.ready can settle before a font
+    // that is only requested on first use. A fitted target measures to the
+    // same size again, so this cannot loop.
+    for (const { ref } of targets) if (ref.current) ro.observe(ref.current);
+    // A cap may read the viewport's height, which can change with the width unchanged.
+    window.addEventListener("resize", measure);
+    let live = true;
+    document.fonts?.ready.then(() => live && measure()).catch(() => undefined);
+    return () => {
+      live = false;
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+    // `targets` is a fresh array each render; its refs are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, box, ...deps]);
+
+  return enabled ? sizes : null;
+}
+
+/** Whether the media query matches, kept current. False on the server and before mounting. */
+export function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(false);
+  useLayoutEffect(() => {
+    const mq = window.matchMedia(query);
+    const on = () => setMatches(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, [query]);
+  return matches;
+}

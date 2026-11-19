@@ -5,6 +5,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { useFamilyStore } from "@/stores/family-store";
+import { useReportDeviceScreen } from "@/hooks/use-report-device-screen";
 import {
   useUpdateDeviceLastSeen,
   useRestoreDeviceSession,
@@ -14,7 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Loader2, ServerOff } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const PUBLIC_PATHS = ["/join"];
+// The dev fixtures (src/app/dev) are public outside production; the pages 404 in production.
+const PUBLIC_PATHS = process.env.NODE_ENV === "production" ? ["/join"] : ["/join", "/dev/"];
 
 /**
  * Where to go after joining.
@@ -101,6 +103,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
     // Try to restore from hardware ID
     attemptRestore();
   }, [isHydrated, family, attemptRestore]);
+
+  // The screen's size, beside the heartbeat: sent when it changes.
+  useReportDeviceScreen(isHydrated ? device?.id : null);
 
   // Heartbeat: periodically update device last_seen
   useEffect(() => {
