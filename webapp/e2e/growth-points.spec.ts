@@ -105,6 +105,9 @@ test("every stage the server works out and every screen uses the family's number
   expect(codeOnly(read("src/hooks/use-supabase-queries.ts"))).toMatch(/settings: \(familyId: string, key: string\) =>\s*\["settings", familyId, key\] as const/);
   expect(store).toContain("storedBestTier: creature.best_tier, pointThresholds }");
   const card = codeOnly(read("src/components/settings/growth-settings.tsx"));
+  // No edit before the family's numbers are in, nor while one is saving.
+  expect(card).toContain("const locked = !ready || save.isPending;");
+  expect(card).toContain("disabled={locked}");
   expect(card).toContain('<Card id="growth" data-setting="growth" className="p-4 space-y-4" data-testid="growth-points">');
   expect(codeOnly(read("src/app/settings/creatures/page.tsx"))).toMatch(/<CreaturesHomeSettings \/>\s*<GrowthSettings \/>/);
   expect(read("src/lib/settings-search/registry.ts")).toContain('{ anchor: "growth", labelKey: "settings.creatures.growthLabel", descriptionKey: "settings.creatures.growthHint" },');

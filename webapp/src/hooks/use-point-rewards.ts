@@ -123,8 +123,17 @@ export function useBuyItem() {
  * a change made on a parent's phone reaches the wall display's shop.
  */
 export function useShopPrices(): ShopPrices {
-  const { data } = useSetting<unknown>(SETTINGS_KEYS.shopPrices, null, { refetchInterval: 60_000 });
-  return readShopPrices(data);
+  return useShopPricesSetting().prices;
+}
+
+/**
+ * The prices and whether the family's own have loaded: an editor must not
+ * save before then, or a change would be built on the standard prices and
+ * undo the family's others.
+ */
+export function useShopPricesSetting(): { prices: ShopPrices; ready: boolean } {
+  const { data, isSuccess } = useSetting<unknown>(SETTINGS_KEYS.shopPrices, null, { refetchInterval: 60_000 });
+  return { prices: readShopPrices(data), ready: isSuccess };
 }
 
 /**
@@ -132,8 +141,14 @@ export function useShopPrices(): ShopPrices {
  * Growing), or the standard ones; re-read every minute like the shop's prices.
  */
 export function useGrowthPoints(): ReadonlyArray<number> {
-  const { data } = useSetting<unknown>(SETTINGS_KEYS.growthPoints, null, { refetchInterval: 60_000 });
-  return useMemo(() => readGrowthPoints(data), [data]);
+  return useGrowthPointsSetting().thresholds;
+}
+
+/** The thresholds and whether the family's own have loaded (see useShopPricesSetting). */
+export function useGrowthPointsSetting(): { thresholds: ReadonlyArray<number>; ready: boolean } {
+  const { data, isSuccess } = useSetting<unknown>(SETTINGS_KEYS.growthPoints, null, { refetchInterval: 60_000 });
+  const thresholds = useMemo(() => readGrowthPoints(data), [data]);
+  return { thresholds, ready: isSuccess };
 }
 
 /**

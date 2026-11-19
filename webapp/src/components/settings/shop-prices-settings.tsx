@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useSaveShopPrices, useShopPrices } from "@/hooks/use-point-rewards";
+import { useSaveShopPrices, useShopPricesSetting } from "@/hooks/use-point-rewards";
 import {
   MAX_PRICE,
   MIN_PRICE,
@@ -28,8 +28,11 @@ import {
 export function ShopPricesSettings() {
   const t = useTranslations("settings.creatures");
   const tShop = useTranslations("shop");
-  const prices = useShopPrices();
+  const { prices, ready } = useShopPricesSetting();
   const save = useSaveShopPrices();
+  // Locked until the family's prices are in, and while one change is saving:
+  // each save is the whole list, built on what is shown.
+  const locked = !ready || save.isPending;
   const changed = Object.keys(prices).length > 0;
 
   const failed = (err: unknown) =>
@@ -94,6 +97,7 @@ export function ShopPricesSettings() {
                       max={MAX_PRICE}
                       step={1}
                       defaultValue={price}
+                      disabled={locked}
                       onBlur={(e) => commit(item, e.target)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") e.currentTarget.blur();
@@ -106,7 +110,7 @@ export function ShopPricesSettings() {
         </div>
       ))}
       {changed && (
-        <Button variant="outline" size="sm" disabled={save.isPending} onClick={() => save.mutateAsync({}).catch(failed)}>
+        <Button variant="outline" size="sm" disabled={locked} onClick={() => save.mutateAsync({}).catch(failed)}>
           {t("pricesReset")}
         </Button>
       )}

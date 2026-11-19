@@ -75,6 +75,9 @@ test("the shop shows the family's prices; Settings -> Creatures edits them", () 
   expect(hook).toContain("useSetting<unknown>(SETTINGS_KEYS.shopPrices, null, { refetchInterval: 60_000 })");
   expect(hook).toContain('const r = await fetch("/api/creatures/shop-prices", {');
   const card = codeOnly(read("src/components/settings/shop-prices-settings.tsx"));
+  // No edit before the family's prices are in, nor while one is saving.
+  expect(card).toContain("const locked = !ready || save.isPending;");
+  expect(card).toContain("disabled={locked}");
   expect(card).toContain('<Card id="prices" data-setting="prices" className="p-4 space-y-4" data-testid="shop-prices">');
   expect(card).toContain("const next = raw === \"\" ? item.cost : Number(raw);");
   expect(card).toContain("if (next === item.cost) delete list[item.id];");

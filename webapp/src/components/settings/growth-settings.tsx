@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useGrowthPoints, useSaveGrowthPoints } from "@/hooks/use-point-rewards";
+import { useGrowthPointsSetting, useSaveGrowthPoints } from "@/hooks/use-point-rewards";
 import { isGrowthPoints } from "@/lib/pocket-money/points";
 import { TIER_THRESHOLDS_POINTS } from "@/lib/pocket-money/types";
 
@@ -20,8 +20,11 @@ import { TIER_THRESHOLDS_POINTS } from "@/lib/pocket-money/types";
  */
 export function GrowthSettings() {
   const t = useTranslations("settings.creatures");
-  const thresholds = useGrowthPoints();
+  const { thresholds, ready } = useGrowthPointsSetting();
   const save = useSaveGrowthPoints();
+  // Locked until the family's numbers are in, and while one change is saving:
+  // each save is the whole list, built on what is shown.
+  const locked = !ready || save.isPending;
   const standard = thresholds.every((v, i) => v === TIER_THRESHOLDS_POINTS[i]);
 
   const failed = (err: unknown) =>
@@ -87,6 +90,7 @@ export function GrowthSettings() {
                 min={1}
                 step={1}
                 defaultValue={points}
+                disabled={locked}
                 onBlur={(e) => commit(stage, e.target)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") e.currentTarget.blur();
@@ -97,7 +101,7 @@ export function GrowthSettings() {
         })}
       </ul>
       {!standard && (
-        <Button variant="outline" size="sm" disabled={save.isPending} onClick={() => send(null).catch(failed)}>
+        <Button variant="outline" size="sm" disabled={locked} onClick={() => send(null).catch(failed)}>
           {t("growthReset")}
         </Button>
       )}
