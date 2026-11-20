@@ -3,14 +3,14 @@
 import { useEffect, useState } from "react";
 import { Reorder, useDragControls } from "framer-motion";
 import { useTranslations } from "next-intl";
-import { GripVertical, ListOrdered, RotateCcw } from "lucide-react";
+import { GripVertical, ListOrdered, Pin, RotateCcw } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { useVisibleNavItems } from "@/hooks/use-visible-nav-items";
 import { setNavOrder, clearNavOrder } from "@/lib/nav-order";
-import { canHideNavItem, getHiddenNavItems, setHiddenNavItems, setSettingsIconOnly } from "@/lib/nav-visibility";
-import { useHiddenNavItems, useSettingsIconOnly } from "@/hooks/use-hidden-nav-items";
+import { canHideNavItem, getHiddenNavItems, setHiddenNavItems, setNavIconsOnly, setSettingsIconOnly } from "@/lib/nav-visibility";
+import { useHiddenNavItems, useNavIconsOnly, useSettingsIconOnly } from "@/hooks/use-hidden-nav-items";
 import { Switch } from "@/components/ui/switch";
 import { useFamilyStore } from "@/stores/family-store";
 import { navEntryLabel } from "@/lib/constants";
@@ -21,37 +21,47 @@ export default function NavigationSettingsPage() {
   const visibleItems = useVisibleNavItems(true);
   const hiddenItems = useHiddenNavItems();
   const settingsIconOnly = useSettingsIconOnly();
+  const iconsOnly = useNavIconsOnly();
   const { device } = useFamilyStore();
   const isKiosk = device?.is_kiosk ?? false;
+
+  // Home is not part of the arrangement: both navs pin it at the front of
+  // the bar, outside the scrolling row (DesktopNav: a centred active item
+  // otherwise pushed it off the left edge). Listing it as an ordinary
+  // draggable row let a saved order put another item first — an order the
+  // bar then silently overrode. It is shown pinned at the top instead,
+  // and every order saved here starts with it.
+  const homeItem = visibleItems.find((i) => i.href === "/");
+  const draggableItems = visibleItems.filter((i) => i.href !== "/");
 
   // Local working copy. Initialized from useVisibleNavItems (which already
   // reflects the saved order); subsequent drags update local state, and
   // we persist on each commit so the bottom nav reflects the change live.
   const [order, setOrder] = useState<readonly string[]>(() =>
-    visibleItems.map((i) => i.href),
+    draggableItems.map((i) => i.href),
   );
 
   // Sync if upstream visibility changes (e.g., a plugin gets toggled
   // in another tab). Only resets the order when the underlying set
   // changes — preserves an in-progress drag otherwise.
   useEffect(() => {
-    const visibleSet = new Set(visibleItems.map((i) => i.href));
+    const visibleSet = new Set(draggableItems.map((i) => i.href));
     const currentSet = new Set(order);
     const same =
       visibleSet.size === currentSet.size &&
       [...visibleSet].every((h) => currentSet.has(h));
-    if (!same) setOrder(visibleItems.map((i) => i.href));
+    if (!same) setOrder(draggableItems.map((i) => i.href));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleItems]);
 
   const handleReorder = (next: string[]) => {
     setOrder(next);
-    setNavOrder(next);
+    setNavOrder(["/", ...next]);
   };
 
   const handleReset = () => {
     clearNavOrder();
-    setOrder(visibleItems.map((i) => i.href));
+    setOrder(draggableItems.map((i) => i.href));
   };
 
   // Map key explicitly widened to `string` — visibleItems is `typeof
@@ -75,6 +85,13 @@ export default function NavigationSettingsPage() {
         <p className="text-sm text-muted-foreground">{t("intro")}</p>
 
         <Card className="p-2">
+          {homeItem && (
+            <PinnedNavItemRow
+              Icon={homeItem.icon}
+              label={navEntryLabel(homeItem, tNav)}
+              enabled={!hiddenItems.includes("/")}
+            />
+          )}
           <Reorder.Group
             axis="y"
             values={order as string[]}
@@ -107,12 +124,20 @@ export default function NavigationSettingsPage() {
           {t(isKiosk ? "fixedItemsHintKiosk" : "fixedItemsHint")}
         </p>
 
+        <Card id="nav-icons-only" data-setting="nav-icons-only" className="flex items-center justify-between gap-4 p-4">
+          <div>
+            <p className="font-medium">{t("iconsOnly")}</p>
+            <p className="text-sm text-muted-foreground">{t("iconsOnlyHint")}</p>
+          </div>
+          <Switch checked={iconsOnly} onCheckedChange={setNavIconsOnly} aria-label={t("iconsOnly")} />
+        </Card>
+
         <Card id="settings-icon" data-setting="settings-icon" className="flex items-center justify-between gap-4 p-4">
           <div>
             <p className="font-medium">{t("settingsIconOnly")}</p>
             <p className="text-sm text-muted-foreground">{t("settingsIconOnlyHint")}</p>
           </div>
-          <Switch checked={settingsIconOnly} onCheckedChange={setSettingsIconOnly} aria-label={t("settingsIconOnly")} />
+          <Switch checked={settingsIconOnly || iconsOnly} disabled={iconsOnly} onCheckedChange={setSettingsIconOnly} aria-label={t("settingsIconOnly")} />
         </Card>
 
         <Button
@@ -127,6 +152,36 @@ export default function NavigationSettingsPage() {
         <p className="text-xs text-muted-foreground">{t("perDeviceHint")}</p>
       </div>
     </main>
+  );
+}
+
+/**
+ * Home's row: same shape as a draggable row, but with a pin where the
+ * drag handle would be — Home always sits at the front of the bar, so
+ * there is nothing to arrange. Its switch is disabled (Home is in
+ * ALWAYS_SHOWN_NAV_ITEMS), exactly as it was when the row was draggable.
+ */
+function PinnedNavItemRow({
+  Icon,
+  label,
+  enabled,
+}: {
+  Icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  enabled: boolean;
+}) {
+  const t = useTranslations("settings.navigation");
+
+  return (
+    <div className="flex items-center gap-3 rounded-md bg-white/[0.02] px-3 py-2 select-none mb-1">
+      <span className="text-muted-foreground p-1 -ml-1" aria-hidden="true">
+        <Pin className="size-4" />
+      </span>
+      <Icon className="size-5" />
+      <span className="text-sm font-medium">{label}</span>
+      <span className="text-xs text-muted-foreground">{t("homeAlwaysFirst")}</span>
+      <Switch className="ml-auto" checked={enabled} disabled aria-label={t("showItem", { label })} />
+    </div>
   );
 }
 
