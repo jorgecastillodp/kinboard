@@ -538,7 +538,7 @@ export function pose(r: Roamer, now: number, size: number, weather: RoamWeather 
 }
 
 /** How far one unit of wind leans a creature, deg, and how far the frost shakes one, deg. */
-export const WIND_LEAN_DEG = 5;
+export const WIND_LEAN_DEG = 8;
 export const SHIVER_DEG = 1.6;
 
 function stillPose(r: Roamer, now: number, size: number): { lift: number; tilt: number; lying: boolean } {
