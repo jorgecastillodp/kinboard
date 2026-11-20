@@ -158,9 +158,18 @@ test("a new layout for the kitchen screen starts from the built-in one and opens
   // The starting choice is the wall screen that reported its size, not this (desk) browser, which reports its own too.
   await expect(dialog.getByTestId("screen-picker")).toContainText("Küche — 1080×1920");
   await dialog.getByTestId("new-layout-name").fill(NAME);
+  // Drawn for the kitchen's size, it offers to go straight onto the kitchen; this run leaves that to Settings → Devices.
+  const useOn = dialog.getByTestId("new-layout-use");
+  await expect(useOn).toBeChecked();
+  await expect(dialog).toContainText(/Küche/);
+  await dialog.locator("label[for=new-layout-use]").last().click();
+  await expect(useOn).not.toBeChecked();
   await dialog.getByTestId("new-layout-create").click();
   await expect(page).toHaveURL(/\/settings\/layouts\/[0-9a-f-]{36}$/, { timeout: 30_000 });
   await expect(page.getByTestId("editor-canvas")).toBeVisible({ timeout: 60_000 });
+  // No screen shows it, so the editor says so and offers the kitchen.
+  await expect(page.getByTestId("editor-unused")).toBeVisible();
+  await expect(page.getByTestId("editor-unused-assign")).toBeVisible();
 
   layoutId = psql(`SELECT id FROM layouts WHERE family_id = '${famId}' AND name = ${sqlText(NAME)}`);
   expect(layoutId).toMatch(/^[0-9a-f-]{36}$/);
@@ -208,7 +217,7 @@ test("assigned to the kitchen in Settings → Devices, the layout counts one scr
 });
 
 test("the default pickers only offer layouts of their orientation; the portrait default gets a badge", async ({ browser }) => {
-  const created = await api.post("/api/layouts", { data: { name: LANDSCAPE, width: 1920, height: 1080, from: "builtin" } });
+  const created = await api.post("/api/layouts", { data: { grid: 48, name: LANDSCAPE, width: 1920, height: 1080, from: "builtin" } });
   expect(created.status(), await created.text()).toBe(201);
   const page = await openLayouts(browser);
   await expect(row(page, LANDSCAPE)).toBeVisible({ timeout: 30_000 });

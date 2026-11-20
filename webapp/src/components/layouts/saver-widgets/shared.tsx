@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, type ReactNode } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useFitToBox } from "@/hooks/use-fit-to-box";
 import { useTranslations } from "next-intl";
 import type { LucideIcon } from "lucide-react";
 import type { LayoutItem } from "@/lib/layouts/types";
+import { alignOf } from "@/lib/layouts/align";
 import { SectionLabel } from "@/components/screensaver-rows";
 
 /**
@@ -56,15 +58,58 @@ export function RowGap({ children }: { children: ReactNode }) {
 }
 
 /**
- * A value widget's frame: the value at the start of the box, centred
+ * A value widget's frame: the value placed across the box as alignOf says
+ * (to the edge it touches, centred, or set in the inspector), centred
  * vertically, hidden until it has been fitted once so it does not flash at
  * the box's own size first.
  */
-export function ValueFrame({ fitted, align = "start", children }: { fitted: boolean; align?: "start" | "end" | "center"; children: ReactNode }) {
+export function ValueFrame({ item, fitted, children }: { item: LayoutItem; fitted: boolean; children: ReactNode }) {
+  const align = alignOf(item);
   const justify = align === "end" ? "justify-end" : align === "center" ? "justify-center" : "justify-start";
   return (
-    <div className={`flex size-full items-center ${justify}`} style={fitted ? undefined : { visibility: "hidden" }}>
+    <div className={`flex size-full items-center ${justify}`} data-align={align} style={fitted ? undefined : { visibility: "hidden" }}>
       {children}
+    </div>
+  );
+}
+
+/**
+ * The energy and Tesla card: it fills its box (so its edges are the grid's),
+ * and the figures inside sit side by side in a wide, flat box and stacked
+ * otherwise. They are drawn at the box's text size (S to XL) and only made
+ * smaller when the box is too small for them, so a card can be as small as
+ * one line of figures without running out of it.
+ */
+export function FittedCard({ box, deps, children }: { box: { width: number; height: number }; deps: unknown[]; children: ReactNode }) {
+  const root = useRef<HTMLDivElement>(null);
+  const content = useRef<HTMLDivElement>(null);
+  const wide = box.width >= box.height * 2;
+  // The card's padding follows the box, not the text, so the room left for the figures is known before they are fitted.
+  const pad = Math.max(4, Math.round(Math.min(box.width, box.height) * 0.12));
+  const fit = useFitToBox(content, { width: box.width - 2 * pad, height: box.height - 2 * pad }, [wide, ...deps]);
+  // The text size the box was given: the figures are never drawn larger than that.
+  const [cap, setCap] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = root.current;
+    if (el) setCap(parseFloat(getComputedStyle(el).fontSize) || null);
+  }, [box.width, box.height]);
+  const size = fit !== null && cap !== null ? Math.min(fit, cap) : null;
+  return (
+    <div
+      ref={root}
+      className="flex size-full items-center justify-center overflow-hidden rounded-[0.75em] bg-black/50 gpu-blur"
+      style={{ padding: pad }}
+      data-fills-box
+      data-wide={wide}
+    >
+      <div
+        ref={content}
+        data-fitted-content
+        className={`flex w-fit shrink-0 ${wide ? "flex-row items-center gap-[1.25em]" : "flex-col gap-[0.75em]"}`}
+        style={size !== null ? { fontSize: size } : { visibility: "hidden" }}
+      >
+        {children}
+      </div>
     </div>
   );
 }

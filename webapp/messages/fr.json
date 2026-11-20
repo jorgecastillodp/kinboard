@@ -225,7 +225,10 @@
         "vehicles": "Tesla : activer « Afficher sur l'économiseur d'écran » dans Paramètres → Tesla",
         "photoCount": "Photos : choisir une source de photos dans Paramètres → Photos"
       },
-      "weatherFailed": "La météo n'a pas pu être chargée – vérifier le lieu dans Paramètres → Météo"
+      "weatherFailed": "La météo n'a pas pu être chargée – vérifier le lieu dans Paramètres → Météo",
+      "idle": {
+        "nextEvent": "Prochain événement : s’affiche dans l’heure qui précède un événement."
+      }
     }
   },
   "localeSwitcher": {
@@ -1455,6 +1458,9 @@
       "showForecastDescription": "À côté de la température, les prochaines heures par pas de 3 heures : météo, température et risque de pluie",
       "showLessonsLabel": "Cours des enfants",
       "showLessonsDescription": "Les matières du jour de chaque enfant et ce qu’il faut emporter, comme les affaires de sport ; le soir, le prochain jour d’école, à partir de l’heure réglée pour le widget emploi du temps",
+      "previewLabel": "Aperçu de l'écran de veille",
+      "previewDescription": "L'afficher sur cet écran tout de suite, avec les options réglées ici. Il reste jusqu'au prochain toucher.",
+      "previewButton": "Aperçu",
       "weatherEffectsLabel": "Effets météo",
       "weatherEffectsDescription": "Neige, pluie, givre et plus sur les photos, comme sur l'accueil. Les effets et leurs seuils se règlent dans <link>Météo</link>.",
       "birthdayCountLabel": "Nombre d’anniversaires",
@@ -3256,7 +3262,9 @@
         "screenHint": "La taille pour laquelle la disposition est conçue. Les écrans d’une autre taille la reçoivent mise à l’échelle.",
         "create": "Créer et modifier",
         "cancel": "Annuler",
-        "failed": "La disposition n’a pas pu être créée. Veuillez réessayer."
+        "failed": "La disposition n’a pas pu être créée. Veuillez réessayer.",
+        "useOn": "L’afficher tout de suite sur « {name} »",
+        "assignFailed": "La disposition a été créée mais n’a pas pu être appliquée à « {name} »."
       },
       "duplicate": {
         "button": "Dupliquer",
@@ -3309,6 +3317,12 @@
         "saved": "Disposition enregistrée",
         "stale": "Quelqu’un a modifié cette disposition entre-temps — rechargez pour voir la modification.",
         "reload": "Recharger",
+        "gridDisplay": {
+          "label": "Grille",
+          "dots": "Points et lignes",
+          "lines": "Lignes",
+          "off": "Masquée"
+        },
         "errors": {
           "unknown_widget": "{name} : ce widget est inconnu.",
           "out_of_bounds": "{name} ne tient pas sur l’écran.",
@@ -3316,6 +3330,7 @@
           "overlap": "{name} chevauche un autre widget.",
           "duplicate": "{name} figure deux fois sur l’écran.",
           "bad_text_size": "{name} a une taille de texte inconnue.",
+          "gridChanged": "Kinboard a été mis à jour. Rechargez la page pour continuer.",
           "pinRequired": "Les réglages ont été verrouillés — saisissez le code PIN ; vos modifications non enregistrées sont conservées.",
           "generic": "La disposition n’a pas pu être enregistrée. Veuillez réessayer."
         },
@@ -3347,7 +3362,8 @@
             "tooSmall": "Au moins 600 px de large et la place pour 6 rangées",
             "apply": "Utiliser cette taille",
             "cancel": "Annuler"
-          }
+          },
+          "deviceTooSmall": "{name} — {width}×{height} : trop petit pour une disposition"
         },
         "palette": {
           "title": "Widgets",
@@ -3357,8 +3373,23 @@
         },
         "inspector": {
           "empty": "Sélectionnez un widget sur l’écran pour le modifier.",
-          "size": "{w}×{h} cases",
-          "min": "au moins {w}×{h}",
+          "box": {
+            "title": "Position et taille en pas",
+            "x": "X",
+            "y": "Y",
+            "w": "L",
+            "h": "H",
+            "xName": "Distance depuis le bord gauche, en pas",
+            "yName": "Distance depuis le bord supérieur, en pas",
+            "wName": "Largeur en pas",
+            "hName": "Hauteur en pas",
+            "refused": {
+              "out_of_bounds": "Non appliqué : le widget sortirait de l’écran, ou la valeur n’est pas un nombre entier.",
+              "below_minimum": "Non appliqué : le widget serait plus petit que son minimum.",
+              "overlap": "Non appliqué : le widget en chevaucherait un autre."
+            }
+          },
+          "min": "Au moins {w}×{h} pas ; un pas vaut un quart de cellule.",
           "textSize": "Taille du texte",
           "textSizes": {
             "S": "Petite",
@@ -3367,7 +3398,31 @@
             "XL": "Très grande"
           },
           "remove": "Retirer",
-          "keys": "Les flèches déplacent le widget sélectionné, Suppr le retire, Ctrl+Z annule."
+          "keys": "Les flèches déplacent les widgets sélectionnés, avec Maj d’une cellule entière ; Alt+flèches les redimensionnent. Maj+clic ou un cadre tracé en sélectionne plusieurs. Suppr les retire, Ctrl+Z annule. Maintenez Alt pendant le glissement pour placer un widget sans aimantation.",
+          "fillsBox": "Remplit sa case : S l’affiche plus petit ; pour plus grand, agrandissez la case.",
+          "align": "Alignement",
+          "aligns": {
+            "auto": "Auto",
+            "start": "Gauche",
+            "center": "Centre",
+            "end": "Droite"
+          },
+          "alignAuto": "Automatique selon sa place : {side} pour l’instant.",
+          "selected": "{count} sélectionnés",
+          "arrange": {
+            "title": "Disposer",
+            "left": "Aligner à gauche",
+            "right": "Aligner à droite",
+            "top": "Aligner en haut",
+            "bottom": "Aligner en bas",
+            "hcenter": "Centrer horizontalement",
+            "vcenter": "Centrer verticalement",
+            "distributeX": "Répartir horizontalement",
+            "distributeY": "Répartir verticalement",
+            "sameW": "Même largeur que le premier sélectionné",
+            "sameH": "Même hauteur que le premier sélectionné",
+            "distributeHint": "Répartir demande au moins trois widgets."
+          }
         },
         "widgets": {
           "clock": "Horloge",
@@ -3402,6 +3457,19 @@
           "failed": "La copie n’a pas pu être créée. Veuillez réessayer.",
           "pinRequired": "Les réglages ont été verrouillés — saisissez le code PIN et réessayez.",
           "dropped": "Pas sur cette taille : {names}"
+        },
+        "unused": {
+          "text": "Aucun écran n’affiche encore cette disposition. L’enregistrer ne suffit pas à l’appliquer à un écran.",
+          "noScreen": "Aucun écran n’affiche encore cette disposition, et aucun n’est orienté comme elle. Attribuez-la dans Paramètres → Appareils ou définissez-la par défaut sous Dispositions.",
+          "pick": "Écran",
+          "assign": "Afficher sur « {name} »",
+          "done": "« {name} » affiche maintenant cette disposition.",
+          "failed": "La disposition n’a pas pu être attribuée. Veuillez réessayer."
+        },
+        "refused": {
+          "out_of_bounds": "Non appliqué : un widget sortirait de l’écran.",
+          "below_minimum": "Non appliqué : un widget serait plus petit que son minimum.",
+          "overlap": "Non appliqué : un widget en chevaucherait un autre."
         }
       }
     }
@@ -3470,6 +3538,7 @@
       "screensaver_lists": "événements, anniversaires, combien, nombre, lignes, liste, masquer les anniversaires",
       "screensaver_forecast": "prévisions, prévisions météo, horaire, heures, risque de pluie, pluie, température, vêtements, maternelle",
       "screensaver_lessons": "emploi du temps, école, matières, sport, affaires de sport, emporter, enfants, cours",
+      "screensaver_preview": "aperçu, afficher, montrer, essayer, tester, voir",
       "screensaver_weather-effects": "effets météo, neige, pluie, givre, brouillard, orage, animation, météo",
       "screensaver_night": "nuit, sombre, atténué, coucher, horloge seule, marquage",
       "screensaver_timeout": "délai, inactivité, minutes, quand, démarrer",

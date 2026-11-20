@@ -244,7 +244,7 @@ test.beforeAll(async () => {
   }
 
   const create = async (name: string, width: number, height: number) => {
-    const res = await laptop.api.post("/api/layouts", { data: { name, width, height, from: "builtin" } });
+    const res = await laptop.api.post("/api/layouts", { data: { grid: 48, name, width, height, from: "builtin" } });
     expect(res.status(), await res.text()).toBe(201);
     const id = (await res.json()).layout.id as string;
     state.layoutIds.push(id);
@@ -259,7 +259,7 @@ test.beforeAll(async () => {
   const k = kitchenRow.layouts.find((l: { id: string }) => l.id === kitchenLayout);
   const items = (k.screensaver as Array<{ widget: string; text: string }>).map((i) =>
     i.widget === "clock" || i.widget === "events" ? { ...i, text: "L" } : i);
-  const patched = await laptop.api.patch(`/api/layouts/${kitchenLayout}`, { data: { screensaver: items, updated_at: k.updated_at } });
+  const patched = await laptop.api.patch(`/api/layouts/${kitchenLayout}`, { data: { grid: 48, screensaver: items, updated_at: k.updated_at } });
   expect(patched.status(), await patched.text()).toBe(200);
 
   for (const [who, id] of [[kitchen, kitchenLayout], [hall, hallLayout]] as const) {
@@ -301,6 +301,24 @@ test("editor → layouts-editor.png", async ({ browser }) => {
   await page.mouse.move(0, 0);
   await page.waitForTimeout(1500);
   await snap(page, "layouts-editor");
+  await page.context().close();
+});
+
+test("editor, three boxes selected → layouts-editor-arrange.png", async ({ browser }) => {
+  const page = await open(browser, laptop, `/settings/layouts/${kitchenLayout}`, DESK);
+  await expect(page.getByTestId("editor-canvas")).toBeVisible({ timeout: 60_000 });
+  await waitForReady(page);
+  // The grid as dots (the default, but a browser may remember another choice).
+  await page.getByTestId("editor-grid-display").click();
+  await page.getByTestId("editor-grid-display-dots").click();
+  // Shift+click adds a box to the selection, as a parent would pick them.
+  await page.locator("[data-editor-item=news]").click();
+  await page.locator("[data-editor-item=weatherNow]").click({ modifiers: ["Shift"] });
+  await page.locator("[data-editor-item=forecast]").click({ modifiers: ["Shift"] });
+  await expect(page.getByTestId("inspector-arrange")).toBeVisible();
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(1500);
+  await snap(page, "layouts-editor-arrange");
   await page.context().close();
 });
 
